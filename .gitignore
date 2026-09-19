@@ -1,0 +1,8 @@
+node_modules/
+__pycache__/
+play_log*.json
+
+# Testbilder und Screenshots aus den Playwright-Läufen
+*.png
+!art/**/*.png
+!docs/*.png
