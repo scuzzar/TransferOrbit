@@ -1,0 +1,10 @@
+const { chromium } = require('playwright');
+(async()=>{ const b=await chromium.launch(); const errs=[];
+  const p=await b.newPage({viewport:{width:1300,height:800}}); p.on('pageerror',e=>errs.push(e.message));
+  await p.goto('file://'+__dirname+'/../index.html'); await p.waitForTimeout(400);
+  await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} newGame(); S.fuel=80; S.credits=1e6; render(); ANIM.fast=true; });
+  await p.evaluate(()=>{ openRoute({node:'moon.surf',site:'shackleton'}); startAutopilot(); ANIM.fast=true; });
+  await p.waitForFunction(()=>!S.ui.auto&&!S.busy,{timeout:90000}); await p.waitForTimeout(400);
+  console.log(await p.evaluate(()=>({node:S.node,site:S.site,view:S.ui.view,mainHidden:$('mainview').hidden,msg:S.msg})));
+  await p.screenshot({path:'land2.png'});
+  console.log('Fehler',errs); await b.close(); })();

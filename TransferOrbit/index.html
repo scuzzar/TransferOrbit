@@ -1,0 +1,2333 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10162b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Transferfenster – Prototyp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Immer dunkel, wie in den Mockups */
+  color-scheme: dark;
+  --bg:#10162b; --panel:#171f3b; --line:#2b3662; --text:#e7e9f2; --muted:#9aa2c2;
+  --accent:#f2b33d; --accent-ink:#1a1400; --good:#5cc9a0; --warn:#e6c14b; --bad:#ec7a7e;
+  --orbit:#27315a; --sun:#f5b544;
+}
+*{box-sizing:border-box}
+.topr{display:flex;align-items:center;gap:10px}
+.fsbtn{min-height:40px;min-width:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
+main{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:'Saira Semi Condensed','Arial Narrow',system-ui,sans-serif;font-size:16px;line-height:1.4}
+main{max-width:560px;margin:0 auto;padding:14px 14px 48px}
+h1{font-size:1.75rem;font-weight:700;margin:0;letter-spacing:.01em;line-height:1.1}
+h2{font-size:1.05rem;font-weight:600;margin:22px 0 8px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.date{color:var(--muted);text-align:right;font-size:.95rem;white-space:nowrap}
+@media (max-width:899px){ h1{font-size:1.45rem} }
+.date b{color:var(--text);font-weight:600;display:block;font-size:1.05rem}
+.stats{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center}
+.dvnum{font-size:2.1rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.dvnum small{font-size:1rem;font-weight:500;color:var(--muted)}
+.gauge{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.sub{color:var(--muted);font-size:.9rem;grid-column:1/-1}
+.stage{position:relative;margin-top:12px}
+canvas{display:block;width:100%;aspect-ratio:1/1;touch-action:manipulation}
+#sys{aspect-ratio:1.6/1}
+canvas[hidden]{display:none!important}
+.maptabs{display:flex;align-items:center;gap:6px;margin:12px 0 6px}
+.maptabs button{min-height:36px;padding:4px 12px;font-size:.9rem;font-weight:600;color:var(--muted)}
+.maptabs button[aria-selected="true"]{color:var(--text);border-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.maptabs .auto{margin-left:auto;font-size:.8rem;color:var(--muted)}
+.maptabs button.linky{border:none;padding:4px 0;min-height:32px;font-size:.8rem;font-weight:500;color:var(--accent);text-decoration:underline;box-shadow:none}
+.legend{color:var(--muted);font-size:.85rem;margin:4px 0 0}
+.msg{margin-top:12px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--panel);font-size:.95rem}
+/* Streckenplan */
+.line{display:flex;flex-wrap:wrap;row-gap:12px;align-items:flex-start;padding:6px 2px 2px}
+.sys{display:flex;align-items:flex-start;flex:0 0 auto}
+.sys + .sys{margin-left:6px}
+.st{position:relative;flex:0 0 auto;width:78px;text-align:center;font-size:.8rem;color:var(--muted)}
+.st::before{content:"";position:absolute;top:9px;left:0;right:0;height:4px;background:var(--line)}
+.st:first-child::before{left:50%}
+.st:last-child::before{right:50%}
+.st span{position:relative;display:block;width:22px;height:22px;margin:0 auto 4px;border-radius:50%;
+  border:3px solid var(--line);background:var(--bg)}
+.st.here{color:var(--text);font-weight:600}
+.st.here span{background:var(--accent);border-color:var(--accent)}
+.sysname{font-size:.8rem;font-weight:600;color:var(--text);padding:0 4px;margin-bottom:2px}
+/* Aktionen */
+.acts{display:flex;flex-direction:column;gap:6px}
+.act{display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.act .t{flex:1;min-width:0}
+.lat{width:28px;height:28px;flex:0 0 auto}
+.lat circle,.lat line{fill:none;stroke:var(--muted);stroke-width:1.2}
+.lat line{stroke-dasharray:2 2}
+.lat circle.p{fill:var(--accent);stroke:none}
+.act .t b{font-weight:600;display:block}
+.act .t small{color:var(--muted)}
+.act .c{font-variant-numeric:tabular-nums;text-align:right;font-size:.9rem;white-space:nowrap}
+button{font:inherit;font-weight:600;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--text);
+  padding:6px 12px;cursor:pointer;min-height:36px}
+button.go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,.tr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{color:var(--muted);font-size:.88rem;margin:0 0 8px}
+.tr{padding:9px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.tr.sel{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.tr-top{display:flex;align-items:baseline;gap:8px}
+.tr-top b{font-weight:600;flex:1}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:0 0 auto;transform:translateY(-1px)}
+.num{font-variant-numeric:tabular-nums;font-size:.92rem}
+.num.short{color:var(--bad)}
+.tr-bot{display:flex;align-items:center;gap:8px;margin-top:6px}
+.win{flex:1;font-size:.88rem}
+.win.good{color:var(--good)} .win.ok{color:var(--warn)} .win.bad{color:var(--muted)}
+.wait{display:flex;gap:6px;flex-wrap:wrap}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:22px;color:var(--muted);font-size:.85rem;gap:10px}
+/* Layout: mobil eine Spalte (Kacheln, Karte, Standort); Desktop: Karte links über volle Höhe, rechts schmale Spalte */
+.layout{display:flex;flex-direction:column;gap:10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:stretch;margin-top:0}
+.stats .card{display:flex;flex-direction:column;gap:2px}
+.stats .muted{font-size:.8rem}
+.chead{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.cardbtn{font:inherit;font-weight:400;text-align:left;color:var(--text);cursor:pointer;min-height:0;padding:8px 10px}
+.cardbtn:hover{border-color:var(--accent)}
+.tchip{min-height:24px;padding:0 8px;font-size:.72rem;border-radius:12px;color:var(--muted);line-height:1}
+.tchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.maptabs{margin:0}
+.maptabs .date{margin-left:8px;font-size:.8rem;line-height:1.15;flex:0 0 auto}
+.maptabs .crumbs{flex:1 1 auto;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;white-space:nowrap}
+.maptabs .crumbs::-webkit-scrollbar{display:none}
+@media (max-width:899px){
+  .maptabs{gap:2px}
+  .maptabs .crumbs button{font-size:.85rem;padding:4px 3px}
+  .maptabs .date #mday, .maptabs span.auto:not(:has(button)){display:none!important}
+  .toast{font-size:.8rem;padding:5px 8px}
+  .pbtns{gap:5px}
+  .pbtns button{font-size:.82rem;padding:4px 6px;gap:4px}
+  .pbtns svg{width:16px;height:16px}
+  .stats .card{padding:7px 9px}
+  .stat{font-size:1.15rem}
+}
+.maptabs .date b{font-size:.9rem}
+.iconbtn{min-height:36px;min-width:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-color:transparent}
+.iconbtn:hover{color:var(--text)}
+.menuwrap{position:relative}
+.menu{position:absolute;right:0;top:40px;z-index:20;min-width:250px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.menu[hidden]{display:none}
+.menu>button{border:none;text-align:left;min-height:40px;padding:6px 10px}
+.menu>button:hover{background:rgba(255,255,255,.05)}
+.menu .mdanger{color:var(--bad)}
+.menu .mdanger.armed{background:var(--bad);color:#1a0808;border-radius:6px}
+.msep{height:1px;background:var(--line);margin:4px 2px}
+.mlabel{font-size:.8rem;color:var(--muted);padding:2px 10px}
+.mwait{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 4px 4px}
+.mwait button{min-height:36px;padding:0 2px;font-size:.8rem;white-space:nowrap}
+.mfoot{font-size:.78rem;color:var(--muted);padding:4px 10px 2px}
+.stage{position:relative;margin-top:4px;display:flex;justify-content:center;align-items:center}
+.infobtn{position:absolute;right:6px;bottom:6px;width:32px;height:32px;min-height:32px;padding:0;border-radius:50%;font-weight:700;font-style:italic;font-family:Georgia,serif;color:var(--muted);background:rgba(16,22,43,.75)}
+.infobtn[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
+.legendpop{position:absolute;right:6px;bottom:44px;max-width:min(320px,calc(100% - 12px));background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.85rem;color:var(--muted);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.legendpop[hidden]{display:none}
+.toast{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 56px);background:rgba(23,31,59,.94);border-left:3px solid var(--accent);border-radius:4px;padding:7px 10px;font-size:.88rem;pointer-events:none;transition:opacity .4s}
+.toast[hidden]{display:none}
+.speedhint{position:absolute;right:6px;top:6px;font-size:.78rem;color:var(--muted);background:rgba(16,22,43,.75);border:1px solid var(--line);border-radius:12px;padding:2px 9px;pointer-events:none}
+.speedhint.on{color:var(--accent);border-color:var(--accent)}
+.speedhint[hidden]{display:none}
+.toast.fade{opacity:0}
+.col-side{display:flex;flex-direction:column;gap:10px;min-width:0}
+#mainview{display:flex;flex-direction:column;gap:10px}
+#mainview:empty,#rescue:empty,#pickcard:empty{display:none}
+#mainview[hidden]{display:none}
+.rescue{margin-top:0}
+.pick{margin-top:0}
+/* Standort, kompakt */
+.place{margin-top:0;padding:10px 12px;gap:8px}
+.phdr{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2px 12px}
+.phdr .pname{flex:0 1 auto;min-width:0}
+.phdr .pname b{font-size:1.05rem;font-weight:700;display:block;line-height:1.2}
+.phdr .kinfo{flex:1 1 180px;font-size:.85rem;margin:0;line-height:1.3}
+.phdr .tag{margin-left:auto;align-self:flex-start}
+.pbtns{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px}
+.pbtns button{min-width:0;overflow:hidden;text-overflow:ellipsis;min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:4px 8px;font-size:.88rem;white-space:nowrap}
+.pbtns button.full{flex-basis:100%}
+.pbtns svg{flex:0 0 auto}
+.pbtns button span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.olink{border:none;background:none;padding:0 2px;min-height:28px;color:var(--accent);font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:3px}
+.olink:hover{text-decoration:underline}
+.rtank{display:flex;flex-direction:column;gap:6px;padding:8px 0 2px;border-top:1px solid var(--line)}
+.rtank .two button{font-size:.88rem;line-height:1.2;padding:6px 8px}
+.rtank .linkbtn{font-size:.85rem;min-height:28px}
+.og-head .row{align-items:flex-start}
+@media (min-width: 900px){
+  main{max-width:1500px;padding:12px 20px}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"map stats" "map side";gap:10px 24px;height:calc(100vh - 24px);height:calc(100dvh - 24px)}
+  .stats{grid-area:stats}
+  .col-map{grid-area:map;display:flex;flex-direction:column;min-height:0}
+  .stage{flex:1 1 auto;min-height:0}
+  .col-side{grid-area:side;min-height:0;overflow-y:auto;padding-bottom:4px}
+  .pfoot{position:sticky;bottom:0}
+}
+h3{font-size:.98rem;font-weight:600;margin:14px 0 6px}
+.money{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:2px}
+.money b{font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums}
+.money b.neg{color:var(--bad)}
+.money span{color:var(--muted);font-size:.9rem}
+.kontor h2 .tag,.tag{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);vertical-align:middle}
+.kinfo{color:var(--muted);font-size:.9rem;margin:0 0 6px}
+.needs{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.9rem;margin-bottom:6px}
+.need{display:inline-flex;align-items:center;gap:6px}
+.gchip{width:10px;height:10px;border-radius:2px;display:inline-block;flex:0 0 auto}
+.dots{display:inline-flex;gap:3px}
+.dots i{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--line)}
+.dots i.on{background:var(--good);border-color:var(--good)}
+.order{padding:9px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.o-top{display:flex;align-items:baseline;gap:8px}
+.o-top b{flex:1;font-weight:600}
+.o-top .gchip{transform:translateY(-1px)}
+.o-meta{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:.85rem;margin-top:3px}
+.o-meta .late{color:var(--bad)}
+.o-warn{font-size:.85rem;color:var(--warn);margin-top:4px}
+.o-warn.bad{color:var(--bad)}
+.o-note{font-size:.85rem;color:var(--muted);margin-top:4px}
+.o-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(26px,1fr));gap:4px;margin-bottom:6px}
+.slots i{height:22px;border-radius:4px}
+.slots i.free{border:1.5px dashed var(--line)}
+.rescue{margin-top:10px;padding:10px 12px;border:1px solid var(--bad);border-radius:8px;background:var(--panel)}
+.rescue p{margin:0 0 8px;font-size:.95rem}
+.muted{color:var(--muted)} .small{font-size:.8rem} .acc{color:var(--accent)} .big{font-size:1.15rem;font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.stats3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.stats3 .muted{font-size:.8rem}
+.stat{display:block;font-size:1.3rem;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat small{font-size:.75rem;font-weight:500;color:var(--muted)}
+.stat.neg{color:var(--bad)}
+.stats3 .gauge{height:5px;margin-top:5px}
+.mslots{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 3px}
+.mslots i{flex:1 0 10px;max-width:22px;height:11px;border-radius:3px;border:1.5px solid var(--line)}
+.mslots i[style]{border-color:transparent}
+#shipinfo{margin-top:6px}
+.place{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.place .kinfo{margin:0}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.two button{min-height:44px}
+.span2{grid-column:1/-1}
+button.wide{width:100%;min-height:48px;font-size:1rem}
+.phead{display:flex;flex-direction:column;gap:2px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;border:none;padding:6px 4px;color:var(--muted);min-height:44px}
+.ptitle{font-size:1.5rem;font-weight:700;margin:0}
+.banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1.5px solid var(--good);border-radius:8px;margin-bottom:8px}
+label.order{display:block;cursor:pointer}
+.order.pick input{width:20px;height:20px;margin:0;accent-color:var(--accent);flex:0 0 auto;align-self:center}
+.order.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.order.dis{opacity:.6;cursor:not-allowed}
+.needgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;font-size:.9rem}
+.needgrid .card{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pfoot{position:sticky;bottom:0;margin:14px -14px -48px;padding:12px 14px 18px;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.pfoot .dvrow{justify-content:flex-start}
+.bigslots{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.bigslots div{height:56px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.72rem;color:#10162b;text-align:center;padding:2px;line-height:1.15}
+.bigslots div b{font-weight:600}
+.bigslots .free{border:1.5px dashed var(--line);color:var(--muted)}
+.massbox{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.massbox p{margin:4px 0 0}
+.massbar{display:flex;height:12px;border-radius:4px;overflow:hidden;background:var(--line)}
+.legendrow{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.85rem;color:var(--muted)}
+.legendrow i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.linkbtn{align-self:flex-start;border:none;padding:4px 0;color:var(--accent);text-decoration:underline;min-height:32px}
+.frist{margin-top:6px;font-size:.85rem;color:var(--muted)}
+.frist .ok{color:var(--good)} .frist .late{color:var(--bad)}
+.fbar{height:5px;border-radius:3px;background:var(--line);margin-top:3px;overflow:hidden}
+.fbar i{display:block;height:100%}
+.tankbox{display:flex;flex-direction:column;gap:8px}
+.tankbox .big{font-size:1.5rem}
+.tankbox input[type=range]{width:100%;height:32px;accent-color:var(--accent);margin:0}
+.cmp{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cmp>div{display:flex;flex-direction:column}
+.cmp b{font-size:1.4rem}
+.cmp p{grid-column:1/-1;margin:0;font-size:.92rem}
+.pricelist div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.pricelist .me{font-weight:600}
+.shipcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.shipcard.mine{opacity:.85}
+.shipcard .r{text-align:right}
+.stats3s{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-size:.85rem}
+.stats3s>div{display:flex;flex-direction:column}
+.stats3s b{font-size:1.05rem}
+.up{color:var(--good)} .down{color:var(--bad)}
+.mtags{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 2px}
+.mtag{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.mtag.deliver{background:var(--good);border-color:var(--good);color:#0c1a14}
+.mtag.toward{border-color:var(--good);color:var(--good)}
+.mtag.kontor{border-color:var(--accent);color:var(--accent)}
+.act.hot{border-color:var(--good);box-shadow:inset 3px 0 0 var(--good)}
+.tr-top .mtag{margin-left:6px;vertical-align:1px}
+@media (max-width:899px){ body.panel-open .col-map, body.panel-open .stats{display:none} }
+@media (min-width:900px){ .pfoot{margin:14px 0 0;border:1px solid var(--line);border-radius:10px} }
+
+.crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:2px;min-width:0}
+.crumbs button{border:none;padding:4px 5px;min-height:36px;font-size:.9rem;color:var(--muted);background:none}
+.crumbs button.cur{color:var(--text);font-weight:700}
+.crumbs .sep{color:var(--line);font-weight:700}
+.autobar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 12px;border:1.5px solid var(--accent);border-radius:10px;background:var(--panel);font-size:.95rem}
+.autobar[hidden]{display:none}
+.pick{margin-top:10px;background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.pick .kinfo{margin:0}
+.pick .x{border:none;min-height:36px;min-width:36px;padding:0;font-size:1.4rem;line-height:1;color:var(--muted)}
+.pstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:.85rem}
+.pstats>div{display:flex;flex-direction:column}
+.pstats b{font-size:1.05rem}
+.pstats .ok,.okc{color:var(--good)} .pstats .wait{color:var(--warn)} .badc{color:var(--bad)}
+.mtag.here{border-color:var(--text);color:var(--text)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{border-radius:18px;min-height:38px;font-size:.88rem;color:var(--muted)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.bad:not(.on){color:var(--bad)}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:flex;gap:12px;align-items:flex-start;position:relative;padding-bottom:14px}
+.timeline li:not(.last)::before{content:"";position:absolute;left:5px;top:18px;bottom:0;width:2px;background:var(--line)}
+.timeline .dot{flex:0 0 12px;height:12px;border-radius:50%;border:2px solid var(--muted);margin-top:5px;background:var(--bg)}
+.timeline li.first .dot{background:var(--accent);border-color:var(--accent)}
+.timeline li.wait .dot{border-color:var(--warn)}
+.timeline li.last .dot{background:var(--good);border-color:var(--good)}
+.timeline .tx{flex:1;display:flex;flex-direction:column}
+.timeline .tx small{color:var(--muted)}
+.timeline .num{white-space:nowrap;font-weight:600}
+.manual{margin-top:18px;border-top:1px solid var(--line);padding-top:6px}
+.manual summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;color:var(--muted)}
+.manual[open] summary{color:var(--text)}
+.ogroups{display:flex;flex-direction:column;gap:10px}
+.ogroup{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ogroup.on{border-color:var(--accent)}
+.og-head{padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+.og-title{font-size:1rem}
+.og-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.85rem;color:var(--muted);margin-top:2px}
+.og-meta span:first-child{color:var(--text);font-weight:600}
+.og-meta span.badc{color:var(--bad)}
+.orow{display:flex;align-items:center;gap:10px;padding:8px 12px;min-height:48px;cursor:pointer;border-top:1px solid rgba(43,54,98,.5)}
+.orow:first-of-type{border-top:none}
+.orow input{width:20px;height:20px;margin:0;accent-color:var(--accent);flex:0 0 auto}
+.orow .ot{flex:1;display:flex;flex-direction:column;line-height:1.2}
+.orow .ot b{font-weight:600}
+.orow .ot small{color:var(--muted)}
+.orow.on{background:rgba(242,179,61,.08)}
+.orow.dis{opacity:.55;cursor:not-allowed}
+@media (prefers-reduced-motion: reduce){ .gauge i{transition:none} }
+</style>
+</head>
+<body>
+<main>
+  <div class="layout">
+  <div class="stats" id="stats">
+    <div class="card"><div class="muted">Konto</div><b class="stat" id="credits"></b></div>
+    <div class="card"><div class="chead"><span class="muted">Δv mit Fracht</span><button type="button" id="autofill" class="tchip" aria-pressed="false" title="An jeder Tankstelle automatisch volltanken">Immer voll</button></div><b class="stat" id="dv"></b><div class="gauge"><i id="gauge"></i></div></div>
+    <button type="button" class="card cardbtn" id="cargotile" aria-label="Laderaum öffnen"><div class="chead"><span class="muted">Laderaum</span><span class="muted small" id="slotinfo"></span></div><div class="mslots" id="mslots"></div></button>
+    <div class="card"><div class="muted">Schiff</div><b class="stat" id="shipname"></b><div class="muted small" id="shipinfo"></div></div>
+  </div>
+
+  <div class="col-map">
+  <div id="autobar" class="autobar" hidden></div>
+  <div class="maptabs">
+    <nav id="crumbs" class="crumbs" aria-label="Kartenebene"></nav>
+    <span class="auto" id="mapauto"></span>
+    <div class="date"><b id="date"></b><span id="mday"></span></div>
+    <button type="button" id="fs" class="iconbtn" hidden aria-label="Vollbild"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <div class="menuwrap">
+      <button type="button" id="menubtn" class="iconbtn" aria-label="Menü" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div id="menu" class="menu" hidden>
+        <button type="button" data-menu="fs" id="menufs" hidden>Vollbild</button>
+        <button type="button" data-menu="save">Speichern</button>
+        <button type="button" data-menu="load">Laden</button>
+        <div class="msep"></div>
+        <div class="mlabel">Zeit vergehen lassen</div>
+        <div class="mwait">
+          <button type="button" data-wait="10">+10 T</button><button type="button" data-wait="30">+30 T</button><button type="button" data-wait="100">+100 T</button><button type="button" data-wait="365">+1 J</button>
+        </div>
+        <div class="msep"></div>
+        <button type="button" data-menu="reset" class="mdanger">Neu starten</button>
+        <div class="mfoot" id="used"></div>
+      </div>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="Sonnensystem, Draufsicht"></canvas>
+    <canvas id="sys" aria-label="Planet mit seinen Monden" hidden></canvas>
+    <button type="button" id="infobtn" class="infobtn" aria-label="Legende" aria-expanded="false">i</button>
+    <div id="legend" class="legendpop" hidden></div>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <div id="speedhint" class="speedhint" hidden></div>
+  </div>
+  </div>
+
+  <div class="col-side">
+  <div id="panel" hidden></div>
+  <div id="mainview">
+    <div id="rescue"></div>
+    <div id="pickcard"></div>
+    <div id="placecard"></div>
+  </div>
+  </div>
+  </div>
+</main>
+
+<script>
+// ---------- Konstanten ----------
+const AU = 1.495978707e8, MU_SUN = 1.32712440018e11, G0 = 9.80665;
+const START_DAY = 10957.5; // Tage seit J2000 → 1. Jan 2030
+// Kreisbahnen mit echten mittleren Längen (J2000) und Umlaufzeiten
+const B = {
+  mercury:{name:'Merkur', a:0.387, T:87.97,  L0:252.25, mu:22032,     R:2440,  alt:50,    atm:false, surf:{up:3100, down:3100}, color:'#a39e98'},
+  venus:  {name:'Venus',  a:0.723, T:224.70, L0:181.98, mu:324859,    R:6052,  alt:250,   atm:true,  surf:{up:27000,down:100, note:'Rückstart kostet 27 km/s'}, color:'#d9b36c'},
+  earth:  {name:'Erde',   a:1.000, T:365.256,L0:100.46, mu:398600,    R:6371,  alt:200,   atm:true,  surf:{up:9400, down:100, launcher:true, note:'Hitzeschild und Fallschirme'}, color:'#4f8fd8'},
+  mars:   {name:'Mars',   a:1.524, T:686.98, L0:355.45, mu:42828,     R:3390,  alt:150,   atm:true,  surf:{up:4100, down:700, note:'Aerobremsen, dann Landetriebwerk'}, color:'#c8603c'},
+  ceres:  {name:'Ceres',  a:2.767, T:1681.6, L0:153.0,  mu:62.6,      R:470,   alt:30,   atm:false, surf:{up:400,  down:400}, color:'#9a958d'},
+  jupiter:{name:'Jupiter',a:5.203, T:4332.6, L0:34.40,  mu:126686534, R:69911, alt:10000, atm:true,  surf:null, color:'#d2a679'},
+  saturn: {name:'Saturn', a:9.537, T:10759,  L0:49.94,  mu:37931187,  R:58232, alt:8000,  atm:true,  surf:null, color:'#e3cf8e'},
+};
+const PLANETS = Object.keys(B);
+// Monde: Knoten "orbit" und "surf", verbunden mit dem hohen Orbit des Mutterplaneten.
+// xfer = Δv vom hohen Planetenorbit bis in den niedrigen Mondorbit (Näherungswerte), P = Umlaufzeit in Tagen, rv = Bahnradius in km
+const M = {
+  moon:     {name:'Mond',      parent:'earth',  xfer:800,  days:3,  up:1870, down:1870, P:27.32, rv:384400, orbitName:'Mondorbit', surfName:'Mondoberfläche', dat:'dem Mond'},
+  phobos:   {name:'Phobos',    parent:'mars',   xfer:550,  days:1,  up:10,   down:10,   P:0.319, rv:9376,   downNote:'Kaum Schwerkraft, eher andocken als landen'},
+  deimos:   {name:'Deimos',    parent:'mars',   xfer:350,  days:2,  up:6,    down:6,    P:1.263, rv:23460,  downNote:'Kaum Schwerkraft, eher andocken als landen'},
+  io:       {name:'Io',        parent:'jupiter',xfer:4000, days:4,  up:1850, down:1850, P:1.769, rv:421700, downNote:'Extreme Strahlung und Vulkane'},
+  europa:   {name:'Europa',    parent:'jupiter',xfer:2900, days:5,  up:1480, down:1480, P:3.551, rv:671100, downNote:'Eispanzer über einem Ozean'},
+  ganymede: {name:'Ganymed',   parent:'jupiter',xfer:1800, days:6,  up:2000, down:2000, P:7.155, rv:1070400},
+  callisto: {name:'Kallisto',  parent:'jupiter',xfer:1100, days:8,  up:1750, down:1750, P:16.69, rv:1882700, downNote:'Außerhalb der starken Strahlungsgürtel'},
+  enceladus:{name:'Enceladus', parent:'saturn', xfer:2400, days:5,  up:180,  down:180,  P:1.370, rv:238000, downNote:'Geysire aus dem Südpol'},
+  titan:    {name:'Titan',     parent:'saturn', xfer:700,  days:10, up:7600, down:100,  P:15.95, rv:1221900, downNote:'Dichte Atmosphäre, Fallschirme genügen', upNote:'Die dichte Atmosphäre macht den Rückstart teuer'},
+};
+const MOONS = Object.keys(M);
+const moonsOf = p => MOONS.filter(m=>M[m].parent===p);
+// Orbitale Tankstellen; Tankstellen am Boden hängen an den Landeplätzen
+const DEPOTS = {'earth.orbit':5, 'mars.orbit':10};
+// Äquatoriale Rotationsgeschwindigkeit in m/s. Wer weiter vom Äquator startet, bekommt weniger Schwung geschenkt.
+const ROT = {mercury:3, venus:2, earth:465, mars:241, ceres:92, moon:5, phobos:3, deimos:1,
+  io:75, europa:32, ganymede:27, callisto:11, enceladus:13, titan:12};
+// Landeplätze: lat in Grad, port = Weltraumbahnhof, depot = Tage zum Volltanken
+const SITES = {
+  earth:[
+    {id:'kourou', name:'Kourou', lat:5.2, lon:-52.8, port:true, depot:3, note:'Fast am Äquator, voller Rotationsbonus'},
+    {id:'canaveral', name:'Cape Canaveral', lat:28.5, lon:-80.6, port:true, depot:3},
+    {id:'baikonur', name:'Baikonur', lat:45.9, lon:63.3, port:true, depot:3},
+    {id:'plesetsk', name:'Plesetsk', lat:62.9, lon:40.6, port:true, depot:3, note:'Weit im Norden, wenig Rotationsbonus'},
+  ],
+  mercury:[
+    {id:'caloris', name:'Caloris-Becken', lat:30.5, lon:170},
+    {id:'prokofiev', name:'Prokofiev-Krater', lat:85.7, lon:-62.7, depot:40, note:'Wassereis in ewig schattigen Kratern'},
+  ],
+  venus:[ {id:'ishtar', name:'Ishtar Terra', lat:70, lon:27.5, note:'Kühleres Hochland, trotzdem 450 °C'} ],
+  mars:[
+    {id:'pavonis', name:'Pavonis Mons', lat:0.8, lon:-112.8, port:true, depot:20, note:'Äquator und 14 km hoch, Drehkreuz mit Tanklager'},
+    {id:'jezero', name:'Jezero-Krater', lat:18.4, lon:77.5},
+    {id:'utopia', name:'Utopia Planitia', lat:46.7, lon:117.8, depot:45, note:'Eis unter der Oberfläche'},
+    {id:'nordpol', name:'Nordpolkappe', lat:85, lon:0, depot:25, note:'Wassereis direkt an der Oberfläche'},
+  ],
+  ceres:[
+    {id:'occator', name:'Occator-Krater', lat:19.8, lon:-120.7, depot:40, note:'Salzlaken aus dem Untergrund'},
+    {id:'ahuna', name:'Ahuna Mons', lat:-10.5, lon:-44},
+    {id:'nordpol', name:'Nordpolregion', lat:80, lon:0, depot:25, note:'Eis in schattigen Kratern'},
+  ],
+  moon:[
+    {id:'tranquillitatis', name:'Mare Tranquillitatis', lat:0.7, lon:23.5, note:'Landestelle von Apollo 11'},
+    {id:'shackleton', name:'Shackleton-Krater', lat:-89.9, lon:0, port:true, depot:15, note:'Wassereis am Südpol'},
+  ],
+  phobos:[ {id:'stickney', name:'Stickney-Krater', lat:1, lon:-49} ],
+  deimos:[ {id:'swift', name:'Swift-Krater', lat:12, lon:0} ],
+  io:[ {id:'loki', name:'Loki Patera', lat:13, lon:-51, note:'Lavasee, extreme Strahlung'} ],
+  europa:[
+    {id:'conamara', name:'Conamara Chaos', lat:9.7, lon:-87, depot:30, note:'Junges Eis, Ozean vermutlich nah'},
+    {id:'thera', name:'Thera Macula', lat:-47, lon:178},
+  ],
+  ganymede:[ {id:'uruk', name:'Uruk Sulcus', lat:0, lon:160, port:true, depot:30} ],
+  callisto:[ {id:'valhalla', name:'Valhalla', lat:18, lon:-56, port:true, depot:25, note:'Außerhalb der starken Strahlungsgürtel'} ],
+  enceladus:[
+    {id:'tigerstreifen', name:'Tigerstreifen', lat:-82, lon:0, depot:20, note:'Geysire liefern Eis frei Haus'},
+    {id:'aeqator', name:'Sarandib Planitia', lat:5, lon:-60},
+  ],
+  titan:[
+    {id:'huygens', name:'Huygens-Landestelle', lat:-10.3, lon:167.7},
+    {id:'kraken', name:'Kraken Mare', lat:68, lon:50, depot:30, note:'Methanseen und Wassereis'},
+  ],
+};
+const siteOf = (body,id) => (SITES[body]||[]).find(x=>x.id===id);
+const hasDepot = body => (SITES[body]||[]).some(x=>x.depot);
+const rotPenalty = (body,lat) => (ROT[body]||0)*(1-Math.cos(lat*Math.PI/180)); // m/s
+const hasAtm = body => B[body] ? B[body].atm : body==='titan';
+const latStr = lat => `${Math.abs(lat).toLocaleString('de-DE',{maximumFractionDigits:1})}° ${lat>=0?'N':'S'}`;
+const LVL = {surf:'Oberfläche', orbit:'Niedriger Orbit', capt:'Hoher Orbit'};
+
+// ---------- Ballistische Hüpfer zwischen Landeplätzen desselben Körpers ----------
+// Kreisbahngeschwindigkeit an der Oberfläche in m/s (Monde: Näherungswerte)
+const VSURF = {mercury:3005, venus:7326, earth:7910, mars:3555, ceres:365, moon:1680, phobos:8, deimos:4,
+  io:1810, europa:1430, ganymede:1950, callisto:1730, enceladus:170, titan:1870};
+const bodyUp = b => M[b] ? M[b].up : B[b].surf.up;
+const bodyDown = b => M[b] ? M[b].down : B[b].surf.down;
+// Zentriwinkel zwischen zwei Landeplätzen (Großkreis)
+function siteAngle(b,s1,s2){
+  const a=siteOf(b,s1), c=siteOf(b,s2); if(!a||!c) return Math.PI;
+  const r=Math.PI/180, f1=a.lat*r, f2=c.lat*r, dl=((a.lon||0)-(c.lon||0))*r;
+  return Math.acos(Math.max(-1,Math.min(1,Math.sin(f1)*Math.sin(f2)+Math.cos(f1)*Math.cos(f2)*Math.cos(dl))));
+}
+// Energieärmste ballistische Bahn über den Zentriwinkel th: v² = vs² · 2 sin(th/2) / (1 + sin(th/2)).
+// Ohne Atmosphäre: Abheben und Abbremsen kosten je v. Mit Atmosphäre: Verluste beim Start wie beim Aufstieg anteilig,
+// dafür bremst die Luft bei der Landung mit. Auf der Erde übernimmt eine kleine Trägerrakete den Hüpfer.
+function hopCost(b,s1,s2){
+  const th=siteAngle(b,s1,s2), vs=VSURF[b]||1000, x=Math.sin(th/2);
+  const v=vs*Math.sqrt(2*x/(1+x)), f=v/vs;
+  const full=bodyUp(b)+bodyDown(b);
+  let dv;
+  if(!hasAtm(b)) dv=2*v*1.03;
+  else if(B[b]&&B[b].surf&&B[b].surf.launcher) dv=bodyDown(b);
+  else dv=v+Math.max(0,bodyUp(b)-vs)*f+bodyDown(b)*f;
+  dv=Math.min(dv, 0.9*full);
+  const days=Math.max(0.05, th/Math.PI*0.25);
+  return {dv, days, th, launcher:!!(B[b]&&B[b].surf&&B[b].surf.launcher)};
+}
+const HOP_FEE_SHARE = 0.4; // Anteil der Startgebühr für einen suborbitalen Flug auf der Erde
+
+// ---------- Physik (abstrahiert) ----------
+const TAU = Math.PI*2;
+const wrap = a => { a = (a+Math.PI) % TAU; if (a<0) a += TAU; return a-Math.PI; };
+const theta = (k,day) => B[k].L0*Math.PI/180 + TAU*day/B[k].T;
+const nn = k => TAU/B[k].T;
+const vc = k => Math.sqrt(B[k].mu/(B[k].R+B[k].alt));   // km/s
+const vesc = k => Math.SQRT2*vc(k);
+const captDv = k => (0.98*vesc(k)-vc(k))*1000;            // hoher ↔ niedriger Orbit, m/s
+const hyp = (k,vinf) => (Math.sqrt(vinf*vinf+vesc(k)**2)-0.98*vesc(k))*1000; // Brennen am Periapsis (Oberth)
+
+function transfer(a,b,day){
+  const r1=B[a].a*AU, r2=B[b].a*AU, at=(r1+r2)/2;
+  const v1=Math.sqrt(MU_SUN/r1), v2=Math.sqrt(MU_SUN/r2);
+  const vp=Math.sqrt(MU_SUN*(2/r1-1/at)), va=Math.sqrt(MU_SUN*(2/r2-1/at));
+  const vi1=Math.abs(vp-v1), vi2=Math.abs(v2-va);
+  const tH=Math.PI*Math.sqrt(at**3/MU_SUN)/86400;
+  const phiStar=wrap(Math.PI-nn(b)*tH);                 // idealer Phasenwinkel
+  const phi=wrap(theta(b,day)-theta(a,day));             // aktueller Phasenwinkel
+  const d=Math.abs(wrap(phi-phiStar))/Math.PI;           // 0 = perfekt, 1 = maximal daneben
+  const f=1+2.2*Math.pow(d,1.5);                         // Strafe auf Überschussgeschwindigkeit
+  const dep=hyp(a,vi1*f), arr=hyp(b,vi2*f);
+  const tof=tH*(1-0.3*d);
+  const rel=nn(b)-nn(a), syn=TAU/Math.abs(rel);
+  let w=wrap(phiStar-phi)/rel; w=((w%syn)+syn)%syn;
+  return {dep,arr,total:dep+arr,tof,d,wait:w,phiStar};
+}
+
+// ---------- Schiffe ----------
+const SHIPS = {
+  kogge:  {name:'Kogge',   drive:'chemisch', isp:450, dry:12, cap:80,  slots:6,  price:150000},
+  holk:   {name:'Holk',    drive:'hybrid',   isp:600, dry:20, cap:160, slots:12, price:400000},
+  karacke:{name:'Karacke', drive:'nuklear',  isp:900, dry:30, cap:150, slots:8,  price:1200000},
+  hulk:   {name:'Hulk',    drive:'hybrid',   isp:650, dry:45, cap:280, slots:20, price:900000},
+};
+
+// ---------- Wirtschaft: Daten ----------
+const GOODS = {
+  he3:  {name:'Helium-3', sh:'He-3',        m:1,  w:8000, lot:[1,2], rate:45, color:'#b78cf0'},
+  elec: {name:'Elektronik', sh:'Elektronik',      m:1,  w:5000, lot:[1,2], rate:30, color:'#5cc9e0'},
+  hab:  {name:'Habitatmodule', sh:'Habitat',   m:10, w:4000, lot:[1,1], rate:30, color:'#e0a15c'},
+  rare: {name:'Seltene Metalle', sh:'Selt. Met.', m:4,  w:3000, lot:[1,2], rate:30, color:'#d97fb0'},
+  mach: {name:'Maschinen', sh:'Maschinen',       m:5,  w:2000, lot:[1,2], rate:20, color:'#9aa7c0'},
+  food: {name:'Nahrung', sh:'Nahrung',         m:3,  w:600,  lot:[1,2], rate:20, color:'#7cc56a'},
+  metal:{name:'Metalle', sh:'Metalle',         m:8,  w:400,  lot:[1,3], rate:10, color:'#b0a18f'},
+  water:{name:'Wasser', sh:'Wasser',          m:8,  w:200,  lot:[1,3], rate:10, color:'#4f8fd8'},
+};
+const K = (id,name,node,site,makes,needs,hub) => ({id,name,node,site,makes,needs,hub});
+const KONTORE = [
+  K('erde','Erde','earth.surf',null,['food','mach','elec','hab'],['he3','rare']),
+  K('werft','Orbitalwerft','earth.orbit',null,['elec'],['water','food','metal','rare'],'werft'),
+  K('shackleton','Shackleton','moon.surf','shackleton',['water'],['food','mach','hab']),
+  K('tranq','Tranquillitatis','moon.surf','tranquillitatis',['metal','he3'],['water','mach']),
+  K('caloris','Caloris','mercury.surf','caloris',['metal','rare'],['water','food','mach']),
+  K('prokofiev','Prokofiev','mercury.surf','prokofiev',['water'],['elec','hab']),
+  K('pavonis','Pavonis Mons','mars.surf','pavonis',['mach','hab'],['he3','elec','metal','rare'],'pavonis'),
+  K('jezero','Jezero','mars.surf','jezero',['food'],['water','mach']),
+  K('marsnord','Nordpolkappe','mars.surf','nordpol',['water'],['food','hab']),
+  K('stickney','Stickney','phobos.surf','stickney',['metal'],['water','food']),
+  K('occator','Occator','ceres.surf','occator',['metal'],['food','elec','hab']),
+  K('ahuna','Ahuna Mons','ceres.surf','ahuna',['rare'],['water','mach']),
+  K('ceresnord','Ceres-Nordpol','ceres.surf','nordpol',['water'],['mach']),
+  K('loki','Loki Patera','io.surf','loki',['rare'],['water','food','mach']),
+  K('conamara','Conamara','europa.surf','conamara',['water'],['elec','hab']),
+  K('uruk','Uruk Sulcus','ganymede.surf','uruk',['food'],['water','mach']),
+  K('valhalla','Valhalla','callisto.surf','valhalla',['hab'],['he3','food','metal','elec'],'valhalla'),
+  K('jupgas','Jupiter-Gassammler','jupiter.capt',null,['he3'],['food','mach']),
+  K('satgas','Saturn-Gassammler','saturn.capt',null,['he3'],['food','elec']),
+  K('tiger','Tigerstreifen','enceladus.surf','tigerstreifen',['water'],['mach']),
+  K('kraken','Kraken Mare','titan.surf','kraken',[],['mach','hab','elec']),
+];
+const KBY = Object.fromEntries(KONTORE.map(k=>[k.id,k]));
+const HUBS = {werft:KBY.werft, pavonis:KBY.pavonis, valhalla:KBY.valhalla};
+const REGION = {earth:'werft',moon:'werft',mercury:'werft',venus:'werft',
+  mars:'pavonis',phobos:'pavonis',deimos:'pavonis',ceres:'pavonis',
+  jupiter:'valhalla',io:'valhalla',europa:'valhalla',ganymede:'valhalla',callisto:'valhalla',
+  saturn:'valhalla',enceladus:'valhalla',titan:'valhalla'};
+const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 12000; // längere Routen schafft kein Schiff
+// Treibstoffpreise in Credits pro t, Schlüssel: Knoten oder Knoten@Landeplatz
+const FUEL_PRICE = {'earth.orbit':300,'mars.orbit':220,'earth.surf':250,'mercury.surf@prokofiev':200,'moon.surf@shackleton':150,
+  'mars.surf@utopia':150,'mars.surf@pavonis':180,'mars.surf@nordpol':120,'ceres.surf@occator':120,'titan.surf@kraken':110,'ceres.surf@nordpol':100,
+  'ganymede.surf@uruk':100,'europa.surf@conamara':90,'callisto.surf@valhalla':90,'enceladus.surf@tigerstreifen':80};
+const LAUNCH_FEE = 100, RESCUE_BASE = 5000, RESCUE_PER_T = 300, BANKRUPT = -50000;
+const K_T = 400, M_S = 8, V_E = 450*9.80665, K_Z = 15;
+const K_ZT = 4;          // Zeitanteil: Cr pro Tonne (Fracht + Schiffsanteil) und Reisetag
+const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Großaufträge: Größe, Nachschub langsamer als Einzelware, Aufschlag, Laufzeit
+
+const bodyOf = k => k.node.split('.')[0];
+const planetOfBody = b => M[b] ? M[b].parent : b;
+const bodyName = b => M[b] ? M[b].name : B[b].name;
+const kontorPlace = k => k.node==='earth.orbit' ? 'Erdorbit' : k.node.endsWith('.capt') ? `hoher ${B[bodyOf(k)].name}orbit` : bodyName(bodyOf(k));
+const kontorLabel = k => k.id==='erde' ? 'Erde' : `${k.name}, ${kontorPlace(k)}`;
+const fmtCr = n => `${Math.round(n).toLocaleString('de-DE')} Cr`;
+const randInt = (a,b) => a+Math.floor(Math.random()*(b-a+1));
+
+// ---------- Schiff ----------
+let S;
+const eng = () => SHIPS[S.ship];
+const cargoOrders = () => S.eco.orders.filter(o=>o.state==='aboard');
+const cargoMass = () => cargoOrders().reduce((s,o)=>s+o.n*GOODS[o.good].m,0);
+const slotsUsed = () => cargoOrders().reduce((s,o)=>s+o.n,0);
+const dvWith = (f,cm) => eng().isp*G0*Math.log((eng().dry+cm+f)/(eng().dry+cm));
+const dvOf = f => dvWith(f,cargoMass());
+const dvAvail = () => dvOf(S.fuel);
+function burn(dv){
+  const cm=cargoMass(), m=(eng().dry+cm+S.fuel)/Math.exp(dv/(eng().isp*G0));
+  S.fuel=Math.max(0,m-eng().dry-cm); S.used+=dv;
+}
+const locKey = () => S.node ? S.node+(S.site?'@'+S.site:'') : null;
+const kontorAt = () => S.node ? KONTORE.find(k=>k.node===S.node && (!k.site || k.site===S.site)) : null;
+const fuelPrice = () => S.node ? (FUEL_PRICE[locKey()] ?? FUEL_PRICE[S.node]) : undefined;
+
+// ---------- Routensuche für Belohnungen ----------
+const idealCache = {};
+function idealTransfer(a,b){
+  const key=a+'>'+b; if(idealCache[key]) return idealCache[key];
+  const t0=transfer(a,b,START_DAY), t=transfer(a,b,START_DAY+t0.wait);
+  return idealCache[key]={total:t.total, tof:t.tof};
+}
+function edgesFrom(node,site){
+  const [k,l]=node.split('.'); const E=[];
+  const e=(n,s,dv,days,x={})=>E.push({node:n,site:s||null,dv,days,...x});
+  const lat=(body,s)=>{const st=siteOf(body,s); return st?st.lat:0;};
+  const lands=(body,down)=>(SITES[body]||[]).forEach(st=>e(body+'.surf',st.id,down+(hasAtm(body)?0:rotPenalty(body,st.lat)),0.2));
+  if(l==='surf' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(k+'.surf',st.id,h.dv,h.days,{hop:true,launch:h.launcher}); });
+  if(M[k]){
+    const m=M[k];
+    if(l==='surf') e(k+'.orbit',null,m.up+rotPenalty(k,lat(k,site)),0.2);
+    else { lands(k,m.down); e(m.parent+'.capt',null,m.xfer,m.days); }
+  } else {
+    const b=B[k];
+    if(l==='surf'){ const pen=rotPenalty(k,lat(k,site)); e(k+'.orbit',null,b.surf.launcher?pen:b.surf.up+pen,b.surf.launcher?1:0.2,{launch:!!b.surf.launcher}); }
+    if(l==='orbit'){ if(b.surf) lands(k,b.surf.down); e(k+'.capt',null,captDv(k),1); }
+    if(l==='capt'){
+      e(k+'.orbit',null,captDv(k),1); if(b.atm) e(k+'.orbit',null,60,40);
+      moonsOf(k).forEach(m=>e(m+'.orbit',null,M[m].xfer,M[m].days));
+      PLANETS.filter(p=>p!==k).forEach(p=>{const t=idealTransfer(k,p); e(p+'.capt',null,t.total,t.tof,{leg:[k,p]});});
+    }
+  }
+  return E;
+}
+const routeCache = {};
+function route(from,to){
+  const key=from.id+'>'+to.id; if(routeCache[key]) return routeCache[key];
+  const startSite = from.site || (from.node==='earth.surf' ? 'kourou' : null);
+  const sk=(n,s)=>n+'|'+(s||'');
+  const dist={}, prev={}, done=new Set();
+  const q=[{n:from.node,s:startSite,c:0}]; dist[sk(from.node,startSite)]={c:0,dv:0,days:0};
+  let goal=null;
+  while(q.length){
+    q.sort((a,b)=>a.c-b.c); const cur=q.shift(), ck=sk(cur.n,cur.s);
+    if(done.has(ck)) continue; done.add(ck);
+    if(cur.n===to.node && (!to.site || cur.s===to.site)){ goal=ck; break; }
+    for(const ed of edgesFrom(cur.n,cur.s)){
+      const nk=sk(ed.node,ed.site), d=dist[ck];
+      const c=d.dv+ed.dv + (d.days+ed.days)*0.01;
+      if(!dist[nk] || c<dist[nk].c){ dist[nk]={c,dv:d.dv+ed.dv,days:d.days+ed.days}; prev[nk]={k:ck,ed}; q.push({n:ed.node,s:ed.site,c}); }
+    }
+  }
+  if(!goal) return routeCache[key]={dv:Infinity,days:0,legs:[],launch:false};
+  const legs=[]; let launch=false, k=goal, first=null;
+  while(prev[k]){ if(prev[k].ed.leg) legs.unshift(prev[k].ed.leg); if(prev[k].ed.launch && !prev[k].ed.hop) launch=true; first=prev[k].ed; k=prev[k].k; }
+  return routeCache[key]={dv:dist[goal].dv, days:dist[goal].days, legs, launch, first};
+}
+function rewardFor(r,good,n){
+  const G=GOODS[good], mass=M_S+n*G.m;
+  let R = K_T*mass*(Math.exp(r.dv/V_E)-1) + K_Z*r.days + K_ZT*mass*r.days + 0.1*n*G.w;
+  if(r.launch) R += LAUNCH_FEE*(mass+20); // Anteil an der Erdstartgebühr
+  return Math.round(R*rewardLuck()/10)*10;
+}
+// Zufallsfaktor: meist 0,9–1,2; selten (8 %) 1,4–1,9, hohe Werte seltener als niedrige
+const LUCK = {p:0.08, min:1.4, max:1.9};
+const rewardLuck = () => Math.random()<LUCK.p ? LUCK.min+(LUCK.max-LUCK.min)*Math.random()**2 : 0.9+Math.random()*0.3;
+const lateFactor = (o,day) => day<=o.deadline ? 1 : Math.max(0.25, 1-0.02*(day-o.deadline));
+const payout = o => Math.round(o.reward*lateFactor(o,S.day));
+
+// ---------- Wirtschaft: Zustand und Tick ----------
+function newEconomy(){
+  const eco={stock:{}, fwd:{}, demand:{}, orders:[], nextId:1, day:START_DAY-30};
+  KONTORE.forEach(k=>{
+    eco.stock[k.id]={}; k.makes.forEach(g=>eco.stock[k.id][g]=GOODS[g].lot[1]+Math.random()*2);
+    eco.demand[k.id]={}; k.needs.forEach(g=>eco.demand[k.id][g]=2);
+    // Drehkreuze starten mit etwas Umschlagware, damit es von Anfang an kurze Aufträge in der Region gibt
+    if(k.hub){ eco.fwd[k.id]={water:3, food:3, mach:3, hab:1}; }
+  });
+  return eco;
+}
+const openCount = (k,g) => S.eco.orders.filter(o=>o.from===k.id && o.good===g && o.state==='open').length;
+function hubRoom(h){
+  const stored=Object.values(S.eco.fwd[h.id]).reduce((a,b)=>a+b,0);
+  const incoming=S.eco.orders.filter(o=>o.to===h.id).reduce((a,o)=>a+o.n,0);
+  return HUB_CAP-stored-incoming;
+}
+function pickWeighted(list,w){
+  const tot=list.reduce((s,x)=>s+w(x),0); let r=Math.random()*tot;
+  for(const x of list){ r-=w(x); if(r<=0) return x; } return list[list.length-1];
+}
+function makeOrder(k,g,fwd,day){
+  const eco=S.eco, G=GOODS[g], store=fwd?eco.fwd[k.id]:eco.stock[k.id], have=store[g]||0;
+  if(have<G.lot[0] || openCount(k,g)>=MAX_OPEN) return;
+  const cand = KONTORE.filter(c=>c.id!==k.id && c.needs.includes(g) && eco.demand[c.id][g]>0 &&
+    (fwd ? REGION[bodyOf(c)]===k.hub : bodyOf(c)!==bodyOf(k)) && route(k,c).dv<=MAX_ROUTE_DV);
+  if(!cand.length) return;
+  const n=randInt(G.lot[0], Math.min(G.lot[1], Math.floor(have)));
+  let to=pickWeighted(cand,c=>eco.demand[c.id][g]), transship=false;
+  if(!fwd){
+    const reg=REGION[bodyOf(to)];
+    if(reg!==REGION[bodyOf(k)] && Math.random()<0.6){
+      const h=HUBS[reg];
+      if(h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(h)>=n){ to=h; transship=true; }
+    }
+  }
+  const r=route(k,to); if(!isFinite(r.dv)) return;
+  if(!transship) eco.demand[to.id][g]--;
+  const wait=legWait(r,day);
+  store[g]=have-n;
+  eco.orders.push({id:eco.nextId++, good:g, n, from:k.id, to:to.id, reward:rewardFor(r,g,n),
+    dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+30, created:day, expires:day+90, state:'open', fwdOrder:fwd, transship});
+}
+// Wartezeit bis zum Fenster der ersten interplanetaren Etappe einer Route
+function legWait(r,day){ if(!r.legs.length) return 0; const [a,b]=r.legs[0], t=transfer(a,b,day); return t.d<0.04?0:t.wait; }
+// Frist, wenn der Auftrag am Tag 'day' angenommen wird
+function freshDeadline(o,day){ const r=route(KBY[o.from],KBY[o.to]); return day+legWait(r,day)+1.5*o.days+30; }
+function econTick(day){
+  const eco=S.eco;
+  KONTORE.forEach(k=>k.makes.forEach(g=>{ eco.stock[k.id][g]=Math.min(12,(eco.stock[k.id][g]||0)+1/GOODS[g].rate); }));
+  if(Math.round(day-START_DAY)%60===0) KONTORE.forEach(k=>k.needs.forEach(g=>{ eco.demand[k.id][g]=Math.min(3,eco.demand[k.id][g]+1); }));
+  // abgelaufene, nicht angenommene Aufträge verfallen
+  eco.orders=eco.orders.filter(o=>{
+    if(o.state!=='open' || day<=(o.expires??o.deadline)) return true;
+    if(o.bulk){ eco.bulk[o.from][o.good]=(eco.bulk[o.from][o.good]||0)+o.n; }
+    else { const src=o.fwdOrder?eco.fwd[o.from]:eco.stock[o.from]; src[o.good]=(src[o.good]||0)+o.n; }
+    if(!o.transship) eco.demand[o.to][o.good]=Math.min(3,eco.demand[o.to][o.good]+1);
+    return false;
+  });
+  KONTORE.forEach(k=>{
+    k.makes.forEach(g=>makeOrder(k,g,false,day));
+    if(k.hub) Object.keys(eco.fwd[k.id]).forEach(g=>makeOrder(k,g,true,day));
+  });
+  bulkTick(day);
+}
+// Großaufträge: Jeder Erzeuger füllt nebenher ein Großlager. Ist die Losgröße erreicht, entsteht ein Auftrag,
+// der mehr Container hat, als die Kogge laden kann (7 bis 18).
+function bulkTick(day){
+  const eco=S.eco;
+  if(!eco.bulk){ eco.bulk={}; eco.bulkN={}; }
+  KONTORE.forEach(k=>k.makes.forEach(g=>{
+    const B_=eco.bulk[k.id]=eco.bulk[k.id]||{}, N=eco.bulkN[k.id]=eco.bulkN[k.id]||{};
+    if(!N[g]) N[g]=randInt(BULK.min,BULK.max);
+    B_[g]=(B_[g]||0)+1/(GOODS[g].rate*BULK.slow);
+    if(B_[g]<N[g] || eco.orders.some(o=>o.bulk && o.state==='open' && o.from===k.id && o.good===g)) return;
+    const n=N[g];
+    const cand=KONTORE.filter(c=>c.id!==k.id && c.needs.includes(g) && eco.demand[c.id][g]>0 && bodyOf(c)!==bodyOf(k) && route(k,c).dv<=MAX_ROUTE_DV);
+    const hubs=Object.values(HUBS).filter(h=>h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(h)>=n && route(k,h).dv<=MAX_ROUTE_DV);
+    if(!cand.length && !hubs.length) return;
+    let to, transship=false;
+    if(cand.length && (!hubs.length || Math.random()<0.6)) to=pickWeighted(cand,c=>eco.demand[c.id][g]);
+    else { to=hubs[Math.floor(Math.random()*hubs.length)]; transship=true; }
+    const r=route(k,to); if(!isFinite(r.dv)) return;
+    if(!transship) eco.demand[to.id][g]--;
+    B_[g]-=n; N[g]=randInt(BULK.min,BULK.max);
+    const wait=legWait(r,day);
+    eco.orders.push({id:eco.nextId++, good:g, n, from:k.id, to:to.id, reward:Math.round(rewardFor(r,g,n)*BULK.premium/10)*10,
+      dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+60, created:day, expires:day+BULK.life, state:'open', fwdOrder:false, transship, bulk:true});
+  }));
+}
+// kleinstes Schiff, das n Container laden kann
+const shipFor = n => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
+function econAdvance(toDay){ while(S.eco.day+1<=toDay){ S.eco.day++; econTick(S.eco.day); } }
+
+function newGame(){
+  S={day:START_DAY, node:'earth.orbit', site:null, ship:'kogge', fuel:SHIPS.kogge.cap, used:0, credits:20000,
+     visited:new Set(['earth.orbit']), flags:{delivered:0}, target:'mars', busy:false, transit:null, over:false,
+     ui:{view:'main', sel:new Set(), tank:null, pick:null, route:null, auto:null, mapView:null},
+     msg:'Kogge vollgetankt an der Orbitalwerft, 20.000 Cr in der Kasse. Nimm Aufträge an und bring die Fracht ans Ziel.'};
+  S.eco=newEconomy(); econAdvance(START_DAY);
+  // Aufträge aus der Vorlaufzeit starten mit voller Frist
+  S.eco.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
+}
+
+// ---------- Formatierung ----------
+const km = m => (m/1000).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtDays = d => d<1 ? `${Math.max(1,Math.round(d*24))} Std.` :
+  d<730 ? (Math.round(d)===1?'1 Tag':`${Math.round(d)} Tage`) : `${(d/365.25).toLocaleString('de-DE',{maximumFractionDigits:1})} Jahre`;
+const dateStr = day => new Date(Date.UTC(2000,0,1,12)+day*864e5)
+  .toLocaleDateString('de-DE',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+const here = () => S.node ? S.node.split('.') : [null,null];
+const homePlanet = () => { const [k]=here(); return k && M[k] ? M[k].parent : k; };
+const planetGen = k => k==='earth'?'der Erde':k==='venus'?'der Venus':'von '+B[k].name;
+const nodeName = node => { const [k,l]=node.split('.');
+  if(l==='surf' && S.site){ const st=siteOf(k,S.site); if(st) return `${st.name} (${M[k]?M[k].name:B[k].name})`; }
+  if(M[k]) return l==='surf' ? (M[k].surfName||`Oberfläche von ${M[k].name}`) : (M[k].orbitName||`Orbit um ${M[k].name}`);
+  return `${LVL[l]} ${planetGen(k)}`; };
+
+// ---------- Aktionen ----------
+function localActions(){
+  const [k,l]=here(); const A=[];
+  const add=(label,dv,days,to,x={})=>A.push({label,dv,days,to,...x});
+  if(!k) return A;
+  const landings=(body,down,baseNote)=>{
+    (SITES[body]||[]).forEach(st=>{
+      const pen=hasAtm(body)?0:rotPenalty(body,st.lat);
+      const bits=[latStr(st.lat)];
+      if(st.port) bits.push('Weltraumbahnhof');
+      if(st.depot) bits.push(`Tankstelle (${st.depot} Tage)`);
+      add(`Landen: ${st.name}`,down+pen,0.2,body+'.surf',{site:st.id,lat:st.lat,note:bits.join(', ')+(st.note?`. ${st.note}`:'')});
+    });
+  };
+  const launch=(body,up,label)=>{
+    const st=siteOf(body,S.site), lat=st?st.lat:0, pen=rotPenalty(body,lat);
+    const rotNote=(ROT[body]||0)>=20 ? `Start bei ${latStr(lat)}: ${Math.round((ROT[body]||0)-pen)} von ${ROT[body]} m/s Rotationsbonus` : '';
+    return {lat,pen,rotNote};
+  };
+  if(l==='surf' && S.site) (SITES[k]||[]).forEach(st=>{
+    if(st.id===S.site) return;
+    const h=hopCost(k,S.site,st.id), full=bodyUp(k)+bodyDown(k);
+    const fee=h.launcher?Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel)*HOP_FEE_SHARE):0;
+    add(`${h.launcher?'Suborbitaler Flug':'Ballistischer Hüpfer'} nach ${st.name}`,h.dv,h.days,k+'.surf',{site:st.id,lat:st.lat,hop:true,...(fee?{fee}:{}),
+      note:`${Math.round(h.th*180/Math.PI)}° Bogen${h.launcher?`, Gebühr ${fmtCr(fee)}`:`, ${Math.round((1-h.dv/full)*100)} % billiger als über den Orbit`}`});
+  });
+  if(M[k]){
+    const m=M[k], p=m.parent;
+    if(l==='surf'){ const L=launch(k); add(`Aufstieg in den ${m.orbitName||'Orbit um '+m.name}`,m.up+L.pen,0.2,k+'.orbit',{note:[m.upNote,L.rotNote].filter(Boolean).join('. '),lat:L.lat}); }
+    else {
+      landings(k,m.down);
+      add(`Zurück in den hohen Orbit ${planetGen(p)}`,m.xfer,m.days,p+'.capt');
+    }
+  } else {
+    const b=B[k];
+    if(l==='surf'){
+      const L=launch(k);
+      if(b.surf.launcher){ const fee=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel));
+        add('Mit Trägerrakete in den Orbit',L.pen,1,k+'.orbit',{lat:L.lat,fee,note:`Startgebühr ${fmtCr(fee)}${fee>S.credits?', wird gestundet':''}. Fehlender Rotationsbonus kommt aus deinem Tank. ${L.rotNote}`}); }
+      else add('Aufstieg in den Orbit',b.surf.up+L.pen,0.2,k+'.orbit',{lat:L.lat,note:L.rotNote});
+    }
+    if(l==='orbit'){
+      if(b.surf) landings(k,b.surf.down);
+      add('In den hohen Orbit',captDv(k),1,k+'.capt',{note:'Ausgangspunkt für Transfers und Monde'});
+    }
+    if(l==='capt'){
+      add('Abstieg in den niedrigen Orbit',captDv(k),1,k+'.orbit');
+      if(b.atm) add('Aerobremsen in den niedrigen Orbit',60,40,k+'.orbit',{note:'Viele Durchgänge durch die obere Atmosphäre'});
+      moonsOf(k).forEach(m=>add(`Zum ${M[m].name==='Mond'?'Mond':'Mond '+M[m].name}`,M[m].xfer,M[m].days,m+'.orbit',{note:`Einschuss in den Orbit um ${M[m].name}`+(hasDepot(m)?', Tankstelle auf der Oberfläche':'')}));
+    }
+  }
+  return A;
+}
+
+function arrive(node,site){
+  S.node=node; S.visited.add(node);
+  S.site = node.endsWith('.surf') ? site : null;
+  if(site) S.visited.add(node.split('.')[0]+'@'+site);
+  if(node==='mars.surf') S.flags.marsLanded=true;
+  if(S.flags.marsLanded && node.startsWith('earth.')) S.flags.marsReturn=true;
+}
+
+// Karte ins Blickfeld holen, falls sie gerade nicht sichtbar ist
+function showMap(el){
+  el = el || document.querySelector('.maptabs');
+  const r=el.getBoundingClientRect();
+  const visible = r.top>=0 && r.top < window.innerHeight*0.5;
+  if(!visible) el.scrollIntoView({behavior: reduce?'auto':'smooth', block:'start'});
+}
+
+// Die Startgebühr wird notfalls gestundet: Das Konto darf dafür ins Minus, nur nicht bis zum Konkurs.
+const feeBlocked = a => !!a.fee && S.credits-a.fee < BANKRUPT;
+function doAction(a){
+  if(S.busy || S.over || a.disabled || a.dv>dvAvail()+0.5 || feeBlocked(a)) return;
+  if(a.fee) S.credits-=a.fee;
+  burn(a.dv); S.busy=true;
+  // Bewegung merken, damit System- und Körperansicht das Schiff unterwegs zeigen
+  S.move={from:{node:S.node, site:S.site}, to:{node:a.to, site:a.site||null}, d0:S.day, d1:S.day+a.days, hop:!!a.hop, aero:/Aerobrems/.test(a.label||'')};
+  S.move.orb = S.orb && S.orb.body===S.node.split('.')[0] ? {...S.orb} : null;
+  S.move.path = bodyPath(S.move);
+  S.move.sys = sysPlan(S.move);
+  render();
+  if(a.to && (M[a.to.split('.')[0]] && a.to.endsWith('.orbit') && !S.node.endsWith('.surf') || M[here()[0]] && a.to.endsWith('.capt'))) showMap();
+  const ms = S.move.sys ? (S.move.aero ? 3400 : 2400) : S.move.path ? (a.to.endsWith('.surf')&&!a.hop ? 2600 : 1900) : Math.max(800, Math.min(1500, 400+a.days*20));
+  animateTo(S.day+a.days, ms*SLOW, ()=>{
+    const pth=S.move.path, spl=S.move.sys; S.move=null;
+    if(spl) Object.assign(sysState(planetOfBody(a.to.split('.')[0])), spl.final);
+    // Orbitzustand für die 3D-Ansicht: nach dem Start die Startbahn, sonst äquatorial vorne
+    if(a.to.endsWith('.orbit')){ const tb=a.to.split('.')[0]; S.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); } else if(a.to.endsWith('.surf')) S.orb=null;
+    arrive(a.to,a.site); S.msg=`${a.label}: ${km(a.dv)} km/s verbraucht. Jetzt: ${nodeName(a.to)}.`;
+    S.busy=false; render(); autoFill();
+  });
+}
+
+function doTransfer(b){
+  const a=homePlanet(); if(S.busy || S.over || S.node!==a+'.capt') return;
+  const t=transfer(a,b,S.day); if(t.total>dvAvail()) return;
+  burn(t.total);
+  const dep=S.day, arr=S.day+t.tof;
+  S.transit={a,b,dep,arr,th0:theta(a,dep),th1:theta(b,arr)};
+  S.node=null; S.busy=true; S.ui.mapView=null; S.msg=`Unterwegs nach ${B[b].name}. Ankunft am ${dateStr(arr)}.`; render(); showMap();
+  animateTo(arr, 2800*SLOW, ()=>{
+    S.transit=null; arrive(b+'.capt');
+    S.msg=`Angekommen: hoher Orbit um ${B[b].name} nach ${fmtDays(t.tof)}. Einschuss und Einfang kosteten ${km(t.total)} km/s.`;
+    S.busy=false; render(); autoFill();
+  });
+}
+
+function waitDays(n){
+  if(S.busy || S.over) return; S.busy=true; render(); showMap();
+  animateTo(S.day+n, Math.min(2400,350+n*5)*1.3, ()=>{ S.busy=false; S.msg=`${fmtDays(n)} vergangen.`; render(); });
+}
+
+// „Immer volltanken“: an jeder Tankstelle so viel tanken, wie in den Tank passt und bezahlbar ist
+function autoFill(){
+  if(!S.autoFill || S.busy || S.over) return false;
+  const r=refuelInfo(); if(!r || r.need<0.5 || r.max<0.5) return false;
+  doRefuel(r.max,true); return true;
+}
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Animationen laufen gemächlich; ein Tippen auf die Karte beschleunigt (beim Autopilot bis zum Ziel)
+const SLOW = 2.3, FAST = 6;
+const ANIM = {active:false, fast:false, long:false};
+function animateTo(target, ms, done){
+  const d0=S.day; if(reduce) ms=Math.min(ms,150);
+  S.anim={d0, d1:target}; ANIM.active=true; ANIM.long=ms>1500; speedHint();
+  let prog=0, last=performance.now();
+  const step=now=>{
+    const dt=Math.min(100,now-last); last=now;
+    prog=Math.min(1, prog+dt/ms*(ANIM.fast?FAST:1));
+    const p=prog, e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    S.day=d0+(target-d0)*e; header(); draw();
+    if(p<1) requestAnimationFrame(step);
+    else { S.day=target; S.anim=null; ANIM.active=false; if(!S.ui.auto) ANIM.fast=false; speedHint(); econAdvance(S.day); done(); }
+  };
+  requestAnimationFrame(step);
+}
+function speedHint(){ const h=document.getElementById('speedhint'); if(!h) return;
+  const show=ANIM.active && (ANIM.long||ANIM.fast); h.hidden=!show; if(!show) return;
+  h.textContent = ANIM.fast ? '» schneller' : 'Tippen: schneller'; h.classList.toggle('on',ANIM.fast); }
+
+// ---------- Darstellung ----------
+const $ = id => document.getElementById(id);
+function header(){
+  $('date').textContent=dateStr(S.day);
+  $('mday').textContent=`Tag ${Math.floor(S.day-START_DAY)}`;
+  const dv=dvAvail(), max=dvOf(eng().cap);
+  $('dv').innerHTML=`${km(dv)} <small>km/s</small>`;
+  $('gauge').style.width=`${Math.max(0,Math.min(100,dv/max*100))}%`;
+  $('shipname').textContent=eng().name;
+  $('shipinfo').textContent=`${eng().drive}, Isp ${eng().isp} s`;
+  $('credits').innerHTML=`${Math.round(S.credits).toLocaleString('de-DE')} <small>Cr</small>`; $('credits').classList.toggle('neg',S.credits<0);
+  const cells=[]; cargoOrders().forEach(o=>{ for(let i=0;i<o.n;i++) cells.push(`<i style="background:${GOODS[o.good].color}"></i>`); });
+  while(cells.length<eng().slots) cells.push('<i></i>');
+  $('mslots').innerHTML=cells.join('');
+  $('slotinfo').textContent=`${eng().slots-slotsUsed()} von ${eng().slots} frei`;
+  const af=$('autofill'); af.setAttribute('aria-pressed',!!S.autoFill);
+  $('cargotile').classList.toggle('on',S.ui.view==='fracht');
+}
+
+// Kurze Meldung unten links auf der Karte
+let toastMsg=null, toastT=null;
+function toast(){
+  if(S.msg===toastMsg) return; toastMsg=S.msg;
+  const t=$('toast'); if(!S.msg){ t.hidden=true; return; }
+  t.textContent=S.msg; t.hidden=false; t.classList.remove('fade');
+  clearTimeout(toastT); toastT=setTimeout(()=>{ t.classList.add('fade'); toastT=setTimeout(()=>{ t.hidden=true; },450); },5000);
+}
+
+function render(){
+  // Erst Sichtbarkeit setzen, dann zeichnen: sonst misst die Karte mobil eine ausgeblendete Fläche (Größe 0)
+  const pv=S.ui.view!=='main';
+  document.body.classList.toggle('panel-open',pv);
+  header(); draw(); renderPick(); renderAutobar(); toast();
+  $('mainview').hidden=pv; $('panel').hidden=!pv;
+  $('used').textContent=`Gesamt verbraucht: ${km(S.used)} km/s`;
+  document.querySelectorAll('[data-wait]').forEach(b=>b.disabled=S.busy||S.over);
+  if(pv){ renderPanel(); document.querySelectorAll('#panel button').forEach(b=>{ if(S.over && !b.classList.contains('back')) b.disabled=true; }); save(); return; }
+  renderPlace();
+  save();
+}
+
+// ---------- Wirtschaft: Aktionen ----------
+function acceptOrder(o){
+  if(S.busy||S.over) return;
+  const k=kontorAt(); if(!k || k.id!==o.from || o.state!=='open') return;
+  if(slotsUsed()+o.n>eng().slots) return;
+  o.deadline=freshDeadline(o,S.day); o.created=S.day;
+  o.state='aboard'; S.msg=`Angenommen: ${o.n} × ${GOODS[o.good].name} nach ${kontorLabel(KBY[o.to])}. Frist ${dateStr(o.deadline)}.`; render();
+}
+function removeOrder(o){ S.eco.orders=S.eco.orders.filter(x=>x!==o); }
+function deliverOrder(o,silent){
+  if(S.busy||S.over) return;
+  const pay=payout(o); S.credits+=pay; removeOrder(o);
+  if(o.transship){ const f=S.eco.fwd[o.to]; f[o.good]=(f[o.good]||0)+o.n; S.flags.hubDelivery=true; }
+  S.flags.delivered=(S.flags.delivered||0)+1;
+  if(silent) return;
+  S.msg=`Abgeliefert: ${o.n} × ${GOODS[o.good].name}. ${fmtCr(pay)} gutgeschrieben${pay<o.reward?' (verspätet)':''}.`; render();
+}
+function returnOrder(o){
+  if(S.busy||S.over) return;
+  o.state='open'; S.msg=`Zurückgegeben: ${o.n} × ${GOODS[o.good].name}. Kostenlos, weil du noch am Startkontor bist.`; render();
+}
+function abortOrder(o){
+  const pen=Math.round(o.reward*0.2);
+  if(S.busy||S.over||pen>S.credits) return;
+  S.credits-=pen; removeOrder(o);
+  if(!o.transship) S.eco.demand[o.to][o.good]=Math.min(3,S.eco.demand[o.to][o.good]+1);
+  S.msg=`Auftrag abgebrochen. Strafe ${fmtCr(pen)}, die Ladung ist verloren.`; render();
+}
+function buyShip(id){
+  const net=SHIPS[id].price-0.7*eng().price;
+  if(S.busy||S.over||net>S.credits||slotsUsed()>SHIPS[id].slots) return;
+  S.busy=true; render();
+  animateTo(S.day+5, 500, ()=>{
+    S.credits-=net; S.ship=id; S.fuel=Math.min(S.fuel,eng().cap); S.flags.bought=true;
+    S.msg=`Neues Schiff: ${eng().name} mit ${eng().slots} Frachtplätzen. ${fmtCr(net)} bezahlt.`;
+    S.busy=false; render();
+  });
+}
+let strandCache={key:null,val:false};
+function stranded(){
+  if(S.busy||S.over||!S.node) return false;
+  const ri=refuelInfo();
+  if(ri){ // Tankstelle hier, aber kein Geld
+    if(!(ri.need>1 && ri.max<Math.min(ri.need,5)) || deliverables().length) return false;
+    // Nur gestrandet, wenn der Treibstoff an Bord für keinen Auftrag mehr reicht: weder für die Fracht an Bord
+    // noch für einen offenen Auftrag von hier noch bis zu einem anderen Kontor mit Aufträgen.
+    const key=['k',locKey(),Math.round(S.fuel*10),cargoMass(),S.ship,Math.floor(S.day/10)].join('|');
+    if(strandCache.key!==key){
+      const dv=dvAvail(), k=kontorAt(), me={id:'@'+locKey(), node:S.node, site:S.site};
+      const cargoOk=cargoOrders().length && cargoOrders().every(o=>route(me,KBY[o.to]).dv<=dv+0.5);
+      const hereOk=k && S.eco.orders.some(o=>o.state==='open' && o.from===k.id && dvWith(S.fuel,cargoMass()+o.n*GOODS[o.good].m)>=o.dv);
+      // Anderswo: Anfahrt plus Auftragsroute müssen zusammen mit dem Treibstoff an Bord machbar sein
+      const awayOk=!cargoOrders().length && KONTORE.some(kk=>{ if(kk===k) return false; const d1=route(me,kk).dv; if(d1>dv+0.5) return false;
+        return S.eco.orders.some(o=>o.state==='open'&&o.from===kk.id && d1+o.dv<=dvWith(S.fuel,o.n*GOODS[o.good].m)+0.5); });
+      strandCache={key, val:!(cargoOk||hereOk||awayOk)};
+    }
+    return strandCache.val;
+  }
+  const key=[locKey(),Math.round(S.fuel*10),cargoMass(),S.ship,Math.floor(S.day/30)].join('|');
+  if(strandCache.key!==key){ strandCache={key, val: nearestFuel({node:S.node,site:S.site,day:S.day}).dv > dvAvail()+0.5}; }
+  return strandCache.val;
+}
+// Notbetankung: ein Tanker bringt vor Ort einen vollen Tank. Anfahrt je nach Region.
+const RESCUE_DAYS = {werft:20, pavonis:90, valhalla:200};
+function rescueInfo(){
+  const ri=refuelInfo(), amount=eng().cap-S.fuel;
+  if(ri) return {amount, cost:Math.round(2000+ri.price*amount), days:ri.days, lift:false, local:true};
+  const cost=Math.round(RESCUE_BASE+RESCUE_PER_T*amount);
+  const days=RESCUE_DAYS[REGION[here()[0]]]||60;
+  // Reicht selbst ein voller Tank für kein Manöver (Venus-Oberfläche), hebt der Tanker das Schiff in den Orbit
+  const lift=!localActions().some(a=>a.to && a.dv<=dvWith(eng().cap,cargoMass())+0.5);
+  return {amount,cost,days,lift};
+}
+function rescue(){
+  if(!stranded()) return;
+  const r=rescueInfo();
+  S.credits-=r.cost; S.busy=true; render(); showMap();
+  animateTo(S.day+r.days, 900, ()=>{
+    S.fuel=eng().cap;
+    if(r.lift){ S.node=here()[0]+'.orbit'; S.site=null; }
+    S.busy=false;
+    if(S.credits<BANKRUPT){ S.over=true; S.msg=`Konkurs. Dein Kontostand liegt bei ${fmtCr(S.credits)}. Starte neu, um es noch einmal zu versuchen.`; }
+    else if(r.local) S.msg=`Auf Kredit getankt: ${tons(r.amount)} für ${fmtCr(r.cost)}. Dein Konto steht bei ${fmtCr(S.credits)}.`;
+    else S.msg=`Der Tanker ist da (${fmtDays(r.days)} Anfahrt): ${tons(r.amount)} für ${fmtCr(r.cost)}.${r.lift?' Der Tanker hat dich außerdem in den Orbit gehoben.':''} Deine Fracht ist noch an Bord.`;
+    render();
+  });
+}
+
+// Markierungen für Manöver: Lieferziele, Richtung zur Fracht, Kontore mit Aufträgen
+function cargoHints(){
+  const H={step:[], transfer:{}};
+  if(!S.node) return H;
+  const me={id:'@'+locKey(), node:S.node, site:S.site}, hereK=kontorAt();
+  const byDest={};
+  cargoOrders().forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
+  Object.keys(byDest).forEach(id=>{
+    const r=route(me,KBY[id]); if(!r.first) return;
+    const name=KBY[id].name;
+    if(r.first.leg){ const p=r.first.leg[1]; (H.transfer[p]=H.transfer[p]||[]).includes(name)||H.transfer[p].push(name); }
+    else H.step.push({node:r.first.node, site:r.first.site, dv:r.first.dv, name, n:byDest[id], final: KBY[id].node===r.first.node && (!KBY[id].site||KBY[id].site===r.first.site)});
+  });
+  return H;
+}
+function actionTags(a,H){
+  const T=[];
+  if(a.to){
+    const k=KONTORE.find(k=>k.node===a.to && (!k.site || k.site===(a.site||null) || (!a.site && k.node==='earth.surf')));
+    H.step.filter(s=>s.node===a.to && (s.site||null)===(a.site||null) && Math.abs(s.dv-a.dv)<1).forEach(s=>{
+      T.push(s.final?{cls:'deliver',txt:`Lieferziel: ${s.n} ${s.n>1?'Aufträge':'Auftrag'}`}:{cls:'toward',txt:`Richtung ${s.name}`});
+    });
+    if(k && !T.some(t=>t.cls==='deliver')){
+      const n=S.eco.orders.filter(o=>o.state==='open'&&o.from===k.id).length;
+      T.push({cls:'kontor',txt:`Kontor${n?`, ${n} ${n>1?'Aufträge':'Auftrag'}`:''}`});
+    }
+  }
+  return T;
+}
+
+// ---------- Wirtschaft: Darstellung ----------
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const gchip = g => `<span class="gchip" style="background:${GOODS[g].color}"></span>`;
+const tons = t => `${t.toLocaleString('de-DE',{maximumFractionDigits:1})} t`;
+function dots(n){ return `<span class="dots">${[0,1,2].map(i=>`<i class="${i<n?'on':''}"></i>`).join('')}</span>`; }
+function btn(label,cls,disabled,fn){ const b=document.createElement('button'); b.textContent=label; if(cls) b.className=cls; b.disabled=disabled; b.onclick=fn; return b; }
+
+// ---------- Ansichten (Kontor, Laderaum, Tanken, Werft) ----------
+const isDesk = () => matchMedia('(min-width:900px)').matches;
+const BACKNAME = {main:'Karte', kontor:'Auftragsbrett', fracht:'Laderaum', route:'Route'};
+function openView(v,back){ S.ui.rmsg=false; S.ui.back = v==='main' ? null : (back||null); S.ui.view=v; S.ui.sel=new Set(); S.ui.tank=null; render();
+  if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
+function refuelInfo(){
+  if(!S.node) return null;
+  const [k,l]=here(), st=l==='surf'?siteOf(k,S.site):null, days=st?st.depot:DEPOTS[S.node], price=fuelPrice();
+  if(days===undefined || price===undefined) return null;
+  const need=Math.max(0,eng().cap-S.fuel), afford=Math.max(0,S.credits)/price;
+  return {days, price, need, max:Math.min(need,afford), source: st?(k==='earth'?'Betankung am Weltraumbahnhof':'Treibstoff aus lokalem Eis'):'Tankdepot im Orbit'};
+}
+function doRefuel(amount,keepView){
+  const r=refuelInfo(); if(!r || S.busy || S.over) return;
+  amount=Math.min(amount,r.max); if(amount<0.1) return;
+  const cost=Math.round(amount*r.price);
+  S.busy=true; if(!keepView){ const back=S.ui.view==='tanken'?S.ui.back:null; S.ui.view=back||'main'; S.ui.back=null; } render();
+  animateTo(S.day+r.days, Math.min(1200,300+r.days*15), ()=>{
+    S.fuel=Math.min(eng().cap,S.fuel+amount); S.credits-=cost; S.flags['refuel:'+here()[0]+'@'+S.site]=true;
+    S.msg=`Getankt: ${tons(amount)} für ${fmtCr(cost)}. ${km(dvAvail())} km/s verfügbar.`; S.busy=false; render();
+  });
+}
+// Δv, das die Fracht an Bord von hier aus höchstens braucht
+function routeNeedHere(){
+  if(!S.node) return 0;
+  const me={id:'@'+locKey(), node:S.node, site:S.site};
+  return cargoOrders().reduce((mx,o)=>Math.max(mx, KBY[o.to]===kontorAt()?0:route(me,KBY[o.to]).dv),0);
+}
+const fuelFor = (dv,cm) => (eng().dry+cm)*(Math.exp(dv/(eng().isp*G0))-1);
+const deliverables = () => { const k=kontorAt(); return k ? cargoOrders().filter(o=>o.to===k.id) : []; };
+function deliverAll(){ const list=deliverables(); if(!list.length||S.busy||S.over) return;
+  let sum=0; list.forEach(o=>{ sum+=payout(o); deliverOrder(o,true); });
+  S.msg=`${list.length} ${list.length>1?'Aufträge':'Auftrag'} abgeliefert, ${fmtCr(sum)} gutgeschrieben.`; render(); }
+function acceptSelected(){
+  const k=kontorAt(); if(!k||S.busy||S.over) return;
+  const list=S.eco.orders.filter(o=>S.ui.sel.has(o.id) && o.state==='open' && o.from===k.id);
+  const n=list.reduce((s,o)=>s+o.n,0); if(!list.length || slotsUsed()+n>eng().slots) return;
+  list.forEach(o=>{ o.deadline=freshDeadline(o,S.day); o.created=S.day; o.state='aboard'; });
+  S.msg=`${list.length} ${list.length>1?'Aufträge':'Auftrag'} angenommen, ${n} Container geladen.`;
+  openView('fracht');
+}
+
+function phead(title, sub, tag){
+  const d=document.createElement('div'); d.className='phead';
+  d.innerHTML=`<button type="button" class="back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>${BACKNAME[S.ui.back||'main']}</button>
+    <h2 class="ptitle">${esc(title)}${tag?` <span class="tag">${tag}</span>`:''}</h2>${sub?`<p class="kinfo">${sub}</p>`:''}`;
+  d.querySelector('.back').onclick=()=>openView(S.ui.back||'main');
+  return d;
+}
+
+function panelKontor(p){
+  const k=kontorAt(); if(!k) return openView('main');
+  const eco=S.eco, locked=S.busy||S.over, free=eng().slots-slotsUsed();
+  p.appendChild(phead(`Kontor ${k.name}`, `${esc(kontorPlace(k))}. ${fmtCr(S.credits)}, ${free} ${free===1?'Frachtplatz':'Frachtplätze'} frei.`, k.hub?'Drehkreuz':''));
+  const del=deliverables();
+  if(del.length){
+    const b=document.createElement('div'); b.className='banner';
+    b.innerHTML=`<span>${del.length} ${del.length>1?'Aufträge':'Auftrag'} an Bord ${del.length>1?'gehen':'geht'} hierher.</span>`;
+    b.appendChild(btn(`Abliefern, ${fmtCr(del.reduce((s,o)=>s+payout(o),0))}`,'go',locked,deliverAll)); p.appendChild(b);
+  }
+  const sel=eco.orders.filter(o=>S.ui.sel.has(o.id));
+  const selN=sel.reduce((s,o)=>s+o.n,0), selM=sel.reduce((s,o)=>s+o.n*GOODS[o.good].m,0), selR=sel.reduce((s,o)=>s+o.reward,0);
+  const offers=eco.orders.filter(o=>o.state==='open' && o.from===k.id);
+  const h=document.createElement('h3'); h.textContent=`Aufträge ab hier (${offers.length})`; p.appendChild(h);
+  const bigHere=offers.filter(o=>o.n>eng().slots);
+  if(bigHere.length){ const hb=document.createElement('p'); hb.className='hint';
+    hb.textContent=`${bigHere.length} ${bigHere.length>1?'Großaufträge passen':'Großauftrag passt'} nicht in deine ${eng().name} (${eng().slots} Plätze). Größere Schiffe gibt es an der Werft der Drehkreuze.`; p.appendChild(hb); }
+  const list=document.createElement('div'); list.className='ogroups';
+  if(!offers.length) list.innerHTML='<p class="hint">Gerade keine Aufträge. Die Lager füllen sich mit der Zeit.</p>';
+  // Nach Zielort gruppieren, Gruppen nach Δv der Route sortieren
+  const groups={};
+  offers.forEach(o=>{ (groups[o.to]=groups[o.to]||[]).push(o); });
+  const glist=Object.entries(groups).map(([to,os])=>{
+    const tk=KBY[to], tpl=planRoute({node:tk.node, site:tk.site||(tk.node==='earth.surf'?'kourou':null)},'eco');
+    return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
+  }).sort((a,b)=>a.dv-b.dv);
+  glist.forEach(G0=>{
+    const {tk,os,tpl}=G0, dl=freshDeadline(os[0],S.day), lateBy=tpl?tpl.arrive-dl:0;
+    const gSel=os.filter(o=>S.ui.sel.has(o.id));
+    const lightest=os.filter(o=>!S.ui.sel.has(o.id)).reduce((m,o)=>Math.min(m,o.n*GOODS[o.good].m),Infinity);
+    const after = gSel.length ? dvWith(S.fuel,cargoMass()+selM) : dvWith(S.fuel,cargoMass()+selM+(isFinite(lightest)?lightest:0));
+    const short = after < G0.dv;
+    const afterFull = gSel.length ? dvWith(eng().cap,cargoMass()+selM) : dvWith(eng().cap,cargoMass()+selM+(isFinite(lightest)?lightest:0));
+    const grp=document.createElement('section'); grp.className='ogroup'+(gSel.length?' on':'');
+    const nDel=cargoOrders().filter(o=>o.to===tk.id).length;
+    grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(kontorLabel(tk))}</b>${tk.hub?' <span class="tag">Drehkreuz</span>':''}${nDel?` <span class="mtag deliver">schon ${nDel} an Bord</span>`:''}</div>
+      <div class="og-meta"><span class="${short?'badc':''}">${km(G0.dv)} km/s</span><span>${fmtDays(G0.days)}</span><span class="${lateBy>0?'badc':''}">Frist ${dateStr(dl)}</span></div>
+      ${lateBy>0?`<div class="o-warn bad">Frist nicht zu schaffen: Ankunft frühestens ${dateStr(tpl.arrive)}.</div>`:
+        short?`<div class="o-warn">${gSel.length?'Mit deiner Auswahl':'Selbst mit dem leichtesten Auftrag'} bleiben ${km(after)} km/s. ${afterFull<G0.dv?`Zu schwer: Auch vollgetankt wären es nur ${km(afterFull)} km/s.`:'Vorher tanken.'}</div>`:''}</div>`;
+    const rl=routeLink(tk,'kontor'); rl.style.marginLeft='auto'; grp.querySelector('.og-meta').appendChild(rl);
+    os.forEach(o=>{
+      const Gd=GOODS[o.good], on=S.ui.sel.has(o.id), fits=on || slotsUsed()+selN+o.n<=eng().slots;
+      const el=document.createElement('label'); el.className='orow'+(on?' on':'')+(fits?'':' dis');
+      const tooBig=o.n>eng().slots, need=tooBig?shipFor(o.n):null;
+      const why = fits ? '' : tooBig ? `, braucht ${o.n} Plätze: ${need?need.name+' oder größer':'kein Schiff groß genug'}` : `, braucht ${o.n} ${o.n>1?'Plätze':'Platz'}`;
+      el.innerHTML=`<input type="checkbox" ${on?'checked':''} ${(!fits||locked)?'disabled':''}>${gchip(o.good)}<span class="ot"><b>${o.n} × ${Gd.name}${o.bulk?' <span class="mtag kontor">Großauftrag</span>':''}</b><small>${tons(o.n*Gd.m)}${why}</small></span><span class="num">${fmtCr(o.reward)}</span>`;
+      el.querySelector('input').onchange=e=>{ e.target.checked?S.ui.sel.add(o.id):S.ui.sel.delete(o.id); render(); };
+      grp.appendChild(el);
+    });
+    list.appendChild(grp);
+  });
+  p.appendChild(list);
+
+  if(k.needs.length){
+    const h2=document.createElement('h3'); h2.textContent='Hier gesucht'; p.appendChild(h2);
+    const g=document.createElement('div'); g.className='needgrid';
+    g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(eco.demand[k.id][x])}</div>`).join('');
+    p.appendChild(g);
+    const n=document.createElement('p'); n.className='hint';
+    n.textContent=k.hub?`Punkte zeigen den Bedarf. Als Drehkreuz nimmt ${k.name} außerdem jedes Gut zum Umschlag an; belegt sind ${HUB_CAP-hubRoom(k)} von ${HUB_CAP} Plätzen.`:'Punkte zeigen den Bedarf. Aufträge hierher entstehen in anderen Kontoren.';
+    p.appendChild(n);
+  }
+
+  const f=document.createElement('div'); f.className='pfoot';
+  const before=dvAvail(), after=dvWith(S.fuel,cargoMass()+selM);
+  f.innerHTML=`<div class="row"><span>Auswahl: ${selN} Container, ${tons(selM)}</span><b>${fmtCr(selR)}</b></div>
+    <div class="row dvrow"><span class="muted">Δv</span><b>${km(before)}</b><span class="muted">→</span><b class="acc">${km(after)} km/s</b><span class="muted">nach Annahme</span></div>`;
+  f.appendChild(btn(sel.length?`${sel.length} ${sel.length>1?'Aufträge':'Auftrag'} annehmen`:'Aufträge auswählen','go wide',locked||!sel.length,acceptSelected));
+  p.appendChild(f);
+}
+
+function panelFracht(p){
+  const locked=S.busy||S.over, co=cargoOrders(), hereK=kontorAt();
+  p.appendChild(phead(`Laderaum der ${eng().name}`, S.node?`Liegt in ${esc(nodeName(S.node))}.`:'Unterwegs.'));
+  const slots=document.createElement('div'); slots.className='bigslots';
+  const cells=[]; co.forEach(o=>{ for(let i=0;i<o.n;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].sh}</b><span>${GOODS[o.good].m} t</span></div>`); });
+  while(cells.length<eng().slots) cells.push('<div class="free">frei</div>');
+  slots.innerHTML=cells.join(''); p.appendChild(slots);
+  const tot=eng().dry+cargoMass()+S.fuel, pct=x=>(x/tot*100).toFixed(1)+'%';
+  const m=document.createElement('div'); m.className='massbox';
+  m.innerHTML=`<div class="row"><span class="muted">Masse</span><span>${tons(tot)} gesamt</span></div>
+    <div class="massbar"><i style="width:${pct(eng().dry)};background:var(--muted)"></i><i style="width:${pct(cargoMass())};background:#2a6bd1"></i><i style="width:${pct(S.fuel)};background:var(--accent)"></i></div>
+    <div class="legendrow"><span><i style="background:var(--muted)"></i>Schiff ${tons(eng().dry)}</span><span><i style="background:#2a6bd1"></i>Fracht ${tons(cargoMass())}</span><span><i style="background:var(--accent)"></i>Treibstoff ${tons(S.fuel)}</span></div>
+    <p>Δv mit dieser Ladung: <b>${km(dvAvail())} km/s</b></p>`;
+  const r=refuelInfo();
+  if(r && r.need>0.05){ const a=document.createElement('button'); a.className='linkbtn'; a.textContent=`Volltanken hebt es auf ${km(dvWith(eng().cap,cargoMass()))} km/s`; a.onclick=()=>openView('tanken'); m.appendChild(a); }
+  p.appendChild(m);
+  const h=document.createElement('h3'); h.textContent='Angenommene Aufträge'; p.appendChild(h);
+  const list=document.createElement('div'); list.className='acts';
+  if(!co.length) list.innerHTML='<p class="hint">Laderaum leer. Aufträge gibt es an Kontoren.</p>';
+  co.forEach(o=>{
+    const G=GOODS[o.good], to=KBY[o.to], left=o.deadline-S.day, pay=payout(o);
+    const span=Math.max(1,o.deadline-(o.created??(o.deadline-60))), frac=Math.max(0,Math.min(1,left/span));
+    const el=document.createElement('div'); el.className='order';
+    el.innerHTML=`<div class="o-top">${gchip(o.good)}<b>${o.n} × ${G.name} nach ${esc(kontorLabel(to))}</b><span class="num">${fmtCr(pay)}</span></div>
+      <div class="o-meta"><span>${tons(o.n*G.m)}</span><span>Route ${km(o.dv)} km/s</span>${o.transship?'<span class="tag">Umschlag</span>':''}</div>
+      <div class="frist"><div class="row"><span>Frist ${dateStr(o.deadline)}</span><span class="${left>=0?'ok':'late'}">${left>=0?'noch '+fmtDays(left):fmtDays(-left)+' überfällig, '+Math.round(lateFactor(o,S.day)*100)+' %'}</span></div>
+      <div class="fbar"><i style="width:${(frac*100).toFixed(0)}%;background:${left>=0?(frac>0.25?'var(--good)':'var(--warn)'):'var(--bad)'}"></i></div></div>`;
+    const row=document.createElement('div'); row.className='o-btns';
+    if(!(hereK && hereK.id===o.to) && S.node){ const rl=routeLink(to,'fracht'); rl.style.marginRight='auto'; row.appendChild(rl); }
+    if(hereK && hereK.id===o.to) row.appendChild(btn(`Abliefern, ${fmtCr(pay)}`,'go',locked,()=>deliverOrder(o)));
+    else if(hereK && hereK.id===o.from){ row.appendChild(btn('Zurückgeben','',locked,()=>returnOrder(o))); }
+    else { const pen=Math.round(o.reward*0.2); row.appendChild(btn(`Abbrechen, −${fmtCr(pen)}`,'',locked||pen>S.credits,()=>abortOrder(o))); }
+    el.appendChild(row); list.appendChild(el);
+  });
+  p.appendChild(list);
+}
+
+function depotLabel(key){
+  if(key==='earth.orbit') return 'Orbitalwerft, Erdorbit';
+  if(key==='earth.surf') return 'Erde, alle Bahnhöfe';
+  const [node,site]=key.split('@'), body=node.split('.')[0], st=siteOf(body,site);
+  return `${st?st.name:''}, ${bodyName(body)}`;
+}
+function panelTanken(p){
+  const r=refuelInfo(); if(!r) return openView('main');
+  const locked=S.busy||S.over;
+  p.appendChild(phead(`Tanken`, `${esc(nodeName(S.node))}. ${r.source}, ${r.price} Cr pro t, dauert ${fmtDays(r.days)}.`));
+  if(S.ui.tank===null) S.ui.tank=+r.max.toFixed(1);
+  const amt=Math.min(S.ui.tank,r.max), cost=Math.round(amt*r.price);
+  const box=document.createElement('div'); box.className='tankbox';
+  box.innerHTML=`<div class="row"><label for="tankamt"><b>Menge</b></label><b class="big">${tons(amt)}</b></div>
+    <input id="tankamt" type="range" min="0" max="${r.max.toFixed(1)}" step="0.5" value="${amt}" ${locked||r.max<0.1?'disabled':''}>
+    <div class="row muted"><span>Tank ${tons(S.fuel)}</span><span>voll ${tons(eng().cap)}</span></div>`;
+  box.querySelector('input').oninput=e=>{ S.ui.tank=+e.target.value; render(); document.getElementById('tankamt')?.focus(); };
+  const quick=document.createElement('div'); quick.className='two';
+  const needDv=routeNeedHere();
+  const forRoute=Math.max(0,Math.min(r.max, fuelFor(needDv,cargoMass())*1.03-S.fuel));
+  quick.appendChild(btn(needDv?'Bis Route reicht':'Keine Route geladen','',locked||!needDv,()=>{ S.ui.tank=+forRoute.toFixed(1); render(); }));
+  quick.appendChild(btn(r.max<r.need-0.05?'So viel wie bezahlbar':'Voll','',locked,()=>{ S.ui.tank=+r.max.toFixed(1); render(); }));
+  box.appendChild(quick); p.appendChild(box);
+  const cmp=document.createElement('div'); cmp.className='cmp';
+  const dvA=dvWith(S.fuel+amt,cargoMass());
+  cmp.innerHTML=`<div><span class="muted">Δv mit Fracht</span><span>${km(dvAvail())} km/s</span><b class="acc">${km(dvA)} km/s</b></div>
+    <div><span class="muted">Konto</span><span>${fmtCr(S.credits)}</span><b>${fmtCr(S.credits-cost)}</b></div>
+    <p>Kosten ${fmtCr(cost)}.${needDv?` Deine Fracht braucht von hier bis zu ${km(needDv)} km/s, ${dvA>=needDv?'das reicht':'das reicht noch nicht'}.`:''}</p>`;
+  p.appendChild(cmp);
+  const h=document.createElement('h3'); h.textContent='Preise in der Region'; p.appendChild(h);
+  const reg=REGION[here()[0]];
+  const rows=Object.entries(FUEL_PRICE).filter(([key])=>REGION[key.split('.')[0]]===reg).sort((a,b)=>a[1]-b[1]);
+  const lst=document.createElement('div'); lst.className='pricelist';
+  const me=locKey();
+  lst.innerHTML=rows.map(([key,pr])=>`<div class="${key===me||key===S.node&&!FUEL_PRICE[me]?'me':''}"><span>${esc(depotLabel(key))}${key===me||key===S.node&&!FUEL_PRICE[me]?' (hier)':''}</span><span>${pr} Cr/t</span></div>`).join('');
+  p.appendChild(lst);
+  const f=document.createElement('div'); f.className='pfoot';
+  f.appendChild(btn(amt>=0.1?`${tons(amt)} für ${fmtCr(cost)} tanken`:(r.need<0.05?'Tank ist voll':'Kein Geld für Treibstoff'),'go wide',locked||amt<0.1,()=>doRefuel(amt)));
+  p.appendChild(f);
+}
+
+function panelWerft(p){
+  const k=kontorAt(); if(!k||!k.hub) return openView('main');
+  const locked=S.busy||S.over, cur=eng();
+  p.appendChild(phead('Werft', `${esc(kontorLabel(k))}. Konto ${fmtCr(S.credits)}.`));
+  const note=document.createElement('p'); note.className='kinfo';
+  note.textContent=`Deine ${cur.name} wird mit ${fmtCr(0.7*cur.price)} angerechnet, 70 % ihres Werts. Fracht und Treibstoff ziehen mit um. Der Umbau dauert 5 Tage.`;
+  p.appendChild(note);
+  const list=document.createElement('div'); list.className='acts';
+  const dvFull=sh=>sh.isp*G0*Math.log((sh.dry+sh.cap+8*sh.slots)/(sh.dry+8*sh.slots));
+  const dvEmpty=sh=>sh.isp*G0*Math.log((sh.dry+sh.cap)/sh.dry);
+  Object.entries(SHIPS).forEach(([id,sh])=>{
+    const mine=id===S.ship, net=sh.price-0.7*cur.price, fits=slotsUsed()<=sh.slots, diff=sh.slots-cur.slots;
+    const el=document.createElement('div'); el.className='shipcard'+(mine?' mine':'');
+    el.innerHTML=`<div class="row"><div><b class="big">${sh.name}</b><div class="muted">${sh.drive}, Isp ${sh.isp} s</div></div>
+      <div class="r">${mine?'<span class="muted">dein Schiff</span>':`<b class="big">${fmtCr(net)}</b><div class="muted">Listenpreis ${fmtCr(sh.price)}</div>`}</div></div>
+      <div class="stats3s"><div><span class="muted">Frachtplätze</span><b>${sh.slots}${!mine&&diff?` <small class="${diff>0?'up':'down'}">${diff>0?'+':''}${diff}</small>`:''}</b></div>
+      <div><span class="muted">Tank</span><b>${sh.cap} t</b></div><div><span class="muted">Δv leer / voll Wasser</span><b>${km(dvEmpty(sh))} / ${km(dvFull(sh))}</b></div></div>`;
+    const unlock=S.eco.orders.filter(o=>o.state==='open' && o.n>cur.slots && o.n<=sh.slots);
+    if(!mine && unlock.length){ const u=document.createElement('p'); u.className='o-note'; u.style.margin='0';
+      const sum=unlock.reduce((a,o)=>a+o.reward,0);
+      u.textContent=`Erschließt ${unlock.length} offene Großaufträge im Sonnensystem, zusammen ${fmtCr(sum)}.`; el.appendChild(u); }
+    if(!mine) el.appendChild(btn(!fits?'Fracht passt nicht':net>S.credits?`Es fehlen ${fmtCr(net-S.credits)}`:`${sh.name} kaufen`,'go wide',locked||!fits||net>S.credits,()=>buyShip(id)));
+    list.appendChild(el);
+  });
+  p.appendChild(list);
+}
+
+const IC = {
+  orders:'<path d="M9 4h6v3H9z"/><path d="M9 5H6v15h12V5h-3"/><path d="M9 11h6M9 15h4"/>',
+  fuel:'<path d="M4 20V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v15"/><path d="M3 20h12M4 10h10"/><path d="M14 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/>',
+  yard:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+  deliver:'<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M8 12l3 3 5-6"/>',
+  route:'<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/>',
+};
+const icon = (k,sz=18) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+function ibtn(ic,label,cls,disabled,fn){ const b=btn('',cls,disabled,fn); b.innerHTML=`${icon(ic)}<span>${label}</span>`; return b; }
+function renderPlace(){
+  const w=$('placecard'); w.innerHTML='';
+  const k=kontorAt(), r=refuelInfo(), del=deliverables(), locked=S.busy||S.over;
+  const c=document.createElement('div'); c.className='place';
+  const where=S.node?nodeName(S.node):`Unterwegs nach ${B[S.transit.b].name}`;
+  const info = k ? `${k.makes.length?'Erzeugt '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Braucht ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Treibstoff ${r.price} Cr/t.`:''}`
+    : r ? `Tankstelle, ${r.price} Cr/t.` : '';
+  c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Standort</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${k.hub?'Drehkreuz':'Kontor'}</span>`:''}</div>`;
+  const g=document.createElement('div'); g.className='pbtns';
+  if(del.length){ const b=ibtn('deliver',`Abliefern (${del.length}), ${fmtCr(del.reduce((s,o)=>s+payout(o),0))}`,'go full',locked,deliverAll); b.style.minHeight='44px'; b.style.display='inline-flex'; b.style.alignItems='center'; b.style.justifyContent='center'; b.style.gap='6px'; c.appendChild(b); }
+  if(k){ const n=S.eco.orders.filter(o=>o.state==='open'&&o.from===k.id).length; g.appendChild(ibtn('orders',`Aufträge (${n})`,del.length?'':'go',S.busy,()=>openView('kontor'))); }
+  if(r) g.appendChild(ibtn('fuel','Tanken','',S.busy,()=>openView('tanken')));
+  if(k&&k.hub) g.appendChild(ibtn('yard','Werft','',S.busy,()=>openView('werft')));
+  if(g.children.length){ g.style.gridTemplateColumns=[...g.children].map((b,i)=>i===0&&k?'minmax(0,1.4fr)':'minmax(0,1fr)').join(' '); c.appendChild(g); }
+  w.appendChild(c);
+
+  const rs=$('rescue'); rs.innerHTML=''; rs.className='';
+  if(S.over){ rs.className='rescue'; rs.innerHTML=`<p>${esc(S.msg)}</p>`; rs.appendChild(btn('Neu starten','go',false,resetGame)); return; }
+  if(stranded()){
+    rs.className='rescue';
+    const ri=rescueInfo();
+    rs.innerHTML=ri.local?`<p>Kein Geld für Treibstoff. Die Tankstelle füllt dir den Tank auf Kredit, gegen 2.000 Cr Aufschlag. Dein Konto darf dabei ins Minus gehen.</p>`:`<p>Gestrandet: Mit deinem Treibstoff erreichst du keine Tankstelle mehr. Ein Tanker bringt dir einen vollen Tank, Anfahrt ${fmtDays(ri.days)}; deine Fracht bleibt an Bord.${ri.lift?' Weil selbst ein voller Tank hier nicht reicht, hebt er dich in den Orbit.':''}</p>`;
+    rs.appendChild(btn(ri.local?`Auf Kredit volltanken, ${fmtCr(ri.cost)}`:`Notbetankung rufen, ${fmtCr(ri.cost)}`,'go',false,rescue));
+  }
+}
+
+function renderPanel(){
+  const p=$('panel'); p.innerHTML='';
+  const v=S.ui.view;
+  if(v==='kontor') panelKontor(p); else if(v==='fracht') panelFracht(p);
+  else if(v==='tanken') panelTanken(p); else if(v==='werft') panelWerft(p); else if(v==='route') panelRoute(p);
+}
+
+// ---------- Speichern ----------
+const SAVE_KEY='transferfenster-v2', SLOT_KEY='transferfenster-slot1';
+function save(){
+  if(S.busy||!S.node) return;
+  try{ const o={...S, visited:[...S.visited]}; delete o.transit; delete o.ui; delete o.move; delete o.anim; localStorage.setItem(SAVE_KEY, JSON.stringify(o)); }catch(e){}
+}
+let memSlot=null; // Rückfall, wenn der Browser localStorage sperrt
+function load(key){
+  try{
+    let t=null; try{ t=localStorage.getItem(key||SAVE_KEY); }catch(e){}
+    if(!t && key===SLOT_KEY) t=memSlot;
+    if(!t) return false;
+    const o=JSON.parse(t); if(!o.eco || !SHIPS[o.ship] || !o.node) return false;
+    S={...o, visited:new Set(o.visited), busy:false, transit:null, move:null, anim:null, ui:{view:'main', sel:new Set(), tank:null, pick:null, route:null, auto:null, mapView:null}};
+    S.msg='Spielstand geladen.'; return true;
+  }catch(e){ return false; }
+}
+
+// ---------- Kartennavigation: Ansicht ----------
+const SYSNAME = {earth:'Erdsystem', mars:'Marssystem', jupiter:'Jupitersystem', saturn:'Saturnsystem'};
+const BODYCOL = {moon:'#a8a49c', phobos:'#8e8378', deimos:'#9a9086', io:'#d8c35a', europa:'#cfc6b2', ganymede:'#a89f92', callisto:'#7f776d', enceladus:'#e6ecf0', titan:'#d9a441'};
+const bodyColor = b => B[b] ? B[b].color : (BODYCOL[b]||'#9a958d');
+// Automatik: Transfer → Sonnensystem; im niedrigen Orbit oder am Boden → Körper mit Landeplätzen;
+// im hohen Orbit → Systemkarte, außer der nächste Schritt zur Fracht ist ein interplanetarer Transfer.
+function autoView(){
+  if(S.transit || !S.node) return {level:'sol'};
+  const [k,l]=here(), hp=homePlanet(), moons=moonsOf(hp).length>0;
+  if(S.move){
+    const [fb,fl]=S.move.from.node.split('.'), [tb,tl]=S.move.to.node.split('.');
+    if(fb===tb && fl!=='capt' && tl!=='capt' && SITES[fb]) return {level:'body', planet:hp, body:fb};
+    if(moons) return {level:'sys', planet:hp};
+    if(SITES[fb]) return {level:'body', planet:hp, body:fb};
+    return {level:'sol'};
+  }
+  if(l==='capt'){
+    if(!moons) return {level:'sol'};
+    const h=cargoHints();
+    if(!cargoOrders().length || (Object.keys(h.transfer).length && !h.step.length)) return {level:'sol'};
+    return {level:'sys', planet:hp};
+  }
+  if(SITES[k]) return {level:'body', planet:hp, body:k};
+  return moons ? {level:'sys', planet:hp} : {level:'sol'};
+}
+function mapView(){
+  const key=S.transit?'transit':(S.move?'mv:'+S.move.to.node+(S.move.to.site||'')+'|':'')+(S.node||'')+(S.site||'');
+  if(S.ui.mapKey!==key){ S.ui.mapKey=key; S.ui.mapView=null; }
+  return S.ui.mapView||autoView();
+}
+function setView(v){ S.ui.mapView=v; S.ui.pick=null; render(); }
+function renderCrumbs(v){
+  const nav=$('crumbs'); nav.innerHTML='';
+  const segs=[{t:'Sonnensystem', v:{level:'sol'}}];
+  if(v.planet && moonsOf(v.planet).length) segs.push({t:SYSNAME[v.planet]||B[v.planet].name, v:{level:'sys', planet:v.planet}});
+  if(v.level==='body') segs.push({t:bodyName(v.body), v});
+  segs.forEach((sg,i)=>{
+    if(i) { const s=document.createElement('span'); s.className='sep'; s.textContent='›'; s.setAttribute('aria-hidden','true'); nav.appendChild(s); }
+    const last=i===segs.length-1, b=document.createElement('button'); b.type='button'; b.textContent=sg.t;
+    b.className=last?'cur':''; if(last) b.setAttribute('aria-current','page');
+    b.onclick=()=>setView(sg.v); nav.appendChild(b);
+  });
+  nav.scrollLeft=nav.scrollWidth; // aktuelle Ebene sichtbar halten
+  const au=$('mapauto'); au.innerHTML='';
+  if(S.ui.mapView){ const b=document.createElement('button'); b.type='button'; b.className='linky'; b.textContent='Auto'; b.title='Karte folgt wieder dem Schiff'; b.onclick=()=>setView(null); au.appendChild(b); }
+  else { au.textContent='Auto'; au.title='Die Karte folgt dem Schiff'; }
+  $('legend').textContent = v.level==='sol'
+    ? 'Planet antippen für Details, doppelt antippen zum Näheransehen. Bernstein gestrichelt: wo das Ziel für ein ideales Fenster stehen müsste. Grün gestrichelt: Ziele deiner Fracht.'
+    : v.level==='sys' ? 'Planet, Mond oder Orbit antippen, doppelt antippen für die Landeplätze. Grüner Punkt: Tankstelle dort. Grün gestrichelt: Ziel deiner Fracht.'
+    : 'Landeplatz oder Orbit antippen. Grüner Punkt: Tankstelle. Grün gestrichelt: Ziel deiner Fracht.';
+}
+
+// ---------- Kartennavigation: Zeichnen ----------
+const cv=$('cv'), ctx=cv.getContext('2d');
+const sc=$('sys'), sctx=sc.getContext('2d');
+let HITS=[];
+// Während einer Zeitraffer-Animation drehen sich schnelle Monde sonst viele Male (wildes Kreiseln).
+// Deshalb laufen sie in der Animation höchstens eine Runde vorwärts und landen genau auf ihrer echten Position.
+function moonAngle(m,day){
+  const base=MOONS.indexOf(m)*1.7, P=M[m].P, A=S&&S.anim;
+  if(A && A.d1>A.d0 && day>=A.d0-1e-9 && day<=A.d1+1e-9){
+    const a0=TAU*A.d0/P, a1=TAU*A.d1/P, res=((a1-a0)%TAU+TAU)%TAU;
+    return a0 + res*(day-A.d0)/(A.d1-A.d0) + base;
+  }
+  return TAU*day/P + base;
+}
+// Canvas an den Platz anpassen: mobil volle Breite, Desktop so groß, wie Breite und Fensterhöhe erlauben
+function fitCanvas(canvas, aspect){
+  const st=$('stage'); let W=st.clientWidth;
+  if(W<1){ const cw=parseFloat(canvas.style.width)||0; return [cw, cw/aspect]; } // ausgeblendet: Größe behalten
+  if(isDesk()){ const h=st.clientHeight; if(h>60) W=Math.min(W, h*aspect); }
+  W=Math.max(0,Math.floor(W)); const H=Math.floor(W/aspect);
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  return [W,H];
+}
+const moveProg = () => { const m=S.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.day-m.d0)/(m.d1-m.d0))) : 1; };
+// Punkt auf quadratischer Bézierkurve samt Richtung
+function bez(P0,C,P1,t){ const u=1-t;
+  return {x:u*u*P0[0]+2*u*t*C[0]+t*t*P1[0], y:u*u*P0[1]+2*u*t*C[1]+t*t*P1[1],
+    dx:2*u*(C[0]-P0[0])+2*t*(P1[0]-C[0]), dy:2*u*(C[1]-P0[1])+2*t*(P1[1]-C[1])}; }
+function drawPath(g,P0,C,P1,col){ g.save(); g.strokeStyle=col; g.globalAlpha=.55; g.setLineDash([3,4]); g.lineWidth=1.5; g.beginPath(); g.moveTo(P0[0],P0[1]); g.quadraticCurveTo(C[0],C[1],P1[0],P1[1]); g.stroke(); g.restore(); }
+const isPick = p => { const q=S.ui.pick; if(!q||!p||q.type!==p.type) return false;
+  return q.type==='planet'?q.planet===p.planet : q.type==='body'?q.body===p.body : q.node===p.node && (q.site||null)===(p.site||null); };
+const cargoTo = test => cargoOrders().filter(o=>test(KBY[o.to]));
+
+// ---------- Rakete: Lage folgt der Schubrichtung, dreht sich sichtbar vor dem Brennen ----------
+const HEAD = {};
+const angNorm = a => ((a+Math.PI)%TAU+TAU)%TAU-Math.PI;
+// velAng: Flugrichtung (Bildschirmwinkel), burn: brennt gerade ('pro'|'retro'), soon: brennt gleich, att: gewünschte Lage ohne Brennen
+function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
+  const want = s => s==='retro' ? velAng+Math.PI : s==='up' ? att.up : velAng;
+  const mode = burn || soon || (att && att.mode) || 'pro';
+  const target = mode==='up' ? att.up : want(mode);
+  const now=performance.now(), h=HEAD[key];
+  let a=target, turning=0;
+  if(h && now-h.t<400){
+    const rate=3.2*(ANIM.fast?FAST:1)*(now-h.t)/1000, d=angNorm(target-h.a);
+    a = Math.abs(d)<=rate ? target : h.a+Math.sign(d)*rate; turning=Math.abs(d)>0.25?Math.sign(d):0;
+  }
+  HEAD[key]={a,t:now};
+  g.save(); g.translate(x,y); g.rotate(-a);
+  // Flamme aus der Düse: flackernd, spitz zulaufend
+  if(burn){
+    const L=11+Math.random()*7, w=3.4+Math.random()*0.8;
+    const gr=g.createLinearGradient(-9.5,0,-9.5-L,0); gr.addColorStop(0,'rgba(255,250,220,0.95)'); gr.addColorStop(0.35,'rgba(255,190,80,0.9)'); gr.addColorStop(1,'rgba(255,90,30,0)');
+    g.fillStyle=gr; g.beginPath(); g.moveTo(-9,-w*0.7); g.quadraticCurveTo(-9.5-L*0.45,-w,-9.5-L,0); g.quadraticCurveTo(-9.5-L*0.45,w,-9,w*0.7); g.closePath(); g.fill();
+  }
+  g.restore();
+  rocketMesh(g,x,y,a,key);
+  // Steuerdüsen-Stöße an der Spitze beim Drehen
+  if(turning){ g.save(); g.translate(x,y); g.rotate(-a); g.fillStyle='rgba(235,240,255,0.8)'; const sy=turning>0?6.5:-6.5; for(let i=0;i<2;i++){ g.beginPath(); g.arc(5-i*2.5, sy*(1+i*0.4)+(Math.random()-0.5), 1.2+Math.random()*0.8,0,TAU); g.fill(); } g.restore(); }
+}
+// 3D-Rakete aus Hanseatic Galaxy (SimpleRocket, auf ~600 Dreiecke vereinfacht, Farben aus der 4×4-Palette)
+const RKT={s:0.00495309,v:[-10,-8,-52,13,8,-51,-12,7,-51,16,-8,-51,30,9,-45,30,-8,-45,37,6,-37,38,-8,-38,45,9,-30,45,-8,-30,51,7,-10,52,-8,-10,51,7,15,51,-8,16,45,9,30,45,-8,30,37,6,37,38,-8,38,30,9,45,30,-8,45,13,8,51,16,-8,51,-12,7,51,-10,-8,52,-30,9,45,-30,-8,45,-37,6,37,-38,-8,38,-45,9,30,-45,-8,30,-51,7,15,-51,-8,16,-51,7,-10,-52,-8,-10,-45,9,-30,-45,-8,-30,-37,6,-37,-38,-8,-38,-30,9,-45,-30,-8,-45,-48,-28,14,-45,-46,-4,-49,-28,-10,-45,-46,9,9,-46,-45,14,-71,-34,17,-46,-42,14,-28,-48,48,-28,14,32,-46,32,35,-28,35,42,-46,17,-35,-28,35,-32,-46,32,-35,-28,-35,-32,-46,-32,49,-28,-10,45,-46,-4,42,-46,-17,14,-28,48,-4,-46,45,-10,-28,49,9,-46,45,32,-46,-32,35,-28,-35,-17,-46,-42,-10,-28,-49,-42,-46,-17,-42,-46,17,-4,-46,-45,45,-46,9,-17,-46,42,17,-46,42,-26,-93,-8,-12,-94,-11,-11,-71,-35,-26,-71,-26,-11,-71,35,14,-71,34,26,-71,-26,35,-71,-11,-26,-71,26,-34,-71,14,34,-71,14,-35,-71,-11,26,-71,26,-8,-93,-26,11,-93,-25,11,-94,-11,26,-93,-8,25,-93,11,12,-94,12,11,-93,25,-8,-93,26,-11,-94,12,-25,-93,11,48,35,15,45,55,-4,49,35,-10,45,55,9,-9,55,-45,-11,80,-35,-17,55,-42,-15,35,-48,-48,35,15,-32,55,32,-36,35,36,-42,55,17,36,35,36,32,55,32,36,35,-36,32,55,-32,-49,35,-10,-45,55,-4,-42,55,-17,-15,35,48,4,55,45,10,35,49,-9,55,45,-32,55,-32,-36,35,-36,17,55,-42,10,35,-49,42,55,-17,42,55,17,4,55,-45,-45,55,9,17,55,42,-17,55,42,14,80,-34,26,80,-26,11,80,35,-14,80,34,-26,80,-26,-35,80,-11,26,80,26,34,80,14,-34,80,14,35,80,-11,-26,80,26,-5,103,-23,7,103,-23,-17,103,-17,-23,103,-5,-23,103,7,-17,103,17,-7,103,23,5,103,23,17,103,17,23,103,7,23,103,-5,17,103,-17,-7,119,9,-6,121,-6,9,119,-7,8,119,8,-14,-72,44,-14,-81,25,-14,-52,38,-13,-96,32,12,-81,23,13,-96,30,14,-72,44,8,-29,47,14,-52,38,9,-57,59,-9,-57,59,-9,-83,65,-7,-107,69,-4,-127,73,-8,-127,69,-8,-29,47,-10,-127,57,8,-127,69,10,-127,57,-11,-116,41,11,-127,45,11,-116,40,-10,-127,46,-11,-107,53,11,-107,53,7,-107,69,4,-127,73,8,-83,66,-12,-91,50,11,-104,34,12,-91,50,-12,-104,36,-31,-72,-34,-15,-81,-24,-26,-52,-31,-21,-96,-28,-26,-81,-1,-33,-96,-4,-45,-72,-10,-45,-29,-16,-40,-52,-7,-55,-58,-19,-44,-58,-39,-52,-83,-40,-52,-56,-30,-56,-107,-41,-61,-127,-40,-55,-127,-42,-35,-30,-32,-44,-127,-37,-64,-127,-29,-54,-127,-19,-30,-116,-30,-45,-127,-13,-40,-116,-10,-35,-127,-32,-41,-107,-36,-52,-107,-17,-64,-107,-28,-39,-28,-28,-61,-83,-29,-61,-84,-22,-37,-91,-36,-35,-104,-7,-49,-91,-14,-25,-104,-28,45,-72,-10,28,-81,-1,40,-52,-7,34,-96,-4,14,-81,-22,20,-96,-26,31,-72,-34,35,-30,-32,26,-52,-31,44,-58,-39,55,-58,-19,61,-83,-29,61,-84,-22,52,-56,-30,64,-107,-28,64,-127,-30,44,-29,-16,54,-127,-19,55,-127,-42,44,-127,-37,41,-116,-11,33,-127,-32,29,-116,-30,45,-127,-15,52,-107,-17,41,-107,-36,56,-107,-41,39,-28,-28,61,-127,-40,53,-83,-40,49,-91,-14,24,-104,-27,37,-91,-36,37,-104,-8,-9,-94,11,-8,-102,10,-23,-96,-7,-10,-102,-9,-22,-96,9,9,-94,-9,9,-102,-9,10,-102,10,10,-94,10,-11,-94,-9,-23,-123,-23,-27,-125,-9,22,-96,9,17,-96,17,9,-96,22,7,-96,-23,-17,-96,-17,-9,-96,-22,-7,-96,23,17,-96,-17,23,-96,-7,-17,-96,17,11,-125,-27,23,-123,-23,11,-125,27,23,-123,23,7,-122,-34,-3,-122,-34,7,-122,34,-3,-122,34,-9,-125,-27,-9,-125,27,-23,-123,23,27,-125,-9,34,-122,-3,-27,-125,11,34,-122,7,-34,-122,7,27,-125,11,-34,-122,-3,18,-107,8,19,-107,-6,-18,-107,8,-19,-107,-6,8,-107,18,8,-107,-18,-6,-107,-19,-6,-107,19,8,-108,8,7,-70,8,8,-70,-6,-7,-70,7,8,-108,-7,-7,-108,-7,-7,-70,-8,-7,-108,8],f:[0,1,2,12,0,3,1,12,3,4,1,12,3,5,4,12,5,6,4,12,5,7,6,12,7,8,6,12,7,9,8,12,9,10,8,12,9,11,10,12,11,12,10,12,11,13,12,12,13,14,12,12,13,15,14,12,15,16,14,12,15,17,16,12,17,18,16,12,17,19,18,12,19,20,18,12,19,21,20,12,21,22,20,12,21,23,22,12,23,24,22,12,23,25,24,12,25,26,24,12,25,27,26,12,27,28,26,12,27,29,28,12,29,30,28,12,29,31,30,12,31,32,30,12,31,33,32,12,33,34,32,12,33,35,34,12,35,36,34,12,35,37,36,12,37,38,36,12,37,39,38,12,39,2,38,12,39,0,2,12,40,41,42,12,40,43,41,12,44,45,46,12,47,44,46,12,48,49,50,12,48,51,49,12,56,58,57,12,59,60,61,12,59,62,60,12,47,63,64,12,47,46,63,12,54,65,66,12,54,55,65,12,42,41,67,12,52,68,40,12,52,53,68,12,66,65,69,12,56,70,48,12,56,57,70,12,61,60,71,12,42,55,54,12,42,67,55,12,50,72,59,12,50,49,72,12,40,68,43,12,66,44,47,12,66,69,44,12,48,70,51,12,61,53,52,12,61,71,53,12,64,58,56,12,64,63,58,12,59,72,62,12,55,76,75,12,62,77,60,12,62,78,77,12,46,45,63,12,55,75,65,12,63,45,79,12,65,75,69,12,60,77,71,12,63,79,80,12,71,77,53,12,63,80,58,12,53,77,81,12,58,80,57,12,53,81,82,12,53,82,68,12,57,83,70,12,57,80,83,12,68,82,43,12,70,83,51,12,43,84,41,12,43,82,84,12,51,83,49,12,49,83,85,12,41,84,67,12,49,85,78,12,67,84,55,12,49,78,72,12,69,45,44,12,69,75,45,12,55,84,76,12,72,78,62,12,0,47,3,12,0,66,47,12,75,87,45,12,75,86,87,12,3,64,5,12,3,47,64,12,5,64,7,12,7,64,9,12,45,88,79,12,45,87,88,12,9,56,11,12,9,64,56,12,79,89,80,12,79,88,89,12,11,48,13,12,11,56,48,12,80,90,83,12,80,89,90,12,13,50,15,12,13,48,50,12,15,50,17,12,17,50,19,12,83,91,85,12,83,90,91,12,19,59,21,12,19,50,59,12,85,92,78,12,85,91,92,12,21,61,23,12,21,59,61,12,78,93,77,12,78,92,93,12,23,52,25,12,23,61,52,12,25,52,27,12,27,52,29,12,77,94,81,12,77,93,94,12,29,40,31,12,29,52,40,12,81,95,82,12,81,94,95,12,31,42,33,12,31,40,42,12,82,73,84,12,82,95,73,12,33,54,35,12,33,42,54,12,35,54,37,12,37,54,39,12,84,74,76,12,84,73,74,12,39,66,0,12,39,54,66,12,76,86,75,12,76,74,86,12,86,88,87,12,92,94,93,12,92,91,94,12,86,74,88,12,89,91,90,12,89,88,91,12,95,74,73,12,95,94,74,12,20,16,18,12,24,26,22,12,10,6,8,12,14,16,12,12,4,6,1,12,2,36,38,12,30,26,28,12,34,36,32,12,96,97,98,12,96,99,97,12,100,101,102,12,103,100,102,12,104,105,106,12,104,107,105,12,112,114,113,12,115,116,117,12,115,118,116,12,103,119,120,12,103,102,119,12,110,121,122,12,110,111,121,12,98,97,123,12,108,124,96,12,108,109,124,12,122,121,125,12,112,126,104,12,112,113,126,12,117,116,127,12,98,111,110,12,98,123,111,12,106,128,115,12,106,105,128,12,96,124,99,12,122,100,103,12,122,125,100,12,104,126,107,12,117,109,108,12,117,127,109,12,120,114,112,12,120,119,114,12,115,128,118,12,111,130,129,12,118,131,116,12,118,132,131,12,102,101,119,12,111,129,121,12,119,101,133,12,121,129,125,12,116,131,127,12,119,133,134,12,125,129,101,12,127,131,109,12,119,134,114,12,109,131,135,12,114,134,113,12,109,135,136,12,109,136,124,12,113,137,126,12,113,134,137,12,124,136,99,12,126,137,107,12,99,138,97,12,99,136,138,12,107,137,105,12,105,137,139,12,97,138,123,12,105,139,132,12,123,138,111,12,105,132,128,12,125,101,100,12,111,138,130,12,128,132,118,12,129,140,101,12,129,141,140,12,1,103,2,12,1,122,103,12,2,120,38,12,2,103,120,12,38,120,36,12,101,140,142,12,36,120,34,12,101,142,133,12,34,112,32,12,34,120,112,12,133,142,134,12,134,142,143,12,32,104,30,12,32,112,104,12,134,144,137,12,134,143,144,12,30,106,28,12,30,104,106,12,28,106,26,12,137,144,145,12,26,106,24,12,137,145,139,12,24,115,22,12,24,106,115,12,139,145,132,12,132,145,146,12,22,117,20,12,22,115,117,12,132,147,131,12,132,146,147,12,20,108,18,12,20,117,108,12,18,108,16,12,131,147,148,12,16,108,14,12,131,148,135,12,14,96,12,12,14,108,96,12,135,148,136,12,136,148,149,12,12,98,10,12,12,96,98,12,136,150,138,12,136,149,150,12,10,110,8,12,10,98,110,12,8,110,6,12,138,150,151,12,6,110,4,12,138,151,130,12,4,122,1,12,4,110,122,12,130,151,129,12,129,151,141,12,144,152,145,12,149,154,150,12,149,155,154,12,143,152,144,12,143,153,152,12,148,155,149,12,142,153,143,12,147,155,148,12,141,153,140,12,141,154,153,12,147,152,155,12,151,154,141,12,140,153,142,12,146,152,147,12,145,152,146,12,150,154,151,12,152,153,155,12,155,153,154,12,156,157,158,9,156,159,157,9,159,160,157,9,159,161,160,9,162,163,164,9,162,165,163,9,168,169,170,9,164,171,158,9,164,163,171,9,172,173,174,9,172,170,173,9,175,176,177,9,175,178,176,9,179,178,175,9,179,172,178,9,180,173,181,9,180,174,173,9,165,171,163,9,165,166,171,9,181,169,168,9,181,182,169,9,170,182,173,9,170,169,182,9,177,174,180,9,177,176,174,9,168,172,179,9,168,170,172,9,178,174,176,9,178,172,174,9,160,158,157,9,160,164,158,9,161,164,160,9,161,162,164,9,166,158,171,9,166,156,158,9,167,179,184,9,167,168,179,9,185,180,186,9,185,177,180,9,173,182,181,9,183,168,167,9,183,181,168,9,186,181,183,9,186,180,181,9,184,175,187,9,184,179,175,9,187,177,185,9,187,175,177,9,167,156,166,9,167,184,156,9,185,162,161,9,185,186,162,9,183,166,165,9,183,167,166,9,186,165,162,9,186,183,165,9,187,161,159,9,187,185,161,9,184,159,156,9,184,187,159,9,188,189,190,9,188,191,189,9,191,192,189,9,191,193,192,9,194,195,196,9,194,197,195,9,198,200,199,9,201,202,203,9,196,204,190,9,196,195,204,9,205,206,207,9,205,203,206,9,208,209,210,9,208,211,209,9,212,211,208,9,212,205,211,9,213,206,214,9,213,207,206,9,200,215,195,9,214,202,201,9,214,206,202,9,214,216,217,9,203,202,206,9,195,215,204,9,197,200,195,9,210,207,213,9,210,209,207,9,201,205,212,9,201,203,205,9,211,207,209,9,211,205,207,9,192,190,189,9,192,196,190,9,193,196,192,9,193,194,196,9,198,190,204,9,198,188,190,9,199,212,218,9,199,201,212,9,219,213,220,9,219,210,213,9,216,201,199,9,216,214,201,9,220,214,217,9,220,213,214,9,218,208,221,9,218,212,208,9,221,210,219,9,221,208,210,9,199,188,198,9,199,218,188,9,219,194,193,9,219,220,194,9,217,200,197,9,217,216,200,9,216,199,200,9,204,200,198,9,204,215,200,9,220,197,194,9,220,217,197,9,221,193,191,9,221,219,193,9,218,191,188,9,218,221,191,9,222,223,224,9,222,225,223,9,225,226,223,9,225,227,226,9,228,229,230,9,228,231,229,9,232,233,234,9,232,235,233,9,230,238,224,9,230,229,238,9,239,240,241,9,239,237,240,9,242,243,244,9,242,245,243,9,246,245,242,9,246,239,245,9,247,240,248,9,247,241,240,9,235,238,249,9,248,237,236,9,248,250,237,9,237,250,240,9,229,249,238,9,231,249,229,9,231,235,249,9,244,241,247,9,244,243,241,9,236,239,246,9,236,237,239,9,245,241,243,9,245,239,241,9,226,224,223,9,226,230,224,9,227,230,226,9,227,228,230,9,232,224,238,9,232,222,224,9,234,246,252,9,234,236,246,9,253,247,254,9,253,244,247,9,240,250,248,9,251,236,233,9,251,248,236,9,254,248,251,9,254,247,248,9,252,242,255,9,252,246,242,9,255,244,253,9,255,242,244,9,234,233,236,9,234,222,232,9,234,252,222,9,253,228,227,9,253,254,228,9,251,235,231,9,251,233,235,9,238,235,232,9,254,231,228,9,254,251,231,9,255,227,225,9,255,253,227,9,252,225,222,9,252,255,225,9,257,258,259,5,257,260,258,5,261,263,264,5,261,262,263,5,256,259,265,5,256,257,259,5,264,257,256,5,264,263,257,5,265,262,261,5,265,259,262,5,258,267,266,5,263,268,269,5,263,269,270,5,259,258,272,5,259,272,273,5,263,274,257,5,263,270,274,5,262,271,275,5,262,275,276,5,259,271,262,5,259,273,271,5,257,274,277,5,257,277,260,5,262,268,263,5,262,276,268,5,270,281,280,5,271,283,282,5,258,266,272,5,270,280,284,5,271,282,278,5,272,266,273,5,270,285,274,5,270,284,285,5,271,278,279,5,273,266,286,5,271,279,275,5,273,286,283,5,274,285,287,5,275,279,276,5,273,283,271,5,274,287,288,5,276,279,289,5,274,288,277,5,276,289,290,5,277,288,260,5,260,288,291,5,276,292,268,5,276,290,292,5,260,291,293,5,268,292,294,5,260,295,258,5,260,293,295,5,268,294,281,5,268,281,269,5,258,295,267,5,269,281,270,5,289,296,294,5,289,297,296,5,290,294,292,5,290,289,294,5,293,267,295,5,293,291,267,5,283,278,282,5,283,286,278,5,284,287,285,5,284,280,287,5,291,299,267,5,291,298,299,5,294,263,281,5,294,296,263,5,281,300,280,5,281,263,300,5,286,301,278,5,286,302,301,5,267,259,266,5,267,299,259,5,266,302,286,5,266,259,302,5,280,303,287,5,280,300,303,5,278,262,279,5,278,301,262,5,279,297,289,5,279,262,297,5,287,257,288,5,287,303,257,5,288,298,291,5,288,257,298,5,302,262,301,5,302,259,262,5,300,257,303,5,300,263,257,5,297,263,296,5,297,262,263,5,298,259,299,5,298,257,259,5,306,307,305,0,304,307,311,0,304,305,307,0,308,305,304,0,308,306,305,0,311,310,309,0,311,307,310,0,309,306,308,0,309,310,306,0,310,307,306,0]};
+const RKT_PAL=['#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8','#ffccaa'].map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
+const RKT_LEN=22, RKT_TILT=0.38; // Länge in px; Nase leicht zum Betrachter gekippt, damit man die Form sieht
+const RKT_ROLL={};
+function rocketMesh(g,x,y,a,key){
+  const n=RKT.v.length/3, sc=RKT.s*RKT_LEN/1.25;
+  // langsames Rollen um die Längsachse
+  const now=performance.now(), r=RKT_ROLL[key]||(RKT_ROLL[key]={roll:0.6,t:now}); r.roll+=Math.min(0.1,(now-r.t)/1000)*0.5; r.t=now;
+  const cr=Math.cos(r.roll), sr=Math.sin(r.roll), ct=Math.cos(RKT_TILT), st=Math.sin(RKT_TILT), ca=Math.cos(a-Math.PI/2), sa=Math.sin(a-Math.PI/2);
+  const X=new Float32Array(n), Y=new Float32Array(n), Z=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    let px=RKT.v[3*i]*sc, py=RKT.v[3*i+1]*sc, pz=RKT.v[3*i+2]*sc;
+    // Rollen um Y
+    let qx=px*cr+pz*sr, qz=-px*sr+pz*cr;
+    // Kippen um X: Nase (+Y) zum Betrachter (+Z)
+    let qy=py*ct-qz*st; qz=py*st+qz*ct;
+    // in Flugrichtung drehen (Bildschirm: x rechts, y oben)
+    X[i]=qx*ca-qy*sa; Y[i]=qx*sa+qy*ca; Z[i]=qz;
+  }
+  const F=RKT.f, m=F.length/4, ord=new Array(m), dep=new Float32Array(m);
+  for(let k=0;k<m;k++){ ord[k]=k; dep[k]=Z[F[4*k]]+Z[F[4*k+1]]+Z[F[4*k+2]]; }
+  ord.sort((p,q)=>dep[p]-dep[q]);
+  const L=[-0.5,0.45,0.74];
+  g.save(); g.lineJoin='round'; g.lineWidth=0.35;
+  for(const k of ord){
+    const A=F[4*k],B=F[4*k+1],C=F[4*k+2];
+    const ux=X[B]-X[A], uy=Y[B]-Y[A], uz=Z[B]-Z[A], vx=X[C]-X[A], vy=Y[C]-Y[A], vz=Z[C]-Z[A];
+    let nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx; const nl=Math.hypot(nx,ny,nz)||1; if(nz<0){nx=-nx;ny=-ny;nz=-nz;}
+    const d=Math.max(0,(nx*L[0]+ny*L[1]+nz*L[2])/nl), lum=0.32+0.78*d, c=RKT_PAL[F[4*k+3]];
+    const col=`rgb(${Math.min(255,c[0]*lum)|0},${Math.min(255,c[1]*lum)|0},${Math.min(255,c[2]*lum)|0})`;
+    g.fillStyle=col; g.strokeStyle=col; g.beginPath(); g.moveTo(x+X[A],y-Y[A]); g.lineTo(x+X[B],y-Y[B]); g.lineTo(x+X[C],y-Y[C]); g.closePath(); g.fill(); g.stroke();
+  }
+  g.restore();
+}
+function shipGlyph(g,x,y,ang,col){ g.save(); g.translate(x,y); g.rotate(-ang); g.fillStyle=col; g.beginPath(); g.moveTo(7,0); g.lineTo(-5,4.5); g.lineTo(-3,0); g.lineTo(-5,-4.5); g.closePath(); g.fill(); g.restore(); }
+function prep(canvas,g,W,H){ const dpr=window.devicePixelRatio||1;
+  if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }
+  g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); }
+const cssv = () => { const css=getComputedStyle(document.documentElement); return n=>css.getPropertyValue(n).trim(); };
+
+function draw(){
+  const v=mapView(); renderCrumbs(v); HITS=[];
+  cv.hidden=v.level==='sys'; sc.hidden=v.level!=='sys';
+  if(v.level==='sys') drawSys(v.planet); else if(v.level==='body') drawBody(v.body); else drawSol();
+}
+
+// Transferbahn als Kegelschnitt um die Sonne durch Start (Radius r1) und Ziel (r2) über den Winkel dth.
+// Nach außen: Perihel beim Start; nach innen: Aphel beim Start (für dth = 180° genau der Hohmann-Übergang).
+// Zeitlich nach Kepler: gleiche Flächen in gleichen Zeiten, also schnell nah an der Sonne, langsam weit draußen.
+function transferConic(r1,r2,dth){
+  const out=r2>=r1;
+  let e = out ? (r2-r1)/(r1-r2*Math.cos(dth)) : (r1-r2)/(r1-r2*Math.cos(dth));
+  // gültige Ellipse nur für 0 ≤ e < 1 und dth deutlich > 0; sonst Rückfall auf weiche Überblendung
+  const ok = isFinite(e) && e>=0 && e<0.97 && dth>0.2;
+  if(!ok){ const f=s=>({r:r1+(r2-r1)*(0.5-0.5*Math.cos(Math.PI*s)), th:dth*s}); return {at:f, geo:s=>{const q=f(s); return [q.r,q.th];}}; }
+  const p = out ? r1*(1+e) : r1*(1-e);
+  const nu0 = out ? 0 : Math.PI, nu1 = nu0+dth;
+  const rOfNu = nu => p/(1+e*Math.cos(nu));
+  const Mof = nu => { const E=2*Math.atan2(Math.sqrt(1-e)*Math.sin(nu/2), Math.sqrt(1+e)*Math.cos(nu/2)); return E-e*Math.sin(E); };
+  // mittlere Anomalie stetig machen (über 2π hinaus)
+  const unwrap=(m,ref)=>{ while(m<ref-1e-9) m+=TAU; return m; };
+  const M0=Mof(nu0), M1=unwrap(Mof(nu1),M0);
+  const at=s=>{ const Mt=M0+(M1-M0)*s; const nu=keplerNu(Mt,e); let d=((nu-nu0)%TAU+TAU)%TAU; if(s>0.999) d=dth; return {r:rOfNu(nu0+d), th:d}; };
+  return {at, geo:s=>{ const nu=nu0+dth*s; return [rOfNu(nu), dth*s]; }};
+}
+function drawSol(){
+  const [W]=fitCanvas(cv,1); if(W<60) return; prep(cv,ctx,W,W);
+  const v=cssv(), c=W/2, maxR=W/2-20;
+  const rOf=a=>16+(maxR-16)*Math.sqrt(a/9.537);
+  const pos=(k,day)=>{const th=theta(k,day), r=rOf(B[k].a); return [c+r*Math.cos(th), c-r*Math.sin(th)];};
+  ctx.lineWidth=1; ctx.strokeStyle=v('--orbit');
+  PLANETS.forEach(k=>{ctx.beginPath(); ctx.arc(c,c,rOf(B[k].a),0,TAU); ctx.stroke();});
+  ctx.fillStyle=v('--sun'); ctx.beginPath(); ctx.arc(c,c,6,0,TAU); ctx.fill();
+  const from=homePlanet(), tgt=S.target;
+  if(from && tgt && tgt!==from){
+    const t=transfer(from,tgt,S.day), thA=theta(from,S.day), thG=thA+t.phiStar, rT=rOf(B[tgt].a);
+    ctx.strokeStyle=t.d<0.04?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(c,c); ctx.lineTo(c+rT*Math.cos(thG), c-rT*Math.sin(thG)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(c+rT*Math.cos(thG), c-rT*Math.sin(thG), 10,0,TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha=.5; ctx.beginPath(); ctx.moveTo(c,c); const [ax,ay]=pos(from,S.day); ctx.lineTo(ax,ay); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.lineWidth=2; ctx.beginPath(); ctx.arc(c,c,26,-thA,-thG,t.phiStar>0); ctx.stroke();
+  }
+  ctx.font=`500 12px 'Saira Semi Condensed', 'Arial Narrow', sans-serif`; ctx.textBaseline='middle';
+  const dests=new Set(cargoOrders().map(o=>planetOfBody(bodyOf(KBY[o.to]))));
+  PLANETS.forEach(k=>{
+    const [x,y]=pos(k,S.day), big=k==='jupiter'||k==='saturn'?6:k==='ceres'?3.5:4.5;
+    ctx.fillStyle=bodyColor(k); ctx.beginPath(); ctx.arc(x,y,big,0,TAU); ctx.fill();
+    if(dests.has(k)){ ctx.strokeStyle=v('--good'); ctx.lineWidth=1.5; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.arc(x,y,big+8,0,TAU); ctx.stroke(); ctx.setLineDash([]); }
+    if(isPick({type:'planet',planet:k})){ ctx.strokeStyle=v('--accent'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,big+13,0,TAU); ctx.stroke(); }
+    const th=theta(k,S.day), lx=x+Math.cos(th)*16, ly=y-Math.sin(th)*16;
+    ctx.fillStyle=isPick({type:'planet',planet:k})?v('--text'):v('--muted'); ctx.textAlign=Math.cos(th)>0.3?'left':Math.cos(th)<-0.3?'right':'center';
+    ctx.fillText(B[k].name,lx,ly);
+    HITS.push({canvas:cv,x,y,r:24,pick:{type:'planet',planet:k}});
+    const ms=moonsOf(k); ctx.fillStyle=v('--muted');
+    ms.forEach((m,i)=>{ const a=moonAngle(m,S.day), r=big+4+i*2.5; ctx.beginPath(); ctx.arc(x+r*Math.cos(a), y-r*Math.sin(a), 1.3,0,TAU); ctx.fill(); });
+  });
+  if(S.transit){
+    const T=S.transit, rA=rOf(B[T.a].a), rB=rOf(B[T.b].a), dth=((T.th1-T.th0)%TAU+TAU)%TAU;
+    const K=transferConic(rA,rB,dth);
+    const pt=s=>{ const q=K.at(s), th=T.th0+q.th; return [c+q.r*Math.cos(th), c-q.r*Math.sin(th)]; };
+    ctx.strokeStyle=v('--accent'); ctx.setLineDash([3,4]); ctx.lineWidth=1.5; ctx.beginPath();
+    for(let i=0;i<=96;i++){const [x,y]=K.geo(i/96).map((z,j)=>z); const th=T.th0+y; const X=c+x*Math.cos(th), Y=c-x*Math.sin(th); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.stroke(); ctx.setLineDash([]);
+    const p=Math.min(1,Math.max(0,(S.day-T.dep)/(T.arr-T.dep))), [x,y]=pt(p), [x2,y2]=pt(Math.min(1,p+0.01));
+    // Brennen beim Abflug (vorwärts) und bei der Ankunft (bremsen), davor dreht die Rakete
+    const bAt=q=>q<0.04?'pro':q>0.955?'retro':null;
+    drawRocket(ctx,'sol',x,y,Math.atan2(-(y2-y),x2-x),bAt(p),bAt(Math.min(1,p+0.05)),null,v('--accent'));
+  } else if(S.node){
+    const k=homePlanet(), [x,y]=pos(k,S.day), th=theta(k,S.day), off=k==='jupiter'||k==='saturn'?18:13;
+    drawRocket(ctx,'solpark',x-Math.sin(th)*off, y-Math.cos(th)*off, th+Math.PI/2, null,null,null, v('--accent'));
+  }
+}
+// ---------- Erde: vereinfachte Kontinente (Länge, Breite in Grad), orthografisch mit Blick auf 8° W ----------
+const EARTH_LON0 = -8;
+const LAND = [
+  // Nordamerika
+  [[-165,65],[-160,70],[-140,70],[-120,70],[-95,72],[-80,70],[-75,63],[-65,60],[-55,52],[-60,47],[-66,45],[-70,42],[-76,38],[-76,35],[-81,31],[-80.2,28.5],[-80,25],[-81.5,25.5],[-82.6,28],[-85,30],[-90,29],[-97,27],[-97,21],[-94,18],[-90,21],[-87,21],[-88,16],[-83,11],[-78,8],[-80,7],[-86,12],[-92,14],[-105,20],[-110,24],[-112,29],[-115,30],[-117,33],[-121,35],[-124,40],[-124,47],[-128,51],[-135,57],[-145,60],[-155,58],[-165,55],[-160,60]],
+  // Grönland (Eis)
+  [[-55,60],[-45,60],[-40,65],[-22,70],[-20,78],[-30,83],[-60,82],[-70,77],[-58,70],[-52,65]],
+  // Südamerika
+  [[-77,8],[-72,12],[-62,11],[-58,7.5],[-54.5,6.5],[-52.3,5.6],[-51,4],[-50,0],[-45,-2],[-35,-5],[-37,-12],[-39,-17],[-41,-22],[-48,-26],[-53,-34],[-58,-38],[-62,-39],[-65,-42],[-66,-47],[-69,-52],[-72,-54],[-74,-50],[-74,-42],[-72,-33],[-71,-25],[-70,-18],[-76,-14],[-80,-6],[-81,-3],[-80,1],[-78,4]],
+  // Afrika
+  [[-17,21],[-16,15],[-15,11],[-12,7],[-8,4],[-2,5],[5,6],[9,4],[10,1],[9,-2],[12,-6],[13,-12],[12,-17],[15,-27],[18,-34],[21,-34],[27,-33],[32,-28],[35,-22],[35,-18],[40,-15],[40,-10],[39,-5],[43,0],[48,5],[51,11],[44,11],[43,13],[39,18],[35,24],[33,30],[30,31],[20,32],[15,32],[10,34],[10,37],[3,37],[-5,36],[-9,33],[-10,29],[-13,27]],
+  // Madagaskar
+  [[44,-25],[47,-25],[50,-16],[49,-12],[44,-17]],
+  // Eurasien
+  [[-9,37],[-9,43],[-2,44],[-5,48],[0,49],[4,52],[8,54],[8,57],[5,59],[5,62],[12,65],[15,69],[22,70],[30,70],[40,67],[44,68],[60,69],[70,73],[80,73],[100,77],[115,74],[130,71],[140,72],[160,70],[180,68],[180,65],[170,62],[160,58],[156,51],[142,47],[140,40],[130,35],[122,31],[120,24],[110,20],[108,16],[105,9],[100,13],[99,8],[103,1],[98,8],[97,17],[92,22],[88,22],[80,15],[77,8],[73,17],[67,25],[57,25],[56,27],[50,30],[48,29],[52,24],[59,22],[55,17],[45,13],[43,15],[39,21],[35,28],[34,31],[35,36],[28,37],[26,40],[23,38],[20,40],[19,42],[13,45],[12,44],[16,40],[15,38],[12,42],[10,44],[3,43],[0,39],[-2,37]],
+  // Großbritannien
+  [[-5,50],[1,51],[2,53],[0,54],[-2,56],[-2,58],[-5,58],[-6,56],[-3,54],[-5,52]],
+  // Irland
+  [[-10,52],[-6,52],[-6,55],[-8,55],[-10,54]],
+  // Island
+  [[-24,64],[-14,64],[-14,66],[-22,66.5]],
+  // Australien
+  [[114,-22],[114,-34],[118,-35],[123,-34],[129,-32],[135,-35],[138,-35],[140,-38],[147,-39],[150,-37],[153,-32],[153,-25],[146,-19],[142,-11],[136,-12],[130,-12],[125,-15],[122,-18]],
+];
+const ICE = [0,1]; // Indizes mit Eis (Grönland = 1); Nordamerika bleibt Land
+const WATER = [
+  // Hudsonbucht, Ostsee, Schwarzes und Kaspisches Meer
+  [[-95,59],[-92,57],[-85,55],[-80,52],[-78,55],[-78,60],[-85,64],[-93,62]],
+  [[10,54.5],[20,54.5],[21,57],[23,59],[29,60],[22,60.5],[21,63],[25,65.5],[21,65],[17,62],[19,60],[16,57],[12,56]],
+  [[28,42],[33,41],[41,41],[40,44],[35,45],[31,46],[29,45]],
+  [[47,37],[54,37],[53,42],[51,45],[53,47],[49,47],[47,43]],
+];
+// ---------- 3D-Ansicht der Himmelskörper: echte Geometrie, feste leicht schräge Kamera ----------
+const D2R = Math.PI/180;
+const CAM_EL = 22*D2R;                 // Kamera 22° über (oder unter) der Äquatorebene
+const R_ORB = 1.3, R_HIGH = 1.62;      // Bahnradien in Körperradien (überhöht, damit man sie sieht)
+const LIGHT = (()=>{ const v=[-0.5,0.3,0.78], n=Math.hypot(...v); return v.map(x=>x/n); })(); // Licht von links oben vorn
+const vadd=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], vmul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2], vnorm=a=>vmul(a,1/(Math.hypot(...a)||1));
+// Blickmitte je Körper: so, dass möglichst viele Landeplätze auf der Vorderseite liegen
+const VIEW = {};
+function bodyView(b){
+  if(VIEW[b]) return VIEW[b];
+  const st=SITES[b]||[]; let best={lon:0,el:CAM_EL}, bs=-1e9;
+  for(const el of [CAM_EL,-CAM_EL]) for(let L=-180; L<180; L+=5){
+    if(b==='earth' && (L!==EARTH_LON0 || el<0)) continue; // Erde: Blick auf den Atlantik von Norden
+    let s=0; st.forEach(x=>{ const f=x.lat*D2R, d=(x.lon-L)*D2R;
+      const z=Math.sin(f)*Math.sin(el)+Math.cos(f)*Math.cos(d)*Math.cos(el); s+=(z>0.12?10:0)+z+(x.port?3*(z>0.12):0); });
+    if(el<0) s-=0.5; // bei Gleichstand lieber von Norden
+    if(s>bs){ bs=s; best={lon:L,el}; }
+  }
+  return VIEW[b]=best;
+}
+const bodyLon0 = b => bodyView(b).lon;
+// Körperfester Einheitsvektor (Y = Nordpol, Z = zur Blickmitte)
+const bvec=(b,lat,lon)=>{ const f=lat*D2R, L=(lon-bodyLon0(b))*D2R; return [Math.cos(f)*Math.sin(L), Math.sin(f), Math.cos(f)*Math.cos(L)]; };
+function makeCam(cx,cy,R,el){
+  const ce=Math.cos(el), se=Math.sin(el);
+  const view=p=>[p[0], p[1]*ce-p[2]*se, p[1]*se+p[2]*ce];
+  // hidden: hinter dem Körper verdeckt
+  const proj=p=>{ const q=view(p); return {x:cx+R*q[0], y:cy-R*q[1], z:q[2], hidden:q[2]<0 && q[0]*q[0]+q[1]*q[1]<1}; };
+  return {view, proj, cx, cy, R};
+}
+// Bahn: Neigung i, aufsteigender Knoten Om (Länge), Position über Argument u
+function orbitPos(b,o,u,r){ const N=bvec(b,0,o.Om), M=bvec(b,o.i,o.Om+90); return vmul(vadd(vmul(N,Math.cos(u)),vmul(M,Math.sin(u))),r); }
+// Bahn, die ostwärts über einen Landeplatz führt (Start genau nach Osten)
+function siteOrbit(st){ const i=Math.abs(st.lat); return st.lat>=0 ? {i, Om:st.lon-90, uSite:90*D2R} : {i, Om:st.lon+90, uSite:270*D2R}; }
+const defaultOrb = b => ({body:b, i:0, Om:bodyLon0(b)-90, u:90*D2R});
+const shipOrb = b => (S.orb && S.orb.body===b) ? S.orb : defaultOrb(b);
+// Kepler: exzentrische Anomalie aus mittlerer, dann wahre Anomalie
+function keplerNu(M,e){ let E=M; for(let k=0;k<8;k++) E-= (E-e*Math.sin(E)-M)/(1-e*Math.cos(E)); return 2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2), Math.sqrt(1-e)*Math.cos(E/2)); }
+const easeIn = t=>t*t, easeOut = t=>1-(1-t)*(1-t);
+
+// Flugbahn eines Manövers im Körperrahmen: at(t) -> {p, burn:'pro'|'retro'|null, glow}
+function bodyPath(mv){
+  const [fb,fl]=mv.from.node.split('.'), [tb,tl]=mv.to.node.split('.'), b=fb;
+  const atm=hasAtm(b);
+  // Start: senkrecht hoch, dann nach Osten in die Kreisbahn
+  if(fl==='surf' && tl==='orbit' && fb===tb){
+    const st=siteOf(b,mv.from.site)||{lat:0,lon:bodyLon0(b)}, o=siteOrbit(st), du=75*D2R;
+    return {b, finalOrb:{body:b,i:o.i,Om:o.Om,u:o.uSite+du},
+      at:t=>({p:orbitPos(b,o,o.uSite+du*easeIn(t),1+(R_ORB-1)*easeOut(t)), burn:t<0.88?'pro':null})};
+  }
+  // Landung: im alten Orbit bis zum Bremspunkt gleiten (Bahnebene dreht sich zur Landebahn), bremsen, absteigen, senkrecht aufsetzen
+  if(fl==='orbit' && tl==='surf' && fb===tb){
+    const st=siteOf(b,mv.to.site)||{lat:0,lon:bodyLon0(b)}, o=siteOrbit(st), c=mv.orb||shipOrb(b), arc=110*D2R;
+    const uDe=o.uSite-arc; let du=((uDe-c.u)%TAU+TAU)%TAU; if(du<0.6) du+=TAU;
+    const dOm=((o.Om-c.Om+540)%360)-180;
+    return {b, finalOrb:null, at:t=>{
+      if(t<0.38){ const s=t/0.38; const oo={i:c.i+(o.i-c.i)*s, Om:c.Om+dOm*s}; return {p:orbitPos(b,oo,c.u+du*s,R_ORB), burn:s>0.92?'retro':null}; }
+      const s=(t-0.38)/0.62;
+      return {p:orbitPos(b,o,uDe+arc*easeOut(s),R_ORB-(R_ORB-1)*easeIn(s)), burn:(s<0.07||s>0.7)?'retro':null, glow:atm&&s>0.25&&s<0.68, att:'retro'};
+    }};
+  }
+  // Hüpfer: ballistischer Bogen entlang des Großkreises
+  if(fl==='surf' && tl==='surf' && fb===tb){
+    const A=siteOf(b,mv.from.site), Bs=siteOf(b,mv.to.site); if(!A||!Bs) return null;
+    const a=bvec(b,A.lat,A.lon), c=bvec(b,Bs.lat,Bs.lon), th=Math.acos(Math.max(-1,Math.min(1,vdot(a,c))));
+    const T=vnorm(vadd(c,vmul(a,-Math.cos(th)))), h=0.06+0.32*th/Math.PI;
+    return {b, finalOrb:null, at:t=>{ const r=1+h*4*t*(1-t), w=th*t; return {p:vmul(vadd(vmul(a,Math.cos(w)),vmul(T,Math.sin(w))),r), burn:t<0.1?'pro':t>0.9?'retro':null}; }};
+  }
+  // Orbit anheben (Hohmann, halbe Ellipse mit Kepler-Tempo)
+  if(fl==='orbit' && tl==='capt' && fb===tb){
+    const c=mv.orb||shipOrb(b), rp=R_ORB, ra=R_HIGH, a=(rp+ra)/2, e=(ra-rp)/(ra+rp);
+    return {b, finalOrb:null, at:t=>{ const nu=keplerNu(Math.PI*t,e); const r=a*(1-e*e)/(1+e*Math.cos(nu)); return {p:orbitPos(b,c,c.u+nu,r), burn:t<0.06||t>0.94?'pro':null}; }};
+  }
+  // Orbit absenken (umgekehrter Hohmann, endet vorne)
+  if(fl==='capt' && tl==='orbit' && fb===tb){
+    const o=defaultOrb(b), rp=R_ORB, ra=R_HIGH, a=(rp+ra)/2, e=(ra-rp)/(ra+rp), uEnd=o.u;
+    return {b, finalOrb:{...o}, at:t=>{ const nu=keplerNu(Math.PI+Math.PI*t,e); const r=a*(1-e*e)/(1+e*Math.cos(nu)); return {p:orbitPos(b,o,uEnd-Math.PI+(nu-Math.PI),r), burn:t<0.06||t>0.94?'retro':null, glow:atm && mv.aero && t>0.8}; }};
+  }
+  // Vom Mondorbit weg (Fluchtbahn nach außen)
+  if(fl==='orbit' && M[fb] && tl==='capt'){
+    const c=mv.orb||shipOrb(b);
+    return {b, finalOrb:null, fade:true, at:t=>({p:orbitPos(b,c,c.u+1.3*t,R_ORB+2.2*t*t), burn:t<0.15?'pro':null})};
+  }
+  return null;
+}
+
+// ---------- Systemansicht in 3D: Planet mit Monden, feste schräge Kamera ----------
+const SYS_EL = 35*D2R;
+const ringPt=(r,a)=>[r*Math.cos(a),0,-r*Math.sin(a)];
+const sysState = p => { if(!S.sys || S.sys.p!==p) S.sys={p, capU:-0.75, lowU:3.7, moonU:0}; return S.sys; };
+// Plan eines Manövers in der Systemansicht (nur Winkel, unabhängig vom Maßstab)
+function sysPlan(mv){
+  const [fb,fl]=mv.from.node.split('.'), [tb,tl]=mv.to.node.split('.'), p=planetOfBody(fb);
+  if(planetOfBody(tb)!==p || !moonsOf(p).length) return null;
+  const st=sysState(p);
+  if(fl==='capt' && M[tb] && tl==='orbit'){ const aArr=moonAngle(tb,mv.d1); return {kind:'toMoon', m:tb, p0:st.capU, aArr, final:{moonU:aArr+Math.PI/2}}; }
+  if(M[fb] && fl==='orbit' && tl==='capt'){ const aDep=moonAngle(fb,mv.d0); return {kind:'fromMoon', m:fb, m0:st.moonU, aDep, final:{capU:aDep+Math.PI}}; }
+  if(fb===p && fl==='orbit' && tl==='capt') return {kind:'raise', u0:st.lowU, final:{capU:st.lowU+Math.PI}};
+  if(fb===p && fl==='capt' && tl==='orbit'){ const aero=!!mv.aero, th=aero?4*TAU+Math.PI:Math.PI; return {kind:'lower', u0:st.capU, aero, th, final:{lowU:st.capU+th}}; }
+  return null;
+}
+function shadeSphere(g,x,y,R,col,opt={}){
+  g.fillStyle=col; g.beginPath(); g.arc(x,y,R,0,TAU); g.fill();
+  if(opt.bands){ g.save(); g.beginPath(); g.arc(x,y,R,0,TAU); g.clip(); opt.bands(g); g.restore(); }
+  const lz=LIGHT[2], al=Math.atan2(-LIGHT[1],LIGHT[0]);
+  g.save(); g.translate(x,y); g.rotate(al); g.beginPath(); g.ellipse(0,0,Math.abs(lz)*R,R,0,Math.PI/2,Math.PI*1.5); g.arc(0,0,R,-Math.PI/2,Math.PI/2,true); g.closePath();
+  g.fillStyle='rgba(6,9,22,0.55)'; g.fill(); g.restore();
+  const gr=g.createRadialGradient(x-R*0.35,y-R*0.3,R*0.1,x,y,R*1.02); gr.addColorStop(0,'rgba(255,255,255,0.12)'); gr.addColorStop(0.7,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,0.4)');
+  g.fillStyle=gr; g.beginPath(); g.arc(x,y,R,0,TAU); g.fill();
+}
+function drawSys(p){
+  const ms=moonsOf(p), [W,H]=fitCanvas(sc,1.6); if(W<60||H<30) return; prep(sc,sctx,W,H);
+  const g=sctx, v=cssv(), cx=W/2, cy=H/2+6, ce=Math.cos(SYS_EL), se=Math.sin(SYS_EL);
+  const rH=Math.min(W/2-34, (H/2-26)/se), rMax=rH*0.82, Rp=Math.max(13,Math.min(22,W*0.028)), rLow=Rp+11, rMin=rLow+22, rMo=10;
+  const lo=Math.log(Math.min(...ms.map(m=>M[m].rv))), hi=Math.log(Math.max(...ms.map(m=>M[m].rv)));
+  const rOf=m=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(M[m].rv)-lo)/(hi-lo);
+  const P=q=>{ const y2=q[1]*ce-q[2]*se, z2=q[1]*se+q[2]*ce; return {x:cx+q[0], y:cy-y2, z:z2, hidden:z2<0 && Math.hypot(q[0],y2)<Rp}; };
+  const moonW=(m,day)=>ringPt(rOf(m),moonAngle(m,day));
+  const [k,l]=here(), mine=homePlanet()===p && !S.transit, st=sysState(p);
+  const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
+  const back=[], front=[];
+  const poly=(pts,style)=>{ const q=pts.map(P);
+    const seg=hid=>()=>{ g.strokeStyle=style.col; g.lineWidth=style.w||1; g.setLineDash(style.dash||[]); g.globalAlpha=(style.a||1)*(hid?0.35:1); g.beginPath(); let on=false;
+      q.forEach(c=>{ if((c.z<0)===hid){ on?g.lineTo(c.x,c.y):g.moveTo(c.x,c.y); on=true; } else on=false; }); g.stroke(); g.setLineDash([]); g.globalAlpha=1; };
+    back.push(seg(true)); front.push(seg(false)); };
+  const circle=r=>{ const a=[]; for(let j=0;j<=120;j++) a.push(ringPt(r,j/120*TAU)); return a; };
+  poly(circle(rH),{col:v('--line'),w:1.5,dash:[6,5]}); ms.forEach(m=>poly(circle(rOf(m)),{col:v('--orbit'),w:1})); poly(circle(rLow),{col:v('--line'),w:1.5});
+
+  // Schiffsposition für einen Zustand
+  const shipW=(node)=>{ const [b,ll]=node.split('.');
+    if(M[b]){ const c=moonW(b,S.day); return ll==='surf' ? [c[0],c[1]+7,c[2]] : vadd(c,ringPt(rMo,st.moonU)); }
+    if(b!==p) return null;
+    return ll==='capt'?ringPt(rH,st.capU):ll==='orbit'?ringPt(rLow,st.lowU):[0,Rp+5,0]; };
+  // Flugbahn eines Manövers: Position zum Anteil t
+  let path=null;
+  if(mine && S.move && S.move.sys){
+    const pl=S.move.sys;
+    const hoh=(rp,ra)=>{ const a=(rp+ra)/2, e=(ra-rp)/(ra+rp); return {a,e,r:nu=>a*(1-e*e)/(1+e*Math.cos(nu))}; };
+    if(pl.kind==='toMoon'){ const E=hoh(rOf(pl.m),rH), aDep=pl.aArr-Math.PI, da=((aDep-pl.p0)%TAU+TAU)%TAU;
+      path=t=>{ if(t<0.25) return {q:ringPt(rH,pl.p0+da*t/0.25)};
+        if(t<0.92){ const s=(t-0.25)/0.67, nu=keplerNu(Math.PI+Math.PI*s,E.e); return {q:ringPt(E.r(nu),pl.aArr-TAU+nu), burn:s<0.06?'retro':null}; }
+        const s=(t-0.92)/0.08, a=ringPt(rOf(pl.m),pl.aArr), b=vadd(moonW(pl.m,S.move.d1),ringPt(rMo,pl.final.moonU)); return {q:vadd(vmul(a,1-s),vmul(b,s)), burn:'retro'}; }; }
+    if(pl.kind==='fromMoon'){ const E=hoh(rOf(pl.m),rH);
+      path=t=>{ if(t<0.08){ const s=t/0.08, a=vadd(moonW(pl.m,S.move.d0),ringPt(rMo,pl.m0)), b=ringPt(rOf(pl.m),pl.aDep); return {q:vadd(vmul(a,1-s),vmul(b,s)), burn:'pro'}; }
+        const s=(t-0.08)/0.92, nu=keplerNu(Math.PI*s,E.e); return {q:ringPt(E.r(nu),pl.aDep+nu), burn:s>0.95?'pro':null}; }; }
+    if(pl.kind==='raise'){ const E=hoh(rLow,rH); path=t=>{ const nu=keplerNu(Math.PI*t,E.e); return {q:ringPt(E.r(nu),pl.u0+nu), burn:(t<0.05||t>0.95)?'pro':null}; }; }
+    if(pl.kind==='lower' && !pl.aero){ const E=hoh(rLow,rH); path=t=>{ const nu=keplerNu(Math.PI+Math.PI*t,E.e); return {q:ringPt(E.r(nu),pl.u0+nu-Math.PI), burn:(t<0.05||t>0.95)?'retro':null}; }; }
+    if(pl.kind==='lower' && pl.aero){ // Aerobremsen: viele Durchgänge durch die Hochatmosphäre, die Ellipse schrumpft
+      path=t=>{ const th=pl.th*t, ra=rH+(rLow-rH)*Math.min(1,t*1.05), rp=rLow*0.97, a=(rp+ra)/2, e=(ra-rp)/(ra+rp), nu=th+Math.PI;
+        const r=a*(1-e*e)/(1+e*Math.cos(nu)); return {q:ringPt(r,pl.u0+th), glow:hasAtm(p) && r<rLow*1.08 && t<0.97}; }; }
+  }
+  let ship=null;
+  if(mine && S.node){
+    if(path){ const t=moveProg(), c=path(t), a=P(path(Math.max(0,t-0.01)).q), b=P(path(Math.min(1,t+0.01)).q);
+      const tr=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly(tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6});
+      ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn, glow:c.glow, soon:path(Math.min(1,t+0.06)).burn}; }
+    else { const w=shipW(S.move?S.move.from.node:S.node); if(w){ const nd=S.node.split('.')[1]; let dir=[1,0];
+        if(!S.move && nd!=='surf'){ const [b]=S.node.split('.'); const base=M[b]?moonW(b,S.day):[0,0,0], rr=M[b]?rMo:(nd==='capt'?rH:rLow), uu=M[b]?st.moonU:(nd==='capt'?st.capU:st.lowU);
+          const a=P(vadd(base,ringPt(rr,uu-0.05))), c=P(vadd(base,ringPt(rr,uu+0.05))); dir=[c.x-a.x,c.y-a.y]; }
+        if(nd==='surf') dir=[0,-1];
+        ship={pt:P(w), dir, up:nd==='surf'}; } }
+  }
+  if(ship){ const s=ship; (s.pt.hidden?back:front).push(()=>{ const dl=Math.hypot(...s.dir)||1, ux=s.dir[0]/dl, uy=s.dir[1]/dl;
+      if(s.glow){ const gr=g.createRadialGradient(s.pt.x,s.pt.y,0,s.pt.x,s.pt.y,12); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); g.fillStyle=gr; g.beginPath(); g.arc(s.pt.x,s.pt.y,12,0,TAU); g.fill(); }
+      const va=Math.atan2(-uy,ux); if(s.up) drawRocket(g,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent')); else drawRocket(g,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent')); }); }
+
+  // Monde als kleine Kugeln, hinten oder vorne
+  const drawMoon=m=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
+    shadeSphere(g,x,y,5.5,bodyColor(m));
+    if(hasDepot(m)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+7,y-6,2.5,0,TAU); g.fill(); }
+    if(cargoTo(kk=>bodyOf(kk)===m).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,11,0,TAU); g.stroke(); g.setLineDash([]); }
+    if(sel){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(x,y,15,0,TAU); g.stroke(); }
+    font(sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign='center'; g.textBaseline='bottom'; g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=3; g.fillText(M[m].name,x,y-12); g.shadowBlur=0;
+    HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
+  ms.forEach(m=>{ const c=P(moonW(m,S.day)); (c.z<0?back:front).push(()=>drawMoon(m)); });
+  // Reihenfolge: hinten, Ringe hinten (Saturn), Planet, vorne
+  back.forEach(f=>f());
+  const saturnRing=(frontOnly)=>{ if(p!=='saturn') return; g.save(); if(frontOnly){ g.beginPath(); g.rect(0,cy,W,H); g.clip(); }
+    g.fillStyle='rgba(222,205,160,0.45)'; g.beginPath(); g.ellipse(cx,cy,Rp*2.2,Rp*2.2*se,0,0,TAU); g.ellipse(cx,cy,Rp*1.35,Rp*1.35*se,0,0,TAU,true); g.fill('evenodd'); g.restore(); };
+  saturnRing(false);
+  const bands = p==='jupiter'||p==='saturn' ? (gg)=>{ [-0.45,-0.2,0.15,0.4].forEach((f,i)=>{ const y=cy-Rp*f*ce; gg.strokeStyle=i%2?'rgba(120,80,50,0.35)':'rgba(255,240,220,0.25)'; gg.lineWidth=Rp*0.16;
+      gg.beginPath(); gg.ellipse(cx,y+Rp*0.04,Rp*Math.sqrt(1-f*f),Rp*Math.sqrt(1-f*f)*se,0,0,Math.PI); gg.stroke(); }); } : null;
+  shadeSphere(g,cx,cy,Rp,bodyColor(p),{bands});
+  saturnRing(true);
+  const pp={type:'body',body:p};
+  if(cargoTo(kk=>bodyOf(kk)===p && kk.node!==p+'.capt' && kk.node!==p+'.orbit').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
+  if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }
+  HITS.push({canvas:sc,x:cx,y:cy,r:Rp+3,pick:pp});
+  front.forEach(f=>f());
+  // Bahnmarkierungen
+  const nodeMark=(q,node,label,align)=>{ const c=P(q), x=c.x, y=c.y, pk={type:'node',node}, sel=isPick(pk), here_=mine&&S.node===node;
+    g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(x,y,6,0,TAU); g.fill(); g.stroke();
+    if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
+    if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+6,y-7,3,0,TAU); g.fill(); }
+    font(here_||sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign=align; g.textBaseline='middle'; g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=3; g.fillText(label,x+(align==='left'?11:-11),y); g.shadowBlur=0;
+    HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
+  nodeMark(ringPt(rLow,3.7),p+'.orbit','Niedriger Orbit','right');
+  nodeMark(ringPt(rH,-0.75),p+'.capt','Hoher Orbit','left');
+}
+
+// Polkappen je Körper: [Breite, Deckkraft]
+const CAPS = {earth:[[-68,0.9],[80,0.85]], mars:[[80,0.85]], mercury:[], ceres:[], europa:[], enceladus:[[-70,0.5]]};
+function drawBody(b){
+  const [W]=fitCanvas(cv,1); if(W<60) return; prep(cv,ctx,W,W);
+  const g=ctx, v=cssv(), cx=W/2, cy=W/2+4, R=W*0.3, cam=makeCam(cx,cy,R,bodyView(b).el), col=bodyColor(b);
+  const [k,l]=here(), mine=k===b && !S.transit;
+  const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
+  const back=[], front=[]; // Zeichenaufträge hinter bzw. vor dem Körper
+  const P=p=>cam.proj(p);
+  // Bahnring als Polylinie, getrennt in verdeckte und sichtbare Stücke
+  const ring=(fn,style)=>{ const pts=[]; for(let j=0;j<=96;j++) pts.push(P(fn(j/96*TAU)));
+    const seg=(hid)=>()=>{ g.strokeStyle=style.col; g.lineWidth=style.w; g.setLineDash(style.dash||[]); g.globalAlpha=hid?0.35:1; g.beginPath(); let on=false;
+      pts.forEach(q=>{ const h=q.z<0; if(h===hid){ on?g.lineTo(q.x,q.y):g.moveTo(q.x,q.y); on=true; } else on=false; }); g.stroke(); g.setLineDash([]); g.globalAlpha=1; };
+    back.push(seg(true)); front.push(seg(false)); };
+  // Hoher Orbit nur bei Planeten ohne Monde (sonst in der Systemansicht)
+  const showHigh = B[b] && !moonsOf(b).length;
+  if(showHigh) ring(u=>orbitPos(b,defaultOrb(b),u,R_HIGH),{col:v('--line'),w:1.2,dash:[6,6]});
+  const orb=shipOrb(b);
+  ring(u=>orbitPos(b,orb,u,R_ORB),{col:v('--line'),w:1.5,dash:[6,5]});
+
+  // Flugbahn und Schiff
+  let shipAt=null, shipDir=null, burn=null, glow=false, fade=1, soon=null, att=null;
+  if(mine && S.move && S.move.path && S.move.path.b===b){
+    const pa=S.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
+    const trail=[]; for(let j=0;j<=80;j++) trail.push(P(pa.at(j/80).p));
+    const tseg=(hid)=>()=>{ g.strokeStyle=v('--accent'); g.lineWidth=1.4; g.setLineDash([3,4]); g.globalAlpha=hid?0.25:0.6; g.beginPath(); let on=false;
+      trail.forEach(p=>{ if(p.hidden===hid){ on?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y); on=true; } else on=false; }); g.stroke(); g.setLineDash([]); g.globalAlpha=1; };
+    back.push(tseg(true)); front.push(tseg(false));
+    shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
+    soon=pa.at(Math.min(1,t+0.06)).burn; att=q.att?{mode:q.att}:null;
+  } else if(mine && l==='orbit'){
+    shipAt=orbitPos(b,orb,orb.u,R_ORB); const a=P(orbitPos(b,orb,orb.u-0.02,R_ORB)), c=P(orbitPos(b,orb,orb.u+0.02,R_ORB)); shipDir=[c.x-a.x,c.y-a.y];
+  }
+  let shipLast=null;
+  if(shipAt){
+    const sp=P(shipAt);
+    // nah an der Oberfläche steht die Rakete auf dem Platz (wie im gelandeten Zustand), nicht mitten in der Markierung
+    { const rr=Math.hypot(...shipAt), k=Math.max(0,Math.min(1,1-(rr-1)/0.07)); if(k>0){ const dx=sp.x-cx, dy=sp.y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1; sp.x+=ux*17*k; sp.y+=uy*17*k; } }
+    const drawShip=()=>{ const ang=Math.atan2(-shipDir[1],shipDir[0]), dl=Math.hypot(...shipDir)||1, ux=shipDir[0]/dl, uy=shipDir[1]/dl;
+      g.globalAlpha=fade;
+      if(glow){ const gr=g.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); g.fillStyle=gr; g.beginPath(); g.arc(sp.x,sp.y,14,0,TAU); g.fill(); }
+      drawRocket(g,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent')); g.globalAlpha=1; };
+    if(sp.hidden) back.push(drawShip); else shipLast=drawShip;
+  }
+
+  // --- Hinteres, dann Körper, dann Vorderes
+  back.forEach(f=>f());
+  // Körper: Grundfarbe, Oberfläche, Gitter, Nachtseite, Randverdunklung
+  g.fillStyle=col; g.beginPath(); g.arc(cx,cy,R,0,TAU); g.fill();
+  g.save(); g.beginPath(); g.arc(cx,cy,R,0,TAU); g.clip();
+  const surfPoly=(pts,fill)=>{ const q=pts.map(([lon,lat])=>{ const p=cam.proj(bvec(b,lat,lon)); if(p.z>=0) return [p.x,p.y,true];
+      const dx=p.x-cx, dy=p.y-cy, n=Math.hypot(dx,dy)||1; return [cx+dx/n*R, cy+dy/n*R, false]; });
+    if(!q.some(p=>p[2])) return; g.beginPath(); q.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath(); g.fillStyle=fill; g.fill(); };
+  if(b==='earth'){
+    LAND.forEach((pts,i)=>surfPoly(pts, i===1?'rgba(236,240,244,0.92)':'rgba(104,146,86,0.95)'));
+    surfPoly([[-12,20],[0,28],[20,30],[32,24],[34,16],[15,14],[-5,15]],'rgba(196,170,112,0.75)');
+    surfPoly([[40,16],[55,22],[56,27],[48,29],[40,26]],'rgba(196,170,112,0.7)');
+    surfPoly([[125,-22],[140,-24],[140,-30],[125,-30]],'rgba(196,170,112,0.6)');
+    WATER.forEach(pts=>surfPoly(pts,col));
+  }
+  (CAPS[b]||[]).forEach(([lat,a])=>{ const pts=[]; for(let lon=-180;lon<180;lon+=6) pts.push([lon,lat]); surfPoly(pts,`rgba(240,242,246,${a})`); });
+  // Gitter: Breitenkreise und Meridiane (nur Vorderseite)
+  const line=(fn,n,style)=>{ g.strokeStyle=style.col; g.lineWidth=style.w||1; g.setLineDash(style.dash||[]); g.beginPath(); let on=false;
+    for(let j=0;j<=n;j++){ const p=cam.proj(fn(j/n)); if(p.z>=0){ on?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y); on=true; } else on=false; } g.stroke(); g.setLineDash([]); };
+  [-60,-30,30,60].forEach(lat=>line(s=>bvec(b,lat,s*360),90,{col:'rgba(255,240,230,0.22)'}));
+  line(s=>bvec(b,0,s*360),120,{col:'rgba(255,240,230,0.6)',w:1.2,dash:[5,4]});
+  for(let lon=-180;lon<180;lon+=30) line(s=>bvec(b,-90+180*s,lon),40,{col:'rgba(255,240,230,0.12)'});
+  // Nachtseite: Terminator als Halbellipse
+  { const lu=Math.hypot(LIGHT[0],LIGHT[1]), lz=LIGHT[2], al=Math.atan2(-LIGHT[1],LIGHT[0]);
+    g.save(); g.translate(cx,cy); g.rotate(al); g.beginPath(); g.ellipse(0,0,Math.abs(lz)*R,R,0,Math.PI/2,Math.PI*1.5); g.arc(0,0,R,-Math.PI/2,Math.PI/2,true); g.closePath();
+    g.fillStyle='rgba(6,9,22,0.55)'; g.fill(); g.restore(); }
+  const grd=g.createRadialGradient(cx-R*0.35,cy-R*0.3,R*0.15,cx,cy,R*1.02); grd.addColorStop(0,'rgba(255,255,255,0.08)'); grd.addColorStop(0.7,'rgba(0,0,0,0)'); grd.addColorStop(1,'rgba(0,0,0,0.45)');
+  g.fillStyle=grd; g.beginPath(); g.arc(cx,cy,R,0,TAU); g.fill();
+  g.restore();
+  // Breitenbeschriftung am sichtbaren rechten Rand
+  font(500,11); g.fillStyle=v('--muted'); g.textAlign='left'; g.textBaseline='middle';
+  [[60,'60° N'],[30,'30° N'],[0,'0°'],[-30,'30° S'],[-60,'60° S']].forEach(([lat,t])=>{ let bx=null;
+    for(let d=0;d<=180;d+=3){ const p=cam.proj(bvec(b,lat,bodyLon0(b)+d)); if(p.z>=0 && (!bx||p.x>bx.x)) bx=p; }
+    if(bx && bx.x>cx+R*0.35) g.fillText(t,bx.x+6,bx.y); });
+  front.forEach(f=>f());
+
+  // Bahn-Markierungen
+  const marker=(p,node,label,al)=>{ const pk={type:'node',node}, sel=isPick(pk);
+    g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(p.x,p.y,6,0,TAU); g.fill(); g.stroke();
+    if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(p.x,p.y,12,0,TAU); g.stroke(); g.setLineDash([]); }
+    if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(p.x+6,p.y-7,3,0,TAU); g.fill(); }
+    font(sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign=al; g.textBaseline='middle';
+    g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=4; g.fillText(label,p.x+(al==='left'?11:-11),p.y); g.shadowBlur=0;
+    HITS.push({canvas:cv,x:p.x,y:p.y,r:22,pick:pk}); };
+  // vorderster Punkt der Bahn für die Markierung
+  const frontOf=(o,r)=>{ let best=null; for(let j=0;j<72;j++){ const p=P(orbitPos(b,o,j/72*TAU,r)); if(!best||p.y>best.y) best=p; } return best; };
+  marker(frontOf(orb,R_ORB),b+'.orbit','Niedriger Orbit','left');
+  if(showHigh){ const hp=P(orbitPos(b,defaultOrb(b),40*D2R,R_HIGH)); marker(hp,b+'.capt','Hoher Orbit','left'); }
+
+  // Landeplätze (Rückseite blass, trotzdem antippbar)
+  (SITES[b]||[]).forEach(st=>{
+    const p=P(bvec(b,st.lat,st.lon)), x=p.x, y=p.y, hid=p.z<0;
+    const pk={type:'node',node:b+'.surf',site:st.id}, sel=isPick(pk), kon=KONTORE.find(kk=>kk.node===b+'.surf' && (!kk.site||kk.site===st.id));
+    g.globalAlpha=hid?0.45:1;
+    if(cargoTo(kk=>kon && kk.id===kon.id).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
+    if(sel){ g.strokeStyle=v('--accent'); g.lineWidth=2.5; g.beginPath(); g.arc(x,y,17,0,TAU); g.stroke(); }
+    g.fillStyle=v('--bg'); g.strokeStyle=kon?v('--text'):'rgba(231,233,242,0.6)'; g.lineWidth=2; if(hid) g.setLineDash([2,2]);
+    g.beginPath(); g.arc(x,y,kon?6:4.5,0,TAU); g.fill(); g.stroke(); g.setLineDash([]);
+    if(st.depot){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+8,y-8,3,0,TAU); g.fill(); }
+    font(600,12);
+    const name=st.name+(hid?' (Rückseite)':''), tw=g.measureText(name).width; let left=x<cx;
+    if(left && x-10-tw<2) left=false; else if(!left && x+10+tw>W-2) left=true;
+    g.fillStyle=hid?'rgba(231,233,242,0.8)':'#ffffff'; g.textAlign=left?'right':'left'; g.textBaseline='middle';
+    g.shadowColor='rgba(0,0,0,0.8)'; g.shadowBlur=3; g.fillText(name,x+(left?-10:10),y); g.shadowBlur=0; g.globalAlpha=1;
+    HITS.push({canvas:cv,x,y,r:22,pick:pk});
+    // gelandetes Schiff: aufrecht, zeigt vom Körper weg
+    if(mine && !S.move && l==='surf' && S.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
+      g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux); drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent')); g.globalAlpha=1; }
+  });
+  if(shipLast) shipLast();
+}
+// Schiff im Orbit kreist langsam weiter (nur Anzeige)
+let idleT=0;
+function idleLoop(ts){
+  requestAnimationFrame(idleLoop);
+  if(reduce || !S || S.busy || document.hidden || ts-idleT<40){ if(ts-idleT>=40) idleT=ts; return; }
+  const dt=Math.min(0.1,(ts-idleT)/1000); idleT=ts;
+  if(!S.node || $('stage').clientWidth<1) return;
+  const vw=mapView(), [b,nd]=S.node.split('.');
+  // Systemansicht: im niedrigen Orbit, am Mond oder im hohen Orbit weiterkreisen
+  if(vw.level==='sys' && !sc.hidden && vw.planet===planetOfBody(b) && nd!=='surf'){
+    const st=sysState(vw.planet); if(M[b]) st.moonU+=dt*1.4; else if(nd==='orbit') st.lowU+=dt*0.5; else st.capU+=dt*0.04;
+    HITS=HITS.filter(h=>h.canvas!==sc); drawSys(vw.planet); return; }
+  if(nd!=='orbit' || cv.hidden) return;
+  if(vw.level!=='body' || vw.body!==b) return;
+  if(!S.orb || S.orb.body!==b) S.orb=defaultOrb(b);
+  S.orb.u=(S.orb.u+dt*0.35)%TAU; HITS=HITS.filter(h=>h.canvas!==cv); drawBody(b);
+}
+
+function onMapClick(e){
+  const t=e.currentTarget, r=t.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  let best=null, bd=Infinity;
+  HITS.filter(h=>h.canvas===t).forEach(h=>{ const d=Math.hypot(h.x-x,h.y-y); if(d<h.r && d<bd){ bd=d; best=h; } });
+  const pk=best?best.pick:null, key=pk?JSON.stringify(pk):null, now=performance.now();
+  // Doppelklick oder doppeltes Antippen: näher ansehen bzw. Landeplätze zeigen
+  if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=deeperView(pk); if(dv){ setView(dv); return; } }
+  lastTap={key,t:now};
+  S.ui.pick=pk;
+  if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.target=best.pick.planet;
+  render();
+}
+let lastTap={key:null,t:0};
+function deeperView(pk){
+  if(pk.type==='planet'){ const k=pk.planet; return moonsOf(k).length?{level:'sys',planet:k}:SITES[k]?{level:'body',planet:k,body:k}:null; }
+  if(pk.type==='body') return SITES[pk.body]?{level:'body',planet:planetOfBody(pk.body),body:pk.body}:null;
+  if(pk.type==='node'){ const b=pk.node.split('.')[0]; if(pk.node.endsWith('.orbit') && SITES[b]) return {level:'body',planet:planetOfBody(b),body:b}; }
+  return null;
+}
+cv.addEventListener('click',onMapClick); sc.addEventListener('click',onMapClick);
+
+// ---------- Kartennavigation: Auswahlkarte ----------
+const pickTarget = p => p.type==='planet' ? {node:p.planet+'.capt'} : p.type==='body' ? {node:p.body+(B[p.body]&&!SITES[p.body]?'.capt':'.orbit')} : {node:p.node, site:p.site||null};
+const atTarget = t => S.node===t.node && (!t.site || S.site===t.site);
+function targetName(t){
+  const [b,l]=t.node.split('.');
+  if(t.site){ const st=siteOf(b,t.site); return `${st?st.name:''} (${bodyName(b)})`; }
+  if(l==='capt') return `Hoher Orbit ${M[b]?'um '+M[b].name:planetGen(b)}`;
+  return M[b] ? (M[b].orbitName||`Orbit um ${M[b].name}`) : `Niedriger Orbit ${planetGen(b)}`;
+}
+function renderPick(){
+  const w=$('pickcard'); w.innerHTML='';
+  const p=S.ui.pick; if(!p) return;
+  const locked=S.busy||S.over, c=document.createElement('div'); c.className='pick';
+  const tag=(cls,t)=>`<span class="mtag ${cls}">${t}</span>`;
+  let title='', tags=[], info='', stats=[], btns=[];
+  const close=`<button type="button" class="x" aria-label="Auswahl schließen">×</button>`;
+  if(p.type==='planet'){
+    const k=p.planet, hp=homePlanet(), kon=KONTORE.filter(x=>planetOfBody(bodyOf(x))===k);
+    const n=cargoTo(x=>planetOfBody(bodyOf(x))===k).length;
+    title=B[k].name; if(n) tags.push(tag('deliver',`Lieferziel: ${n} ${n>1?'Aufträge':'Auftrag'}`));
+    const ms=moonsOf(k);
+    info=`${ms.length?'Mit '+ms.map(m=>M[m].name).join(', ')+'. ':''}${kon.length?kon.length+(kon.length>1?' Kontore':' Kontor')+(kon.some(x=>x.hub)?', davon ein Drehkreuz.':'.'):'Kein Kontor.'}`;
+    if(hp && hp!==k){ const t=transfer(hp,k,S.day), id=idealTransfer(hp,k);
+      stats.push(['Transfer bei Fenster',`${km(id.total)} km/s`]);
+      stats.push(['Nächstes Fenster', t.d<0.04?'<span class="ok">offen</span>':`<span class="wait">in ${fmtDays(t.wait)}</span>`]); }
+    else if(hp===k) stats.push(['Du bist','in diesem System']);
+    const deeper = ms.length ? {level:'sys',planet:k} : SITES[k] ? {level:'body',planet:k,body:k} : null;
+    if(deeper) btns.push(['Näher ansehen','',()=>setView(deeper)]);
+    if(hp!==k) btns.push(['Route planen','go',()=>openRoute(pickTarget(p))]);
+  } else if(p.type==='body'){
+    const b=p.body, kon=KONTORE.filter(x=>bodyOf(x)===b), n=cargoTo(x=>bodyOf(x)===b).length, st=SITES[b]||[];
+    title=bodyName(b); if(n) tags.push(tag('deliver',`Lieferziel: ${n} ${n>1?'Aufträge':'Auftrag'}`));
+    if(kon.length) tags.push(tag('kontor',kon.length>1?`${kon.length} Kontore`:'Kontor'));
+    if(hasDepot(b)) tags.push(tag('toward','Tankstelle'));
+    info = st.length ? `${st.length} ${st.length>1?'Landeplätze':'Landeplatz'}: ${st.map(s=>s.name).join(', ')}.` : 'Keine feste Oberfläche.';
+    if(st.length){ const down=M[b]?M[b].down:B[b].surf.down, up=M[b]?M[b].up:B[b].surf.up;
+      stats.push(['Landung aus dem Orbit',`ab ${km(down)} km/s`]); stats.push(['Rückstart',B[b]&&B[b].surf.launcher?'Trägerrakete':`ab ${km(up)} km/s`]); }
+    if(st.length) btns.push(['Landeplätze zeigen','',()=>setView({level:'body',planet:planetOfBody(b),body:b})]);
+    const t=pickTarget(p); if(!atTarget(t)) btns.push([`Route: ${st.length?'Orbit':'hoher Orbit'}`,'go',()=>openRoute(t)]);
+  } else {
+    const t=pickTarget(p), [b,l]=p.node.split('.'), kon=KONTORE.find(x=>x.node===p.node && (!x.site||x.site===p.site));
+    title=targetName(t).replace(/ \(.*\)$/,'');
+    const n=kon?cargoTo(x=>x.id===kon.id).length:0;
+    if(n) tags.push(tag('deliver',`Lieferziel: ${n} ${n>1?'Aufträge':'Auftrag'}`));
+    if(kon) tags.push(tag('kontor',kon.hub?'Drehkreuz':'Kontor'));
+    if(p.site){
+      const st=siteOf(b,p.site), fp=FUEL_PRICE[p.node+'@'+p.site]??FUEL_PRICE[p.node];
+      if(st.depot&&fp!==undefined) tags.push(tag('toward',`Tankstelle, ${fp} Cr/t`));
+      info=`${latStr(st.lat)}, ${bodyName(b)}.${kon?(kon.makes.length?' Erzeugt '+kon.makes.map(g=>GOODS[g].name).join(', ')+'.':'')+' Braucht '+kon.needs.map(g=>GOODS[g].name).join(', ')+'.':''}${st.note?' '+st.note+'.':''}`;
+      const pen=rotPenalty(b,st.lat), down=(M[b]?M[b].down:B[b].surf.down)+(hasAtm(b)?0:pen), up=(M[b]?M[b].up:B[b].surf.up)+pen;
+      stats.push(['Landung aus dem Orbit',`${km(down)} km/s`]);
+      stats.push([(ROT[b]||0)>=20?`Rückstart, ${Math.round((ROT[b]||0)-pen)} von ${ROT[b]} m/s Bonus`:'Rückstart', B[b]&&B[b].surf.launcher?`Trägerrakete${pen>1?', '+km(pen)+' km/s selbst':''}`:`${km(up)} km/s`]);
+    } else {
+      info = l==='capt' ? 'Tor zu anderen Planeten und zu den Monden.' : 'Tor zur Oberfläche.';
+      if(fuelHere(p.node,null)) tags.push(tag('toward',`Tankstelle, ${FUEL_PRICE[p.node]} Cr/t`));
+      if(kon) info+=` ${kon.name}: ${kon.makes.length?'erzeugt '+kon.makes.map(g=>GOODS[g].name).join(', ')+', ':''}braucht ${kon.needs.map(g=>GOODS[g].name).join(', ')}.`;
+    }
+    if(!atTarget(t)) btns.push([p.site?'Route hierher':'Route planen','go',()=>openRoute(t)]);
+  }
+  const hereNow = (p.type!=='planet') && atTarget(pickTarget(p));
+  if(hereNow) tags.push(tag('here','Du bist hier'));
+  c.innerHTML=`<div class="row"><b class="big">${esc(title)}</b>${close}</div>${tags.length?`<div class="mtags">${tags.join('')}</div>`:''}
+    ${info?`<p class="kinfo">${esc(info)}</p>`:''}${stats.length?`<div class="pstats">${stats.map(([a,b])=>`<div><span class="muted">${a}</span><b>${b}</b></div>`).join('')}</div>`:''}`;
+  c.querySelector('.x').onclick=()=>{ S.ui.pick=null; render(); };
+  if(btns.length){ const g=document.createElement('div'); g.className='two';
+    btns.forEach(([t,cls,fn])=>g.appendChild(btn(t,cls,cls==='go'&&locked,fn))); if(btns.length===1) g.firstChild.classList.add('span2'); c.appendChild(g); }
+  w.appendChild(c);
+}
+
+// ---------- Routenplanung ----------
+function planRoute(target, mode, start){
+  start = start || (S.node ? {node:S.node, site:S.site, day:S.day} : null);
+  if(!start) return null;
+  const key=(n,s)=>n+'|'+(s||''), best={}, prev={}, done=new Set();
+  const q=[{n:start.node,s:start.site,c:0,dv:0,days:0}]; best[key(start.node,start.site)]=q[0];
+  let goal=null;
+  while(q.length){
+    q.sort((a,b)=>a.c-b.c); const cur=q.shift(), ck=key(cur.n,cur.s);
+    if(done.has(ck)) continue; done.add(ck);
+    if(cur.n===target.node && (!target.site || cur.s===target.site)){ goal=cur; break; }
+    for(const ed0 of edgesFrom(cur.n,cur.s)){
+      const ed={...ed0}, day=start.day+cur.days;
+      if(ed.leg){ const [a,b]=ed.leg, t=transfer(a,b,day);
+        if(mode==='now'){ ed.dv=t.total; ed.days=t.tof; ed.wait=0; }
+        else { const id=idealTransfer(a,b); ed.wait=t.d<0.04?0:t.wait; ed.dv=id.total; ed.days=ed.wait+id.tof; } }
+      const nk=key(ed.node,ed.site), dv=cur.dv+ed.dv, days=cur.days+ed.days, c=dv+days*0.01;
+      if(!best[nk] || c<best[nk].c){ best[nk]={n:ed.node,s:ed.site,c,dv,days}; prev[nk]={k:ck,from:cur,ed}; q.push(best[nk]); }
+    }
+  }
+  if(!goal) return null;
+  const path=[]; let k=key(goal.n,goal.s);
+  while(prev[k]){ path.unshift({from:prev[k].from, ed:prev[k].ed}); k=prev[k].k; }
+  const steps=[]; let day=start.day, fee=0;
+  path.forEach(({from,ed})=>{
+    if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Auf das Fenster ${zuName(ed.leg[1])} warten`, until:day+ed.wait}); day+=ed.wait; }
+    const days=ed.days-(ed.wait||0);
+    if(ed.launch) fee+=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel)*(ed.hop?HOP_FEE_SHARE:1));
+    steps.push({kind:ed.leg?'leg':'move', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label:stepLabel(from,ed)}); day+=days;
+  });
+  return {steps, dv:goal.dv, days:goal.days, arrive:start.day+goal.days, fee};
+}
+const zuName = p => (p==='venus'||p==='earth'?'zur ':'zum ')+B[p].name;
+function stepLabel(from,e){
+  if(e.leg) return `Transfer ${zuName(e.leg[1])}`;
+  const [fk,fl]=from.n.split('.'), [tk,tl]=e.node.split('.');
+  if(tl==='surf'){ const st=siteOf(tk,e.site); if(fl==='surf') return `${e.launch?'Suborbitaler Flug':'Hüpfer'} nach ${st?st.name:bodyName(tk)}`; return `Landen: ${st?st.name:bodyName(tk)}`; }
+  if(fl==='surf') return e.launch?'Mit Trägerrakete in den Orbit':`Aufstieg in den Orbit${M[fk]?' um '+M[fk].name:''}`;
+  if(fl==='orbit' && tl==='capt') return 'In den hohen Orbit';
+  if(fl==='capt' && tk===fk) return e.dv<100?'Aerobremsen in den niedrigen Orbit':'Abstieg in den niedrigen Orbit';
+  if(fl==='capt' && M[tk]) return tk==='moon'?'Zum Mond':`Zum Mond ${M[tk].name}`;
+  if(M[fk] && tl==='capt') return `Zurück in den hohen Orbit ${planetGen(tk)}`;
+  return targetName({node:e.node});
+}
+function execStep(st){
+  if(!st || S.busy || S.over) return false;
+  if(st.kind==='wait'){ const [a,b]=st.leg, t=transfer(a,b,S.day); if(t.d<0.04) return true; waitDays(t.wait); return true; }
+  if(st.kind==='leg'){ const hp=homePlanet(); if(S.node!==hp+'.capt' || transfer(hp,st.leg[1],S.day).total>dvAvail()) return false; doTransfer(st.leg[1]); return true; }
+  const a=localActions().find(a=>a.to===st.node && (a.site||null)===(st.site||null) && Math.abs(a.dv-st.dv)<1);
+  if(!a || a.dv>dvAvail()+0.5 || feeBlocked(a)) return false;
+  doAction(a); return true;
+}
+// Wie viel Δv braucht es von einem Ort bis zur nächsten Tankstelle? 0, wenn es dort eine gibt.
+const FUEL_SPOTS = Object.keys(FUEL_PRICE).map(k=>{ const [node,site]=k.split('@'); return {node, site:site||(node==='earth.surf'?'kourou':null)}; });
+function fuelHere(node,site){ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }
+function nearestFuel(start){
+  if(fuelHere(start.node,start.site)) return {dv:0, spot:null};
+  let best={dv:Infinity, spot:null};
+  FUEL_SPOTS.forEach(t=>{ const pl=planRoute(t,'eco',start); if(pl && pl.dv<best.dv) best={dv:pl.dv, spot:t}; });
+  return best;
+}
+function stepBlocker(st){
+  if(st.kind==='leg'){ const hp=homePlanet(); if(S.node!==hp+'.capt') return 'Transfers starten aus dem hohen Orbit.';
+    return `Der Transfer kostet gerade ${km(transfer(hp,st.leg[1],S.day).total)} km/s, du hast ${km(dvAvail())}.`; }
+  const a=localActions().find(a=>a.to===st.node && (a.site||null)===(st.site||null));
+  if(!a) return 'Dieses Manöver ist von hier nicht möglich.';
+  if(a.dv>dvAvail()+0.5) return `Es braucht ${km(a.dv)} km/s, du hast ${km(dvAvail())}.`;
+  if(feeBlocked(a)) return `Die Startgebühr von ${fmtCr(a.fee)} würde dich in den Konkurs treiben.`;
+  return 'Unbekannter Grund.';
+}
+function openRoute(target,back){ S.ui.route={target, mode:'eco'}; openView('route',back); }
+const kTarget = k => ({node:k.node, site:k.site||null});
+function routeLink(k,back){ const b=document.createElement('button'); b.type='button'; b.className='olink';
+  b.innerHTML=`${icon('route',15)}Route`; b.title=`Route nach ${kontorLabel(k)} planen`; b.onclick=e=>{ e.preventDefault(); e.stopPropagation(); openRoute(kTarget(k),back); }; return b; }
+
+// ---------- Autopilot ----------
+function startAutopilot(){
+  const r=S.ui.route; if(!r) return;
+  S.ui.auto={target:r.target, mode:r.mode, start:locKey()}; S.ui.pick=null; S.ui.rmsg=true;
+  // Desktop: Fahrplan bleibt offen. Mobil: zurück zur Karte, damit man den Flug sieht.
+  if(!isDesk()){ S.ui.view='main'; render(); window.scrollTo({top:0}); } else render();
+  setTimeout(autoTick,200);
+}
+// arrived=true: am Ziel oder an einem Lieferkontor angehalten → zurück zur Karte, damit der Standort (Abliefern, Aufträge, Tanken) sichtbar ist
+function stopAutopilot(msg,arrived){ S.ui.auto=null; if(!ANIM.active) ANIM.fast=false; if(msg) S.msg=msg;
+  if(arrived && S.ui.view==='route'){ S.ui.view='main'; S.ui.back=null; } render(); }
+function autoTick(){
+  const A=S.ui.auto; if(!A) return;
+  if(S.busy){ setTimeout(autoTick,250); return; }
+  if(S.over) return stopAutopilot();
+  if(atTarget(A.target)) return stopAutopilot(`Autopilot: Ziel erreicht, ${targetName(A.target)}.${deliverables().length?' Fracht kann hier abgeliefert werden.':''}`,true);
+  if(locKey()!==A.start && deliverables().length) return stopAutopilot(`Autopilot angehalten: Hier in ${kontorAt().name} kann Fracht abgeliefert werden.`,true);
+  const plan=planRoute(A.target,A.mode);
+  if(!plan || !plan.steps.length) return stopAutopilot('Autopilot: Keine Route gefunden.');
+  const st=plan.steps[0];
+  if(st.kind!=='wait' && st.dv>dvAvail()+0.5) return stopAutopilot(`Autopilot angehalten: Für „${st.label}“ brauchst du ${km(st.dv)} km/s, du hast ${km(dvAvail())}. Tanke oder wirf Fracht ab.`);
+  if(!execStep(st)) return stopAutopilot(`Autopilot angehalten bei „${st.label}“: ${stepBlocker(st)}`);
+  A.start=null; // nach dem ersten Schritt zählt jeder Kontor mit Lieferung als Halt
+  setTimeout(autoTick,300);
+}
+function renderAutobar(){
+  const w=$('autobar'); w.innerHTML=''; w.hidden=!S.ui.auto; if(!S.ui.auto) return;
+  const plan=planRoute(S.ui.auto.target,S.ui.auto.mode), nx=plan&&plan.steps[0];
+  w.innerHTML=`<div><b>Autopilot</b> nach ${esc(targetName(S.ui.auto.target))}${nx?`<br><span class="muted">Jetzt: ${esc(nx.label)}</span>`:''}</div>`;
+  w.appendChild(btn('Stopp','',false,()=>stopAutopilot('Autopilot gestoppt.')));
+}
+
+// ---------- Fahrplan-Ansicht ----------
+function panelRoute(p){
+  const R=S.ui.route; if(!R) return openView('main');
+  const locked=S.busy||S.over;
+  const autoBtn=()=>{ const g=document.createElement('div'); g.className='pfoot'; g.appendChild(btn('Autopilot stoppen','wide',false,()=>stopAutopilot('Autopilot gestoppt.'))); return g; };
+  if(!S.node){
+    p.appendChild(phead(`Route: ${targetName(R.target)}`, `Unterwegs nach ${B[S.transit.b].name}, Ankunft ${dateStr(S.transit.arr)}.`));
+    const h=document.createElement('p'); h.className='hint'; h.textContent='Der Fahrplan wird nach der Ankunft neu berechnet.'; p.appendChild(h);
+    if(S.ui.auto) p.appendChild(autoBtn());
+    return;
+  }
+  if(atTarget(R.target)){
+    p.appendChild(phead(`Route: ${targetName(R.target)}`, 'Du bist am Ziel.'));
+    if(S.ui.rmsg && S.msg){ const m=document.createElement('div'); m.className='msg'; m.style.margin='0 0 12px'; m.textContent=S.msg; p.appendChild(m); }
+    const del=deliverables();
+    if(del.length){ const f=document.createElement('div'); f.className='pfoot'; f.appendChild(btn(`Abliefern (${del.length}), ${fmtCr(del.reduce((s,o)=>s+payout(o),0))}`,'go wide',locked,()=>{ deliverAll(); })); p.appendChild(f); }
+    return;
+  }
+  const plans={eco:planRoute(R.target,'eco'), now:planRoute(R.target,'now')};
+  const plan=plans[R.mode];
+  p.appendChild(phead(`Route: ${targetName(R.target)}`, `Von ${esc(nodeName(S.node))}.`));
+  if(S.ui.rmsg && S.msg){ const m=document.createElement('div'); m.className='msg'; m.style.margin='0 0 12px'; m.textContent=S.msg; p.appendChild(m); }
+  if(!plan){ const e=document.createElement('p'); e.className='hint'; e.textContent='Dorthin gibt es keine Route.'; p.appendChild(e); return; }
+  const chips=document.createElement('div'); chips.className='chips';
+  [['eco','Sparsam'],['now','Sofort starten']].forEach(([m,t])=>{
+    const pl=plans[m], ok=pl && pl.dv<=dvAvail()+0.5;
+    const b=btn(`${t}: ${pl?km(pl.dv)+' km/s, '+fmtDays(pl.days):'–'}`, R.mode===m?'chip on':'chip'+(ok?'':' bad'), false, ()=>{ R.mode=m; render(); });
+    b.setAttribute('aria-pressed',R.mode===m); chips.appendChild(b);
+  });
+  p.appendChild(chips);
+  const tl=document.createElement('ol'); tl.className='timeline';
+  let run=S.day;
+  plan.steps.forEach((st,i)=>{
+    run+=st.days; const last=i===plan.steps.length-1;
+    const li=document.createElement('li'); li.className=st.kind+(i===0?' first':'')+(last?' last':'');
+    li.innerHTML=`<span class="dot"></span><div class="tx"><b>${esc(st.label)}</b><small>${st.kind==='wait'?`${fmtDays(st.days)}, bis ${dateStr(run)}`:fmtDays(st.days)}${last?`, Ankunft ${dateStr(run)}`:''}</small></div><span class="num">${st.kind==='wait'?'–':km(st.dv)+' km/s'}</span>`;
+    tl.appendChild(li);
+  });
+  p.appendChild(tl);
+  const have=dvAvail(), ok=plan.dv<=have+0.5; R.strand=false;
+  const sum=document.createElement('div'); sum.className='pfoot';
+  const deadl=cargoOrders().filter(o=>{ const k=KBY[o.to]; return k.node===R.target.node && (!k.site||k.site===R.target.site); });
+  const late=deadl.filter(o=>plan.arrive>o.deadline);
+  sum.innerHTML=`<div class="row"><span class="muted">Braucht ${km(plan.dv)} von ${km(have)} km/s</span><b class="${ok?'okc':'badc'}">${ok?'Rest '+km(have-plan.dv)+' km/s':'Es fehlen '+km(plan.dv-have)+' km/s'}</b></div>
+    <div class="massbar"><i style="width:${Math.min(100,plan.dv/Math.max(have,1)*100).toFixed(0)}%;background:${ok?'var(--accent)':'var(--bad)'}"></i></div>
+    <p class="kinfo">${deadl.length?(late.length?`${late.length} ${late.length>1?'Aufträge kommen':'Auftrag kommt'} nach der Frist an.`:`${deadl.length>1?'Alle '+deadl.length+' Aufträge':'Der Auftrag'} für dieses Ziel ${deadl.length>1?'treffen':'trifft'} vor der Frist ein.`):''}${plan.fee?` Startgebühr ${fmtCr(plan.fee)}.`:''} ${ok?'Der Autopilot hält, wenn unterwegs Fracht abgeliefert werden kann.':dvWith(eng().cap,cargoMass())<plan.dv?`Zu schwer beladen: Auch vollgetankt hättest du nur ${km(dvWith(eng().cap,cargoMass()))} km/s. Gib einen Auftrag zurück oder wähle ein anderes Ziel.`:'Tanke vorher oder wähle eine andere Route.'}</p>`;
+  if(ok){
+    const cm=cargoMass(), m0=eng().dry+cm+S.fuel, fAfter=Math.max(0, m0/Math.exp(plan.dv/(eng().isp*G0))-eng().dry-cm);
+    const cmAfter=cm-deadl.reduce((s,o)=>s+o.n*GOODS[o.good].m,0), rest=dvWith(fAfter,cmAfter);
+    const nf=nearestFuel({node:R.target.node, site:R.target.site, day:plan.arrive});
+    if(nf.dv>rest+0.5){ R.strand=true;
+      const w=document.createElement('p'); w.className='o-warn bad';
+      w.textContent=`Achtung: Am Ziel gibt es keine Tankstelle. Danach bleiben dir ${km(rest)} km/s, bis zur nächsten Tankstelle brauchst du ${isFinite(nf.dv)?km(nf.dv)+' km/s':'mehr'}. Du würdest stranden.`;
+      sum.appendChild(w);
+    } else if(nf.dv>0){
+      const w=document.createElement('p'); w.className='o-note';
+      w.textContent=`Am Ziel gibt es keine Tankstelle. Mit dem Rest von ${km(rest)} km/s erreichst du die nächste (${km(nf.dv)} km/s).`;
+      sum.appendChild(w);
+    }
+  }
+  if(!ok && !S.ui.auto){
+    // Route zu teuer: den Weg zur nächsten erreichbaren Tankstelle anbieten
+    const nf=nearestFuel({node:S.node,site:S.site,day:S.day});
+    if(nf.spot && nf.dv>0 && nf.dv<=have+0.5 && !(nf.spot.node===R.target.node && (nf.spot.site||null)===(R.target.site||null))){
+      const fb=btn(`Erst zur nächsten Tankstelle: ${targetName(nf.spot)}, ${km(nf.dv)} km/s`,'wide',locked,()=>openRoute(nf.spot,S.ui.back));
+      fb.style.fontSize='.92rem'; sum.appendChild(fb);
+    }
+  }
+  // Tanken direkt im Routenplaner, wenn hier eine Tankstelle ist
+  const rf=refuelInfo();
+  if(rf && rf.need>0.5 && !S.ui.auto){
+    const box=document.createElement('div'); box.className='rtank';
+    const dvFull=dvWith(S.fuel+rf.max,cargoMass()), full=rf.max>=rf.need-0.05;
+    const forRoute=Math.max(0,Math.min(rf.max, fuelFor(plan.dv,cargoMass())*1.03-S.fuel));
+    box.innerHTML=`<div class="row"><span class="muted">Tankstelle hier, ${rf.price} Cr/t, dauert ${fmtDays(rf.days)}</span></div>`;
+    const tg=document.createElement('div'); tg.className='two';
+    if(rf.max<0.1) tg.appendChild(btn('Kein Geld für Treibstoff','span2',true,()=>{}));
+    else {
+      tg.appendChild(btn(`${full?'Volltanken':'So viel wie bezahlbar'}: ${tons(rf.max)}, ${fmtCr(rf.max*rf.price)} → ${km(dvFull)} km/s`,'',locked,()=>doRefuel(rf.max,true)));
+      if(forRoute>0.5 && forRoute<rf.max-0.5) tg.appendChild(btn(`Bis Route reicht: ${tons(forRoute)}, ${fmtCr(forRoute*rf.price)}`,'',locked,()=>doRefuel(forRoute,true)));
+      else tg.firstChild.classList.add('span2');
+    }
+    box.appendChild(tg);
+    const more=document.createElement('button'); more.type='button'; more.className='linkbtn'; more.textContent='Andere Menge wählen';
+    more.onclick=()=>openView('tanken','route'); box.appendChild(more);
+    sum.appendChild(box);
+  }
+  const g=document.createElement('div'); g.className='two';
+  g.appendChild(btn('Nur nächster Schritt','',locked||!!S.ui.auto||!plan.steps.length,()=>{ const st=plan.steps[0]; S.ui.rmsg=true; if(!execStep(st)){ S.msg=`„${st.label}“ ist gerade nicht möglich. ${stepBlocker(st)}`; } render(); }));
+  if(S.ui.auto) g.appendChild(btn('Autopilot stoppen','',false,()=>stopAutopilot('Autopilot gestoppt.')));
+  else g.appendChild(R.strand ? btn('Trotzdem starten','',locked||!ok,startAutopilot) : btn('Autopilot starten','go',locked||!ok,startAutopilot));
+  sum.appendChild(g); p.appendChild(sum);
+}
+
+// ---------- Menü, Legende, Schalter ----------
+function resetGame(){ S.ui.auto=null; if(S.busy){ S.msg='Bitte kurz warten, das Schiff ist gerade unterwegs.'; render(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); render(); }
+function saveSlot(){
+  if(S.busy||!S.node){ S.msg='Speichern geht nur, wenn das Schiff steht.'; render(); return; }
+  const o={...S, visited:[...S.visited]}; delete o.transit; delete o.ui; delete o.move; delete o.anim;
+  memSlot=JSON.stringify(o);
+  try{ localStorage.setItem(SLOT_KEY, memSlot); S.msg=`Gespeichert: ${dateStr(S.day)}, ${fmtCr(S.credits)}.`; }
+  catch(e){ S.msg=`Gespeichert für diese Sitzung: ${dateStr(S.day)}, ${fmtCr(S.credits)}. Der Browser erlaubt kein dauerhaftes Speichern.`; }
+  render();
+}
+function loadSlot(){
+  if(S.busy) return;
+  if(!load(SLOT_KEY)){ S.msg='Kein gespeicherter Spielstand gefunden.'; render(); return; }
+  S.msg=`Spielstand geladen: ${dateStr(S.day)}, ${fmtCr(S.credits)}.`; render();
+}
+const menu=$('menu'), menubtn=$('menubtn');
+const resetBtn=menu.querySelector('[data-menu="reset"]');
+function disarmReset(){ resetBtn.classList.remove('armed'); resetBtn.textContent='Neu starten'; }
+function setMenu(open){ menu.hidden=!open; menubtn.setAttribute('aria-expanded',open); if(!open) disarmReset(); }
+menubtn.onclick=e=>{ e.stopPropagation(); setMenu(menu.hidden); };
+menu.onclick=e=>e.stopPropagation();
+document.addEventListener('click',()=>{ setMenu(false); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ setMenu(false); setLegend(false); } });
+menu.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{
+  const a=b.dataset.menu;
+  // Browser-Dialoge (confirm) sind in eingebetteten Seiten oft gesperrt, daher Bestätigung per zweitem Klick
+  if(a==='reset' && !b.classList.contains('armed')){ b.classList.add('armed'); b.textContent='Wirklich neu starten? Nochmal tippen'; return; }
+  setMenu(false);
+  if(a==='fs') toggleFs(); else if(a==='save') saveSlot(); else if(a==='load') loadSlot();
+  else if(a==='reset') resetGame();
+});
+document.querySelectorAll('[data-wait]').forEach(b=>b.onclick=()=>{ setMenu(false); if(S.ui.view!=='main' && !isDesk()) openView('main'); waitDays(+b.dataset.wait); });
+const infobtn=$('infobtn');
+function setLegend(open){ $('legend').hidden=!open; infobtn.setAttribute('aria-expanded',open); }
+infobtn.onclick=e=>{ e.stopPropagation(); setLegend($('legend').hidden); };
+$('legend').onclick=()=>setLegend(false);
+$('autofill').onclick=()=>{ S.autoFill=!S.autoFill; S.msg=S.autoFill?'Immer volltanken: an. An jeder Tankstelle wird der Tank gefüllt, soweit das Geld reicht.':'Immer volltanken: aus.'; render(); autoFill(); };
+$('cargotile').onclick=()=>openView(S.ui.view==='fracht'?'main':'fracht');
+$('stage').addEventListener('pointerdown',()=>{ if(ANIM.active && !ANIM.fast){ ANIM.fast=true; speedHint(); } });
+window.addEventListener('resize',draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+// Vollbild, wo der Browser es erlaubt (iPhone-Safari kann es für Seiten nicht)
+const isFs = () => !!(document.fullscreenElement||document.webkitFullscreenElement);
+function toggleFs(){
+  const el=document.documentElement;
+  try{
+    if(isFs()) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+    else { const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el); if(r&&r.catch) r.catch(()=>{ S.msg='Vollbild ist hier gesperrt.'; render(); }); }
+  }catch(e){ S.msg='Vollbild ist hier gesperrt.'; render(); }
+}
+(()=>{
+  const b=$('fs'), m=$('menufs');
+  const can=document.fullscreenEnabled||document.webkitFullscreenEnabled;
+  if(!can) return;
+  b.hidden=false; m.hidden=false;
+  b.onclick=toggleFs;
+  const upd=()=>{ const on=isFs(); b.setAttribute('aria-label',on?'Vollbild beenden':'Vollbild'); m.textContent=on?'Vollbild beenden':'Vollbild'; setTimeout(draw,100); };
+  document.addEventListener('fullscreenchange',upd); document.addEventListener('webkitfullscreenchange',upd);
+})();
+if(!load()) newGame();
+render();
+requestAnimationFrame(idleLoop);
+</script>
+</body>
+</html>
