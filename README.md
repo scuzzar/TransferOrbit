@@ -5,7 +5,7 @@ Prototyp eines Weltraum-Handelsspiels mit echter Bahnmechanik. Du fliegst Fracht
 ![Screenshot](docs/screenshot.png)
 
 ## Spielen
-Die ganze Seite steckt in einer einzigen Datei: `index.html`. Du kannst sie direkt im Browser öffnen. Mit GitHub Pages läuft das Spiel unter https://scuzzar.github.io/TransferOrbit/.
+Mit GitHub Pages läuft das Spiel unter https://scuzzar.github.io/TransferOrbit/. Lokal braucht es einen Server (`npm run serve`, dann http://localhost:8765/) — das Spiel besteht aus ES-Modulen, und die lädt der Browser nicht über `file://`.
 
 - Tippen oder Klicken auf Planeten, Monde und Landeplätze wählt ein Ziel. Ein Doppelklick zoomt hinein.
 - Der Routenplaner berechnet die günstigste Route, auf Wunsch fliegt sie der Autopilot.
@@ -35,24 +35,30 @@ Flach bleiben nur die Draufsicht aufs Sonnensystem (`drawSol`) und, darin, die R
 ## Aufbau des Repos
 | Pfad | Inhalt |
 |---|---|
-| `index.html` | das Spiel (HTML, CSS, JS, Canvas und three.js vom CDN; nichts zu bauen) |
+| `index.html` | Markup und CSS, dazu eine Zeile: `<script type="module" src="./js/start.js">` |
+| `js/` | das Spiel in 22 ES-Modulen. Der Browser lädt sie selbst, es gibt nichts zu bauen |
+| `ARCHITEKTUR.md` | wie die Module geschnitten sind und welche zwei Regeln sie zusammenhalten |
 | `CHANGELOG.md` | Änderungsprotokoll aller Versionen |
 | `art/` | Modelle, Texturen und Bilder aus [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), siehe `art/README.md` |
-| `tools/` | Python-Werkzeuge: Godot-.escn → JSON, Modelle vereinfachen, Vorschau rendern |
+| `tools/` | Python-Werkzeuge: Testserver, Einzeldatei bauen, Godot-.escn → JSON, Modelle vereinfachen, Vorschau rendern |
 | `tests/` | Playwright-Tests und Bots |
+
+Kurz zum Aufbau, ausführlich in `ARCHITEKTUR.md`: Einfuhren gehen nur nach unten (`basis` → `spiel/…` → `karte/…` → `ui/…` → `start`), und nach oben wird gemeldet statt gerufen. Wer den Spielstand ändert, ruft `geaendert()`; wer nur die Zeit weiterdreht, `zeitLief()`. Die Anzeige trägt sich dafür ein, verbunden wird beides einzig in `js/start.js`. `window.TO` ist die Außenkante für Tests und Konsole.
+
+Eine einzige HTML-Datei (für Artefakte oder Anhänge) baut `python3 tools/einzeldatei.py`.
 
 ## Tests
 ```bash
 npm install            # Playwright
 npx playwright install chromium
-npm run serve          # in einem zweiten Terminal: Server auf Port 8765
+npm run serve          # in einem zweiten Terminal: Server auf Port 8765 (mit CORS-Kopf)
 npm test               # Regressionstest + UI-Bot (Desktop und Handy)
 npm run spiel-bot      # spielt klug bis zur Karacke und protokolliert die Balance
 ```
 - `tests/regress.js` prüft Neustart, Speichern und Laden, Strand-Logik und Tanken im Routenplaner.
 - `tests/test-bot.js` klickt sich durch die Oberfläche, in einem gesperrten iframe wie auf claude.ai (`tests/harness.html`). Einstellbar mit den Umgebungsvariablen `STEPS`, `ONLY` und `LOG`.
-- `tests/spiel-bot.js` spielt über die Spielfunktionen mit sofortigen Animationen.
-- `tests/autopilot-ankunft.js`, `tests/rakete-bilder.js` und `tests/rakete-perf.js` sind Einzelprüfungen. `rakete-bilder.js` braucht den laufenden Server.
+- `tests/spiel-bot.js` spielt über die Spielfunktionen, mit `ANIM.sofort` ohne Animationen.
+- `tests/autopilot-ankunft.js`, `tests/rakete-bilder.js` und `tests/rakete-perf.js` sind Einzelprüfungen. Alle brauchen den laufenden Server.
 
 ## Herkunft der Art
 Die 3D-Rakete im Spiel ist das Modell „SimpleRocket“ aus Hanseatic Galaxy, vereinfacht auf 608 Dreiecke. Die Planetentexturen kommen von I, Voyager (Apache 2.0) und Solar System Scope (CC BY). Die Lizenztexte liegen in `art/lizenzen/`.

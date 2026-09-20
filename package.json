@@ -3,9 +3,11 @@
   "private": true,
   "description": "Weltraum-Handelsspiel-Prototyp mit echter Bahnmechanik (Delta-v, Hohmann, Kepler)",
   "scripts": {
-    "serve": "python3 -m http.server 8765",
+    "serve": "python3 tools/serve.py 8765",
     "test": "node tests/regress.js && node tests/test-bot.js",
     "spiel-bot": "node tests/spiel-bot.js"
   },
-  "devDependencies": { "playwright": "^1.47.0" }
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
 }

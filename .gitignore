@@ -6,3 +6,6 @@ play_log*.json
 *.png
 !art/**/*.png
 !docs/*.png
+
+# Einzeldatei-Bau aus tools/einzeldatei.py
+transferorbit-einzeldatei.html

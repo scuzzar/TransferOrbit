@@ -2,6 +2,46 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – Das Spiel liegt jetzt in Modulen (Version 40)
+
+`index.html` war eine Datei mit 2.645 Zeilen, davon 2.242 in einem einzigen `<script>`. Daran ließ
+sich kaum noch etwas ändern, ohne alles zu lesen. Das Skript steckt jetzt in 22 ES-Modulen unter
+`js/`; `index.html` hat nur noch Markup, CSS und eine Zeile:
+
+```html
+<script type="module" src="./js/start.js"></script>
+```
+
+Zwei Regeln halten das zusammen, ausführlich beschrieben in `ARCHITEKTUR.md`:
+
+1. **Einfuhren gehen nur nach unten.** Die Module stehen in einer festen Reihenfolge, keine Kreise.
+2. **Nach oben wird gemeldet, nicht gerufen.** Statt `render()` zu rufen, meldet die Steuerung
+   `geaendert()` (Spielstand hat sich geändert) oder `zeitLief()` (nur die Zeit lief weiter). Die
+   Anzeige trägt sich dafür ein. Verbunden wird beides an genau einer Stelle, in `js/start.js`.
+
+Dadurch kennt kein Spielmodul mehr die Oberfläche. Die Steuerung (`spiel/steuerung.js`) sammelt
+alles, was den Spielstand ändert; alles, was nur fragt, liegt darunter.
+
+Neu dabei:
+
+- `window.TO` ist die einzige Außenkante: jeder ausgeführte Name aus jedem Modul, als Lesezugriff,
+  dazu `TO.modul['karte/gl']` für ein ganzes Modul. Die Tests benutzen sie statt globaler Namen.
+- `tools/serve.py` (`npm run serve`) schickt `Access-Control-Allow-Origin: *`. Die Testhülle steckt
+  das Spiel in einen `sandbox="allow-scripts"`-Rahmen; ein solcher Rahmen hat einen undurchsichtigen
+  Ursprung, und ohne den Kopf lehnt der Browser die Module ab. GitHub Pages schickt ihn von sich aus.
+- `tools/einzeldatei.py` baut aus `js/` wieder eine einzige HTML-Datei, für Artefakte und Anhänge.
+- `ANIM.sofort` überspringt Animationen. Der Spiel-Bot hat dafür bisher `animateTo` überschrieben,
+  was mit Modulen nicht mehr geht.
+- `bewegungPlanen(a)` ist aus `doAction` herausgelöst: ein Zug lässt sich damit aufbauen, ohne ihn
+  ablaufen zu lassen. `tests/rakete-bilder.js` bildet damit die einzelnen Phasen ab.
+- `RAKETE_ZULETZT` merkt sich, wo die Rakete zuletzt gezeichnet wurde.
+
+`file://` funktioniert nicht mehr: ES-Module werden mit CORS geholt, und eine Datei vom
+Dateisystem hat keinen Ursprung, mit dem das geht. Über GitHub Pages läuft alles wie vorher.
+
+Am Spiel selbst hat sich nichts geändert – gleiche Physik, gleiche Wirtschaft, gleicher
+Routenplaner, gleiche Darstellung.
+
 ## 2026-09-20 – 2D- und 3D-Ebene fest aneinander gekoppelt (Version 39)
 
 Die 3D-Kugel saß gegenüber Gitter und Beschriftung versetzt, sobald die Autopilotleiste über der
