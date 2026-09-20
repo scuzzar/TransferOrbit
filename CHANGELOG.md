@@ -2,6 +2,43 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – three.js für die Körper (Version 34)
+
+Die Himmelskörper zeichnet jetzt three.js, geladen als ES-Modul von `cdn.jsdelivr.net/npm/three`.
+Kein Baukasten, keine Abhängigkeit im Repo. Alles andere bleibt, wie es war: Physik, Wirtschaft,
+Routenplaner, Autopilot und die ganze Oberfläche sind unverändert.
+
+- **Drei Ebenen übereinander.** `#cvb` (2D, hinten) – `#glc` (three.js) – `#cv` bzw. `#sys` (2D, vorne).
+  Verdeckte Bahnstücke gehören auf die hintere Ebene, damit der Körper sie weiterhin abdeckt.
+  Beschriftungen, Markierungen, gestrichelte Bahnen, Flammen, Steuerdüsen-Stöße, das Glühen
+  und alle Klickziele (HITS) bleiben im 2D-Canvas.
+- **Gleiche Projektion wie bisher.** Die three.js-Kamera ist orthografisch und rechnet in
+  Bildschirmpixeln, mit denselben Werten wie `makeCam` und `drawSys`: Planetenansicht 22°
+  Erhöhung und Blickrichtung je Körper aus `bodyView(b)`, Systemansicht `SYS_EL` = 35°.
+  2D und 3D liegen damit deckungsgleich übereinander.
+- **Texturen** aus `art/texturen/` (1024×512, equirektangular) für die sieben Planeten und sieben
+  Monde. Phobos und Deimos haben keine Textur und bleiben bei ihrer Grundfarbe.
+- **Tag-Nacht-Grenze** kommt aus dem Licht statt aus einer gezeichneten Halbellipse. Das
+  Richtungslicht steht in Kamerakoordinaten auf dem Vektor `LIGHT`, also genau wie vorher.
+- **Saturnring** als Ebene in der Äquatorebene mit `Saturn_rings.png`. Das Bild hat außerhalb der
+  Ringe schwarze Pixel mit Rest-Deckkraft; deshalb wird beim Laden die Helligkeit als Deckkraft
+  gesetzt, sonst läge ein dunkler Schleier über dem Planeten.
+- **Rakete** als echtes Dreiecksnetz (dieselben 608 Dreiecke und dieselbe 4×4-Palette wie bisher),
+  beleuchtet statt von Hand schattiert. Lage, Länge und Rollen sind unverändert. Sie liegt in
+  Kamerakoordinaten vor den Körpern; hinter dem Körper wird sie wie bisher gar nicht gezeichnet.
+- **Rückfall auf 2D.** Der alte Weg ist vollständig erhalten und übernimmt, wenn WebGL fehlt, der
+  Kontext verloren geht, three.js nicht lädt oder eine Textur nicht ladbar ist. Im gesperrten
+  iframe (claude.ai) ist die Herkunft der Seite „null“; dann sind die eigenen Bilder fremde
+  Herkunft und WebGL nimmt sie nur mit CORS-Kopf an. Das prüft eine 186-Byte-Stichprobe
+  (`palet_4x4.png`) vorab, damit nicht jede Textur einzeln scheitert.
+- **Mobil:** Pixelverhältnis auf höchstens 2 begrenzt, Texturen bleiben bei 1024 px.
+- Aufwand pro Bild (Erde im Orbit, gemessen im Test-Chromium): 0,9 ms mit three.js gegen 2,0 ms
+  auf dem 2D-Weg. Der teure Teil (Kugel, Kontinente, Gitter, Terminator, 608 sortierte Dreiecke)
+  liegt jetzt auf der Grafikkarte.
+- Die Sonnensystem-Draufsicht (`drawSol`) bleibt wie geplant flach.
+- `tests/rakete-bilder.js` läuft jetzt über `http://localhost:8765` statt über `file://` und hängt
+  sich an `drawRocket` statt an `rocketMesh`, damit beide Wege geprüft werden.
+
 ## 2026-09-19 – Langsame Animation, 3D-Rakete, Standort-Fix (Versionen 29–33)
 - Animationen laufen 2,3× langsamer. Ein Tippen auf die Karte macht sie 6× schneller. Beim Autopilot bleibt die Beschleunigung bis zum Ziel. Hinweis „Tippen: schneller“ oben rechts.
 - Manöver mit Lagewechsel: Die Rakete dreht sanft (Bremsschub rückwärts, Start senkrecht). Beim Drehen gibt es Steuerdüsen-Stöße an der Spitze, beim Schub eine flackernde Flamme aus der Düse.

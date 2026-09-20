@@ -6,7 +6,9 @@ const STEPS = +process.env.STEPS || 120;
   for(const [name,vp] of (process.env.ONLY==='mob'?[['mob',{width:390,height:844}]]:process.env.ONLY==='desk'?[['desk',{width:1440,height:860}]]:[['desk',{width:1440,height:860}],['mob',{width:390,height:844}]])){
     const p=await b.newPage({viewport:vp, reducedMotion:'reduce'});
     const errs=[]; p.on('pageerror',e=>errs.push('pageerror: '+e.message));
-    p.on('console',m=>{ if(m.type()==='error' && !/fonts|ERR_FAILED/.test(m.text())) errs.push('console: '+m.text()); });
+    // CORS-Meldung der Texturprobe ist erwartet: im gesperrten iframe ist die Herkunft "null",
+    // die 3D-Ebene schaltet sich dann selbst ab und es wird wie bisher in 2D gezeichnet.
+    p.on('console',m=>{ if(m.type()==='error' && !/fonts|ERR_FAILED|art\/texturen/.test(m.text())) errs.push('console: '+m.text()); });
     p.on('dialog',d=>{ errs.push('DIALOG '+d.type()+': '+d.message()); d.dismiss(); });
     await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
     const f=p.frames().find(x=>x.url().includes('index.html'));
