@@ -11,6 +11,13 @@ enthält nur noch Markup und CSS und zieht eine einzige Zeile Javascript:
 Wer eine einzige Datei braucht (Artefakt, Anhang), baut sie mit
 `python3 tools/einzeldatei.py`. Das Spiel selbst braucht das nie.
 
+![Komponentendiagramm: 22 Module in sieben Schichtbändern, Einfuhren nur nach unten,
+der Rückweg nach oben nur über die zwei Signale](docs/komponenten.svg)
+
+<sub>Jedes Modul darf aus jeder Schicht unter sich einführen, nie umgekehrt. Der einzige Weg
+zurück nach oben sind die zwei Signale, die `js/ereignisse.js` verteilt und die `js/start.js`
+einmal verbindet. Erzeugt mit `python3 tools/diagramm.py`.</sub>
+
 ## Die zwei Regeln
 
 Alles andere folgt aus diesen beiden Sätzen.

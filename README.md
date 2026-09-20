@@ -37,7 +37,7 @@ Flach bleiben nur die Draufsicht aufs Sonnensystem (`drawSol`) und, darin, die R
 |---|---|
 | `index.html` | Markup und CSS, dazu eine Zeile: `<script type="module" src="./js/start.js">` |
 | `js/` | das Spiel in 22 ES-Modulen. Der Browser lädt sie selbst, es gibt nichts zu bauen |
-| `ARCHITEKTUR.md` | wie die Module geschnitten sind und welche zwei Regeln sie zusammenhalten |
+| `ARCHITEKTUR.md` | wie die Module geschnitten sind und welche zwei Regeln sie zusammenhalten, mit Komponentendiagramm |
 | `CHANGELOG.md` | Änderungsprotokoll aller Versionen |
 | `art/` | Modelle, Texturen und Bilder aus [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), siehe `art/README.md` |
 | `tools/` | Python-Werkzeuge: Testserver, Einzeldatei bauen, Godot-.escn → JSON, Modelle vereinfachen, Vorschau rendern |
