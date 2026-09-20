@@ -14,6 +14,7 @@ import * as Planner from './game/planner.js';
 import * as Commands from './game/commands.js';
 import * as Canvas from './map/canvas.js';
 import * as Rocketdata from './map/rocketdata.js';
+import * as Surface from './map/surface.js';
 import * as Gl from './map/gl.js';
 import * as Rocket from './map/rocket.js';
 import * as View from './map/view.js';
@@ -48,7 +49,7 @@ setTimeout(()=>{ if(Gl.GL.state==='loading') Gl.glOff('three.js could not be loa
 // A single outside edge for tests and the console: TO.<name> always shows the current
 // value, TO.module['<path>'] the whole module.
 const MODULES = {
-  'events':Events, 'basics':Basics, 'game/world':World, 'game/physics':Physics, 'game/state':State, 'game/graph':Graph, 'game/economy':Economy, 'game/actions':Actions, 'map/geometry':Geometry, 'game/planner':Planner, 'game/commands':Commands, 'map/canvas':Canvas, 'map/rocketdata':Rocketdata, 'map/gl':Gl, 'map/rocket':Rocket, 'map/view':View, 'map/draw':Draw, 'ui/widgets':Widgets, 'ui/pickcard':Pickcard, 'ui/panels':Panels, 'ui/display':Display, 'ui/menu':Menu,
+  'events':Events, 'basics':Basics, 'game/world':World, 'game/physics':Physics, 'game/state':State, 'game/graph':Graph, 'game/economy':Economy, 'game/actions':Actions, 'map/geometry':Geometry, 'game/planner':Planner, 'game/commands':Commands, 'map/canvas':Canvas, 'map/rocketdata':Rocketdata, 'map/surface':Surface, 'map/gl':Gl, 'map/rocket':Rocket, 'map/view':View, 'map/draw':Draw, 'ui/widgets':Widgets, 'ui/pickcard':Pickcard, 'ui/panels':Panels, 'ui/display':Display, 'ui/menu':Menu,
 };
 const TO = { module: MODULES };
 for(const space of Object.values(MODULES))

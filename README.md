@@ -36,7 +36,7 @@ The only things that stay flat are the top-down view of the solar system (`drawS
 | Path | Contents |
 |---|---|
 | `index.html` | markup and CSS, plus one line: `<script type="module" src="./js/start.js">` |
-| `js/` | the game in 23 ES modules. The browser loads them itself, there is nothing to build |
+| `js/` | the game in 24 ES modules. The browser loads them itself, there is nothing to build |
 | `ARCHITECTURE.md` | how the modules are cut and which two rules hold them together, with a component diagram |
 | `CHANGELOG.md` | the change log of every version |
 | `art/` | models, textures and images from [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), see `art/README.md` |

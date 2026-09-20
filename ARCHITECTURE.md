@@ -1,6 +1,6 @@
 # Architecture
 
-The game consists of 23 ES modules under `js/`. The browser loads them itself;
+The game consists of 24 ES modules under `js/`. The browser loads them itself;
 there is no toolchain and no `node_modules` in what gets shipped. `index.html`
 holds nothing but markup and CSS, plus a single line of Javascript:
 
@@ -11,7 +11,7 @@ holds nothing but markup and CSS, plus a single line of Javascript:
 If you need one single file (an artifact, an attachment), build it with
 `python3 tools/singlefile.py`. The game itself never needs it.
 
-![Component diagram: 23 modules in seven layered bands, imports only ever pointing
+![Component diagram: 24 modules in seven layered bands, imports only ever pointing
 downwards, the way back up only through the two signals](docs/components.svg)
 
 <sub>Every module may import from any layer below it, never the other way round. The only way
@@ -91,25 +91,26 @@ From the bottom up. "Imports from" lists only the modules actually used.
 | 5 | `game/graph.js` | 77 | Idealised cost, used for pricing | physics, state, world |
 | 6 | `game/economy.js` | 107 | The order board, deadlines, bulk goods | basics, graph, physics, state, world |
 | 7 | `game/actions.js` | 61 | Which manoeuvres are possible from here | physics, state, world |
-| 8 | `map/geometry.js` | 179 | Where something sits on screen | basics, physics, state, world |
+| 8 | `map/geometry.js` | 134 | Where something sits on screen | basics, physics, state, world |
 | 9 | `game/planner.js` | 87 | Route search for the player, date-aware | actions, basics, graph, physics, state, world |
 | 10 | `game/commands.js` | 346 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, state, world |
 | 11 | `map/canvas.js` | 46 | The three drawing layers and their helpers | basics, state, world |
 | 12 | `map/rocketdata.js` | 18 | The rocket model as number arrays | — |
-| 13 | `map/gl.js` | 287 | The three.js layer | basics, canvas, events, geometry, rocketdata, world |
-| 14 | `map/rocket.js` | 75 | Attitude, flame, 3D model or hand-drawn | basics, canvas, gl, rocketdata, state, world |
-| 15 | `map/view.js` | 86 | Which level the map shows; taps on it | basics, canvas, events, planner, state, world |
-| 16 | `map/draw.js` | 300 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, state, view, world |
-| 17 | `ui/widgets.js` | 42 | Button, icon, chip, panel heading | basics, commands, state, world |
-| 18 | `ui/pickcard.js` | 72 | The card for the selected map object | basics, canvas, events, graph, physics, state, view, widgets, world |
-| 19 | `ui/panels.js` | 316 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, graph, planner, state, widgets, world |
-| 20 | `ui/display.js` | 67 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, state, widgets, world |
-| 21 | `ui/menu.js` | 70 | Menu, fullscreen, legend, version line | basics, commands, draw, events, state |
-| 22 | `start.js` | 57 | Connect, wire, load, `window.TO` | all |
+| 13 | `map/surface.js` | 49 | The planet surfaces as number arrays | — |
+| 14 | `map/gl.js` | 288 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
+| 15 | `map/rocket.js` | 75 | Attitude, flame, 3D model or hand-drawn | basics, canvas, gl, rocketdata, state, world |
+| 16 | `map/view.js` | 86 | Which level the map shows; taps on it | basics, canvas, events, planner, state, world |
+| 17 | `map/draw.js` | 300 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, state, view, world |
+| 18 | `ui/widgets.js` | 42 | Button, icon, chip, panel heading | basics, commands, state, world |
+| 19 | `ui/pickcard.js` | 72 | The card for the selected map object | basics, canvas, events, graph, physics, state, view, widgets, world |
+| 20 | `ui/panels.js` | 316 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, graph, planner, state, widgets, world |
+| 21 | `ui/display.js` | 67 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, state, widgets, world |
+| 22 | `ui/menu.js` | 70 | Menu, fullscreen, legend, version line | basics, commands, draw, events, state |
+| 23 | `start.js` | 58 | Connect, wire, load, `window.TO` | all |
 
 The numbering above is one valid order out of many. What the import graph really
 forces is much flatter: the longest chain of imports is nine deep
-(`basics`/`events`/`world`/`rocketdata` → `physics`/`state` →
+(`basics`/`events`/`world`/`rocketdata`/`surface` → `physics`/`state` →
 `actions`/`graph`/`canvas`/`geometry` → `economy`/`planner`/`gl` →
 `commands`/`rocket`/`view` → `draw`/`widgets` → `menu`/`panels`/`pickcard` →
 `display` → `start`), and everything on the same step is independent of
@@ -151,6 +152,14 @@ The one exception is `map/geometry.js`: it lives in the `map/` folder but is not
 presentation, it is mathematics — where a body stands, how a flight path runs.
 That is why `game/commands.js` may import it although it knows nothing else
 about the map.
+
+**`map/surface.js` is data, not geometry.** Coastlines, water, deserts, polar
+caps, the two Earth colours and the direction of the light sat in
+`map/geometry.js` for a long time: 41 of its 180 lines, which the rest of the
+module never touched once and which only `map/gl.js` ever read. They are the
+same kind of thing as `map/rocketdata.js` — numbers a texture is painted from —
+and they now sit next to it, with no imports of their own. `map/geometry.js` is
+left with 134 lines that really are mathematics.
 
 **`ui/pickcard.js` is separate from `ui/display.js`.** The card for the selected
 map object is a panel like any other, it just sits in the main view instead of

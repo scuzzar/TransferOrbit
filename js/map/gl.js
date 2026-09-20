@@ -4,7 +4,8 @@
 import { tick } from '../events.js';
 import { TAU } from '../basics.js';
 import { bodyColor } from '../game/world.js';
-import { CAPS, D2R, DESERT, EARTH_LAND, LAND, LIGHT, WATER, bodyLon0 } from './geometry.js';
+import { D2R, bodyLon0 } from './geometry.js';
+import { CAPS, DESERT, EARTH_LAND, LAND, LIGHT, WATER } from './surface.js';
 import { cssVar, cvb, glc, layFor, prep } from './canvas.js';
 import { RKT, RKT_HEX, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
 

@@ -2,6 +2,21 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-20 – The planet surfaces as their own module (version 44)
+
+`map/geometry.js` carried 41 lines that were not geometry: `LAND`, `WATER`, `DESERT`, `CAPS`,
+`EARTH_LAND` and `LIGHT` — the coastlines, the water, the desert belts, the polar caps, the two
+Earth colours and the direction the light comes from. The rest of the module never read a single
+one of them, and the only consumer anywhere was `map/gl.js`, which paints its textures from them.
+
+They are now **`js/map/surface.js`** (49 lines, no imports at all), standing next to
+`js/map/rocketdata.js` for the same reason: numbers, not code. `map/geometry.js` is left with 134
+lines that really are what the module claims — where a body stands, how a flight path runs — which
+is also what justifies `game/commands.js` importing it.
+
+Nothing else changed: same data, same values, same pictures. 24 modules now instead of 23, still
+no cycle and still no import pointing upwards.
+
 ## 2026-09-20 – The split gone over again (version 43)
 
 A pass over all 23 modules, looking for dead code, for parts that sit in the wrong file and for
