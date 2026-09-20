@@ -39,7 +39,9 @@ exactly why it should be the player's.
 Nothing else picks up the new weight: the order board, `nearestFuel()`, the pricing graph and the
 bots all run on `eco`. `tests/regress.js` now checks that the two modes really do differ.
 
-Still open from that same note: the order board shows the gross reward, not the net after fuel.
+The other half of that old note — the order board showing the gross reward rather than the net
+after fuel — will stay as it is. Deciding what a run is worth is the player's job, and the
+numbers needed for it are all on the screen already.
 
 ## 2026-09-20 – The planet surfaces as their own module (version 44)
 
