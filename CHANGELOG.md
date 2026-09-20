@@ -2,6 +2,27 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – Oberflächen ohne fremde Texturen (Version 35)
+
+Version 34 lud Planetentexturen aus `art/texturen/`. Die bleiben liegen, werden aber nicht mehr
+benutzt: das Spiel zeichnet die Oberflächen selbst.
+
+- **Karten entstehen im Browser**, equirektangular auf 1024×512, beim ersten Bedarf eines Körpers:
+  Erde aus denselben handgezeichneten Umrissen wie die 2D-Ansicht (`LAND`, `WATER`, Wüstengürtel),
+  dazu Polkappen aus `CAPS` und für Jupiter und Saturn die vier Bänder, die vorher die
+  2D-Schattierung malte. Körper ohne Besonderheiten bekommen gar keine Karte, für sie genügt
+  die Grundfarbe. Der Saturnring wird ebenfalls gezeichnet, mit der Cassini-Teilung.
+- **Damit lädt die 3D-Ebene keine einzige Datei mehr** außer three.js selbst. Das behebt auch, warum
+  sie im Artefakt auf claude.ai bisher gar nicht lief: dort ist die Herkunft der Seite „null",
+  die eigenen Bilder gelten damit als fremde Herkunft und WebGL nimmt sie ohne CORS-Kopf nicht an.
+  Die Prüfung aus Version 34 lief ins Leere, weil `location.origin` im gesperrten iframe die
+  URL meldet und nicht „null"; sie ist jetzt ersatzlos weg.
+- Die Polkappe braucht einen Saum, der sich nach ihrer eigenen Größe richtet. Ein fester Anteil
+  der Kartenhöhe war bei der 10° schmalen Marskappe breiter als die halbe Kappe und machte aus
+  ihr einen Lichtschleier am Pol.
+- `art/texturen/` bleibt im Repo, ebenso die Lizenzen in `art/lizenzen/` (Solar System Scope,
+  CC BY; I, Voyager, Apache 2.0). Das Spiel rührt beides nicht mehr an.
+
 ## 2026-09-20 – three.js für die Körper (Version 34)
 
 Die Himmelskörper zeichnet jetzt three.js, geladen als ES-Modul von `cdn.jsdelivr.net/npm/three`.
@@ -18,6 +39,7 @@ Routenplaner, Autopilot und die ganze Oberfläche sind unverändert.
   2D und 3D liegen damit deckungsgleich übereinander.
 - **Texturen** aus `art/texturen/` (1024×512, equirektangular) für die sieben Planeten und sieben
   Monde. Phobos und Deimos haben keine Textur und bleiben bei ihrer Grundfarbe.
+  (Mit Version 35 wieder entfernt, siehe oben.)
 - **Tag-Nacht-Grenze** kommt aus dem Licht statt aus einer gezeichneten Halbellipse. Das
   Richtungslicht steht in Kamerakoordinaten auf dem Vektor `LIGHT`, also genau wie vorher.
 - **Saturnring** als Ebene in der Äquatorebene mit `Saturn_rings.png`. Das Bild hat außerhalb der

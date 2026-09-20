@@ -1561,11 +1561,10 @@ const cssv = () => { const css=getComputedStyle(document.documentElement); retur
 // Die Kamera ist orthografisch und rechnet in Bildschirmpixeln, mit denselben Werten wie makeCam
 // bzw. drawSys. Damit liegen 2D und 3D genau übereinander.
 // Ohne WebGL oder ohne Texturen bleibt GL.on falsch und alles läuft wie bisher rein in 2D.
-const TEXNAME = {mercury:'Mercury', venus:'Venus', earth:'Earth', mars:'Mars', ceres:'Ceres',
-  jupiter:'Jupiter', saturn:'Saturn', moon:'Moon', io:'Io', europa:'Europa', ganymede:'Ganymede',
-  callisto:'Callisto', enceladus:'Enceladus', titan:'Titan'};
-const TEXDIR = 'art/texturen/';
-const GL = {on:false, T:null, r:null, tex:{}, mat:{}, mesh:{}, ring:null, rocket:null, warned:false};
+// Keine fremden Texturen: die Oberflächen entstehen im Browser aus den Daten, die das Spiel
+// ohnehin hat — Kontinente von Hand, Polkappen, Bänder der Gasriesen, Saturnring. Damit lädt
+// die 3D-Ebene kein einziges Bild und läuft auch im gesperrten iframe ohne Herkunftsprobleme.
+const GL = {on:false, T:null, r:null, mat:{}, mesh:{}, ring:null, rocket:null, warned:false};
 
 function glOff(why){
   if(!GL.on && !GL.T) return;
@@ -1593,17 +1592,73 @@ function glRocketGeo(T){
   return gm;
 }
 
-// Ringtextur: das Rohbild hat außerhalb der Ringe schwarze Pixel mit Rest-Deckkraft.
-// Deshalb die Helligkeit als Deckkraft nehmen, dann bleibt die Lücke wirklich leer.
-function glRingTexture(T, img){
-  const cn=document.createElement('canvas'); cn.width=img.width; cn.height=img.height;
-  const q=cn.getContext('2d'); q.drawImage(img,0,0);
-  const d=q.getImageData(0,0,cn.width,cn.height), a=d.data;
-  for(let i=0;i<a.length;i+=4){
-    const m=Math.max(a[i],a[i+1],a[i+2]);
-    a[i+3]=Math.min(255, m*1.35);
+// ---- Oberflächen als Zeichnung, equirektangular (Länge waagerecht, Breite senkrecht) ----
+const TEX_W = 1024, TEX_H = 512;
+function texCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+// Länge/Breite in Pixel der Karte. bodyLon0 kommt erst bei der Drehung der Kugel dazu,
+// die Karte selbst ist immer bei 0° zentriert.
+const texX = lon => (lon+180)/360*TEX_W, texY = lat => (90-lat)/180*TEX_H;
+function texPoly(g,pts,fill){
+  g.fillStyle=fill;
+  for(const dx of [-TEX_W,0,TEX_W]){ // dreimal zeichnen, damit nichts an der Datumsgrenze abreißt
+    g.beginPath();
+    pts.forEach(([lon,lat],i)=>{ const x=texX(lon)+dx, y=texY(lat); i?g.lineTo(x,y):g.moveTo(x,y); });
+    g.closePath(); g.fill();
   }
-  q.putImageData(d,0,0);
+}
+// Polkappe: geschlossene Fläche von der Breite bis zum Pol, weicher Saum nur zur Äquatorseite.
+// Zum Pol hin darf sie nicht ausblenden: dort ist die Karte so gestaucht, dass daraus eine Blendung wird.
+function texCap(g,lat,alpha){
+  // Der Saum richtet sich nach der Kappe selbst: ein fester Anteil der Kartenhöhe wäre bei einer
+  // 10°-Kappe wie auf dem Mars breiter als die halbe Kappe und verwischt sie zu einem Schleier.
+  const col='236,240,246', y=texY(lat), pole=lat>0?0:TEX_H;
+  const soft=(lat>0?1:-1)*Math.max(2, Math.abs(y-pole)*0.2);
+  g.fillStyle=`rgba(${col},${alpha})`;
+  g.fillRect(0, Math.min(y,pole), TEX_W, Math.abs(y-pole));
+  const gr=g.createLinearGradient(0,y,0,y+soft);
+  gr.addColorStop(0,`rgba(${col},${alpha})`); gr.addColorStop(1,`rgba(${col},0)`);
+  g.fillStyle=gr; g.fillRect(0, Math.min(y,y+soft), TEX_W, Math.abs(soft));
+}
+// Bänder der Gasriesen: dieselben vier Lagen wie in der 2D-Schattierung, dort als Anteil
+// des Radius angegeben, also als Sinus der Breite.
+function texBands(g){
+  [-0.45,-0.2,0.15,0.4].forEach((f,i)=>{
+    const lat=a=>Math.asin(Math.max(-1,Math.min(1,a)))*180/Math.PI;
+    const y0=texY(lat(f+0.09)), y1=texY(lat(f-0.09));
+    const gr=g.createLinearGradient(0,y0,0,y1), c=i%2?'120,80,50':'255,240,220', a=i%2?0.38:0.28;
+    gr.addColorStop(0,`rgba(${c},0)`); gr.addColorStop(0.5,`rgba(${c},${a})`); gr.addColorStop(1,`rgba(${c},0)`);
+    g.fillStyle=gr; g.fillRect(0,y0,TEX_W,y1-y0);
+  });
+}
+// Karte eines Körpers. Ohne Besonderheiten gibt es keine Karte, dann genügt die Grundfarbe.
+function glSurface(T,b){
+  const caps=CAPS[b]||[], gas=b==='jupiter'||b==='saturn', earth=b==='earth';
+  if(!caps.length && !gas && !earth) return null;
+  const col=bodyColor(b), cn=texCanvas(TEX_W,TEX_H), g=cn.getContext('2d');
+  g.fillStyle=col; g.fillRect(0,0,TEX_W,TEX_H);
+  if(earth){
+    LAND.forEach((pts,i)=>texPoly(g,pts,EARTH_LAND(i)));
+    DESERT.forEach(([pts,fill])=>texPoly(g,pts,fill));
+    WATER.forEach(pts=>texPoly(g,pts,col)); // Binnenmeere wieder aufmachen
+  }
+  if(gas) texBands(g);
+  caps.forEach(([lat,a])=>texCap(g,lat,a));
+  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
+}
+// Saturnring: Bänder über den Radius, innen und außen durchsichtig. Die Cassini-Teilung
+// sitzt bei knapp zwei Dritteln, wie in der Natur.
+function glRingTexture(T){
+  const N=512, cn=texCanvas(N,N), g=cn.getContext('2d'), c=N/2;
+  const inner=0.614; // 1,35 von 2,2 Saturnradien: der Ring beginnt nicht am Planeten
+  const band=(r0,r1,fill)=>{ g.beginPath(); g.arc(c,c,r1*c,0,TAU); g.arc(c,c,r0*c,0,TAU,true);
+    g.fillStyle=fill; g.fill('evenodd'); };
+  band(inner,1,'rgba(222,205,160,0.72)');
+  band(inner,inner+0.06,'rgba(198,182,142,0.4)');   // innerer, blasser Rand
+  band(0.80,0.845,'rgba(0,0,0,0)');                  // Cassini-Teilung
+  g.globalCompositeOperation='destination-out'; band(0.80,0.845,'rgba(0,0,0,0.85)');
+  g.globalCompositeOperation='source-over';
+  band(0.86,0.95,'rgba(236,224,190,0.5)');
+  band(0.97,1,'rgba(200,186,150,0.25)');
   const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
 }
 
@@ -1634,39 +1689,18 @@ function glInit(T){
   // die Blickmitte je Körper kommt dann aus einer Drehung um Y.
   GL.sphere=new T.SphereGeometry(1, 64, 32, -Math.PI/2);
   GL.plane=new T.PlaneGeometry(2,2);
-  GL.loader=new T.TextureLoader(); GL.loader.setCrossOrigin('anonymous');
   GL.rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide}));
   GL.rocket.scale.setScalar(RKT_LEN/1.25);
   GL.rocket.visible=false; GL.flat.add(GL.rocket);
   GL.qa=new T.Quaternion(); GL.qb=new T.Quaternion();
   GL.AX=new T.Vector3(1,0,0); GL.AY=new T.Vector3(0,1,0); GL.AZ=new T.Vector3(0,0,1);
-  glProbe(()=>{ GL.on=true; draw(); });
-}
-// Im gesperrten iframe (claude.ai) ist die Herkunft der Seite "null". Dann zählen die eigenen
-// Bilder als fremde Herkunft, und WebGL nimmt sie nur mit CORS-Kopf an. Das einmal an der
-// kleinsten Datei prüfen, sonst scheitert jede Textur einzeln und füllt die Konsole.
-function glProbe(ok){
-  if(location.origin!=='null') return ok(); // gleiche Herkunft, etwa GitHub Pages: nichts zu prüfen
-  const img=new Image(); img.crossOrigin='anonymous';
-  img.onload=ok;
-  img.onerror=()=>glOff('Texturen ohne CORS-Kopf, die Seite läuft in einem gesperrten iframe');
-  img.src=TEXDIR+'palet_4x4.png'; // 186 Byte
+  GL.on=true;
+  draw();
 }
 
-// Textur eines Körpers, beim ersten Bedarf geladen. Fehlt sie (Phobos, Deimos), bleibt es
-// bei der Grundfarbe. Scheitert das Laden, fällt die ganze 3D-Ebene weg.
-function glTex(key){
-  if(key in GL.tex) return GL.tex[key];
-  const name=TEXNAME[key];
-  if(!name) return GL.tex[key]=null;
-  const t=GL.loader.load(TEXDIR+name+'.jpg', ()=>{ if(GL.on) draw(); }, undefined,
-    ()=>glOff('Textur '+name+'.jpg nicht ladbar'));
-  t.colorSpace=GL.T.SRGBColorSpace; t.anisotropy=GL.aniso;
-  return GL.tex[key]=t;
-}
 function glMat(key){
   if(GL.mat[key]) return GL.mat[key];
-  const T=GL.T, map=glTex(key);
+  const T=GL.T, map=glSurface(T,key);
   return GL.mat[key]=new T.MeshLambertMaterial(map?{map}:{color:new T.Color(bodyColor(key))});
 }
 function glBody(key){
@@ -1677,15 +1711,11 @@ function glBody(key){
 }
 function glSaturnRing(){
   if(GL.ring) return GL.ring;
-  const T=GL.T, mat=new T.MeshBasicMaterial({transparent:true, side:T.DoubleSide, depthWrite:false});
+  const T=GL.T;
+  const mat=new T.MeshBasicMaterial({map:glRingTexture(T), transparent:true, side:T.DoubleSide, depthWrite:false});
   const m=new T.Mesh(GL.plane, mat);
   m.rotation.x=-Math.PI/2; // Plane liegt in XY, der Ring gehört in die Äquatorebene XZ
-  GL.root.add(m); GL.ring=m;
-  const img=new Image(); img.crossOrigin='anonymous';
-  img.onload=()=>{ mat.map=glRingTexture(T,img); mat.needsUpdate=true; if(GL.on) draw(); };
-  img.onerror=()=>glOff('Saturn_rings.png nicht ladbar');
-  img.src=TEXDIR+'Saturn_rings.png';
-  return m;
+  GL.root.add(m); return GL.ring=m;
 }
 
 // Eine Ansicht beginnen: Canvas auf die Größe des vorderen 2D-Canvas bringen,
@@ -1829,6 +1859,14 @@ const WATER = [
   [[28,42],[33,41],[41,41],[40,44],[35,45],[31,46],[29,45]],
   [[47,37],[54,37],[53,42],[51,45],[53,47],[49,47],[47,43]],
 ];
+// Wüstengürtel (Sahara/Arabien, Iran, Australien) und die beiden Erdfarben, von 2D und 3D genutzt
+const DESERT = [
+  [[[-12,20],[0,28],[20,30],[32,24],[34,16],[15,14],[-5,15]],'rgba(196,170,112,0.75)'],
+  [[[40,16],[55,22],[56,27],[48,29],[40,26]],'rgba(196,170,112,0.7)'],
+  [[[125,-22],[140,-24],[140,-30],[125,-30]],'rgba(196,170,112,0.6)'],
+];
+const EARTH_LAND = i => i===1 ? 'rgba(236,240,244,0.92)' : 'rgba(104,146,86,0.95)'; // 1 = Grönland (Eis)
+
 // ---------- 3D-Ansicht der Himmelskörper: echte Geometrie, feste leicht schräge Kamera ----------
 const D2R = Math.PI/180;
 const CAM_EL = 22*D2R;                 // Kamera 22° über (oder unter) der Äquatorebene
@@ -2105,10 +2143,8 @@ function drawBody(b){
       const dx=p.x-cx, dy=p.y-cy, n=Math.hypot(dx,dy)||1; return [cx+dx/n*R, cy+dy/n*R, false]; });
     if(!q.some(p=>p[2])) return; g.beginPath(); q.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath(); g.fillStyle=fill; g.fill(); };
   if(b==='earth' && !use3D){
-    LAND.forEach((pts,i)=>surfPoly(pts, i===1?'rgba(236,240,244,0.92)':'rgba(104,146,86,0.95)'));
-    surfPoly([[-12,20],[0,28],[20,30],[32,24],[34,16],[15,14],[-5,15]],'rgba(196,170,112,0.75)');
-    surfPoly([[40,16],[55,22],[56,27],[48,29],[40,26]],'rgba(196,170,112,0.7)');
-    surfPoly([[125,-22],[140,-24],[140,-30],[125,-30]],'rgba(196,170,112,0.6)');
+    LAND.forEach((pts,i)=>surfPoly(pts, EARTH_LAND(i)));
+    DESERT.forEach(([pts,fill])=>surfPoly(pts,fill));
     WATER.forEach(pts=>surfPoly(pts,col));
   }
   if(!use3D) (CAPS[b]||[]).forEach(([lat,a])=>{ const pts=[]; for(let lon=-180;lon<180;lon+=6) pts.push([lon,lat]); surfPoly(pts,`rgba(240,242,246,${a})`); });

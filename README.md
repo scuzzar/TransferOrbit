@@ -5,9 +5,7 @@ Prototyp eines Weltraum-Handelsspiels mit echter Bahnmechanik. Du fliegst Fracht
 ![Screenshot](docs/screenshot.png)
 
 ## Spielen
-Die ganze Seite steckt in einer einzigen Datei: `index.html`. Mit GitHub Pages läuft das Spiel unter https://scuzzar.github.io/TransferOrbit/.
-
-Für die texturierten Planeten braucht es einen Server (die Texturen liegen in `art/texturen/`), also `npm run serve` und dann http://localhost:8765/. Direkt per Doppelklick geöffnet (`file://`) läuft das Spiel auch, dann aber in der flachen 2D-Darstellung.
+Die ganze Seite steckt in einer einzigen Datei: `index.html`. Du kannst sie direkt im Browser öffnen. Mit GitHub Pages läuft das Spiel unter https://scuzzar.github.io/TransferOrbit/.
 
 - Tippen oder Klicken auf Planeten, Monde und Landeplätze wählt ein Ziel. Ein Doppelklick zoomt hinein.
 - Der Routenplaner berechnet die günstigste Route, auf Wunsch fliegt sie der Autopilot.
@@ -19,7 +17,9 @@ Die Himmelskörper zeichnet [three.js](https://threejs.org/), als ES-Modul vom C
 
 Reihenfolge der Ebenen: `#cvb` (2D, hinten) – `#glc` (three.js) – `#cv` bzw. `#sys` (2D, vorne).
 
-Fehlt WebGL, lädt three.js nicht oder ist eine Textur nicht ladbar, zeichnet der alte 2D-Weg weiter — mit Kontinenten aus Polygonen, gemalter Tag-Nacht-Grenze und der von Hand schattierten Rakete. Der Code dafür bleibt erhalten.
+**Keine fremden Texturen.** Die Oberflächen entstehen beim ersten Bedarf im Browser: Kontinente aus denselben handgezeichneten Umrissen wie bisher, Polkappen, die Bänder der Gasriesen und der Saturnring. Das Spiel lädt damit außer three.js selbst keine einzige Datei nach und läuft auch in einem gesperrten iframe.
+
+Fehlt WebGL, geht der Kontext verloren oder lädt three.js nicht, zeichnet der alte 2D-Weg weiter. Der Code dafür bleibt vollständig erhalten.
 
 ## Physik und Wirtschaft
 - Delta-v nach Ziolkowski mit Leergewicht, Fracht und Treibstoff. Jedes Schiff hat einen eigenen Isp.
@@ -48,7 +48,7 @@ npm run spiel-bot      # spielt klug bis zur Karacke und protokolliert die Balan
 - `tests/regress.js` prüft Neustart, Speichern und Laden, Strand-Logik und Tanken im Routenplaner.
 - `tests/test-bot.js` klickt sich durch die Oberfläche, in einem gesperrten iframe wie auf claude.ai (`tests/harness.html`). Einstellbar mit den Umgebungsvariablen `STEPS`, `ONLY` und `LOG`.
 - `tests/spiel-bot.js` spielt über die Spielfunktionen mit sofortigen Animationen.
-- `tests/autopilot-ankunft.js`, `tests/rakete-bilder.js` und `tests/rakete-perf.js` sind Einzelprüfungen. `rakete-bilder.js` braucht den laufenden Server, sonst fällt die Seite auf 2D zurück.
+- `tests/autopilot-ankunft.js`, `tests/rakete-bilder.js` und `tests/rakete-perf.js` sind Einzelprüfungen. `rakete-bilder.js` braucht den laufenden Server.
 
 ## Herkunft der Art
 Die 3D-Rakete im Spiel ist das Modell „SimpleRocket“ aus Hanseatic Galaxy, vereinfacht auf 608 Dreiecke. Die Planetentexturen kommen von I, Voyager (Apache 2.0) und Solar System Scope (CC BY). Die Lizenztexte liegen in `art/lizenzen/`.
