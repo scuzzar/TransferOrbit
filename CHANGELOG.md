@@ -2,6 +2,15 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – Versionsnummer im Menü (Version 38)
+
+- Unten im Menü steht jetzt „Version NN · Stand TT.MM.JJJJ, hh:mm". Das Datum kommt aus
+  `document.lastModified`, also dem Stand der tatsächlich ausgelieferten Datei. Zeigt es ein altes
+  Datum, liegt eine veraltete Fassung im Browser-Cache — GitHub Pages setzt `max-age=600`, hält
+  `index.html` also zehn Minuten. Ein harter Neuladen (Strg+Umschalt+R) holt sie sofort.
+- Die Nummer steht in der Konstanten `VERSION` gleich oben bei `START_DAY` und wird bei jeder
+  neuen Version mitgezogen.
+
 ## 2026-09-20 – Bahnen in 3D, echte Tiefe für die Rakete (Version 37)
 
 Drei Fehler mit derselben Wurzel: Bahnen und Rakete lagen in verschiedenen Ebenen und konnten sich

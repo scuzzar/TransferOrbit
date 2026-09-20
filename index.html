@@ -360,6 +360,7 @@ label.order{display:block;cursor:pointer}
         <div class="msep"></div>
         <button type="button" data-menu="reset" class="mdanger">Neu starten</button>
         <div class="mfoot" id="used"></div>
+        <div class="mfoot" id="ver"></div>
       </div>
     </div>
   </div>
@@ -390,6 +391,7 @@ label.order{display:block;cursor:pointer}
 // ---------- Konstanten ----------
 const AU = 1.495978707e8, MU_SUN = 1.32712440018e11, G0 = 9.80665;
 const START_DAY = 10957.5; // Tage seit J2000 → 1. Jan 2030
+const VERSION = '38'; // steht im Menü, damit man eine veraltete Fassung aus dem Cache erkennt
 // Kreisbahnen mit echten mittleren Längen (J2000) und Umlaufzeiten
 const B = {
   mercury:{name:'Merkur', a:0.387, T:87.97,  L0:252.25, mu:22032,     R:2440,  alt:50,    atm:false, surf:{up:3100, down:3100}, color:'#a39e98'},
@@ -2615,6 +2617,13 @@ function toggleFs(){
   b.onclick=toggleFs;
   const upd=()=>{ const on=isFs(); b.setAttribute('aria-label',on?'Vollbild beenden':'Vollbild'); m.textContent=on?'Vollbild beenden':'Vollbild'; setTimeout(draw,100); };
   document.addEventListener('fullscreenchange',upd); document.addEventListener('webkitfullscreenchange',upd);
+})();
+// Versionszeile im Menü. document.lastModified ist der Stand der ausgelieferten Datei: zeigt es
+// ein altes Datum, liegt eine veraltete Fassung im Browser-Cache (GitHub Pages: 10 Minuten).
+(()=>{
+  const d=new Date(document.lastModified);
+  const stand = isNaN(d) ? '' : ' · Stand ' + d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  $('ver').textContent = `Version ${VERSION}${stand}`;
 })();
 if(!load()) newGame();
 render();
