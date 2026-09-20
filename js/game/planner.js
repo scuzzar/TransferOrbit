@@ -7,6 +7,13 @@ import { S, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, locKey, ta
 import { edgesFrom, idealTransfer, route } from './graph.js';
 import { feeBlocked, localActions } from './actions.js';
 
+// What a day is worth to the search, in m/s. "Economical" all but ignores time, so it
+// takes every cheap detour there is. "Leave now" means it literally: it does not wait for
+// a window, and it does not dawdle on the way either. Above 75 m/s per day the aerobraking
+// step into low Earth orbit (40 days for 60 m/s) loses to the direct burn (1 day, 3006 m/s),
+// which is the slowest choice the old, purely delta-v driven search used to make.
+const DAY_COST = {eco:0.01, now:100};
+
 // Markers for manoeuvres: delivery targets, the way towards the cargo, posts with orders
 export function cargoHints(){
   const H={step:[], transfer:{}};
@@ -26,6 +33,7 @@ export function cargoHints(){
 export function planRoute(target, mode, start){
   start = start || (S.node ? {node:S.node, site:S.site, day:S.day} : null);
   if(!start) return null;
+  const dayCost = DAY_COST[mode] ?? DAY_COST.eco;
   const key=(n,s)=>n+'|'+(s||''), best={}, prev={}, done=new Set();
   const q=[{n:start.node,s:start.site,c:0,dv:0,days:0}]; best[key(start.node,start.site)]=q[0];
   let goal=null;
@@ -38,7 +46,7 @@ export function planRoute(target, mode, start){
       if(ed.leg){ const [a,b]=ed.leg, t=transfer(a,b,day);
         if(mode==='now'){ ed.dv=t.total; ed.days=t.tof; ed.wait=0; }
         else { const id=idealTransfer(a,b); ed.wait=t.d<0.04?0:t.wait; ed.dv=id.total; ed.days=ed.wait+id.tof; } }
-      const nk=key(ed.node,ed.site), dv=cur.dv+ed.dv, days=cur.days+ed.days, c=dv+days*0.01;
+      const nk=key(ed.node,ed.site), dv=cur.dv+ed.dv, days=cur.days+ed.days, c=dv+days*dayCost;
       if(!best[nk] || c<best[nk].c){ best[nk]={n:ed.node,s:ed.site,c,dv,days}; prev[nk]={k:ck,from:cur,ed}; q.push(best[nk]); }
     }
   }

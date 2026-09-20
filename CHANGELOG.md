@@ -2,6 +2,45 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-20 – "Leave now" means it now (version 45)
+
+Closes the oldest half-open item from version 20: **Moon → Earth took 43 days**, and there was
+nothing the player could do about it.
+
+The route search weighed a day at 0.01 m/s (`c = dv + days*0.01`). Coming back from Shackleton it
+therefore always took the aerobraking step into low Earth orbit — 40 days for 60 m/s — instead of
+the direct burn that sits right next to it in the action list: 1 day for 3006 m/s. 39 days saved
+were worth 0.39 m/s against 2946 m/s spent, a factor of 7500. Time was free.
+
+The two chips in the route panel did not help, because `mode` was only read inside the branch for
+interplanetary legs (wait for the window, or fly now). A route without such a leg came out
+identical both ways, so the panel offered two buttons with the same answer.
+
+The weight is now a property of the mode, `DAY_COST` in `js/game/planner.js`:
+
+```js
+const DAY_COST = {eco:0.01, now:100};
+```
+
+`Economical` is unchanged. `Leave now` now means it everywhere: it neither waits for a window nor
+dawdles on the way. The threshold for this route is 75 m/s per day; 100 gives some room.
+
+| Shackleton → Kourou | Δv | Days |
+|---|--:|--:|
+| Economical | 2.83 km/s | 43 |
+| Leave now | 5.78 km/s | 4 |
+
+The Cog has 8.99 km/s with a full tank and an empty hold, and 6.77 km/s with 10 t of cargo, so the
+fast route is affordable for a while. Beyond that the panel greys the autopilot out, as it already
+did. What it costs is about 26 t of propellant, at Shackleton's 150 Cr/t some 3900 Cr, against a
+time component in the reward of roughly 3400 Cr for those 39 days — the choice is close, which is
+exactly why it should be the player's.
+
+Nothing else picks up the new weight: the order board, `nearestFuel()`, the pricing graph and the
+bots all run on `eco`. `tests/regress.js` now checks that the two modes really do differ.
+
+Still open from that same note: the order board shows the gross reward, not the net after fuel.
+
 ## 2026-09-20 – The planet surfaces as their own module (version 44)
 
 `map/geometry.js` carried 41 lines that were not geometry: `LAND`, `WATER`, `DESERT`, `CAPS`,

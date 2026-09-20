@@ -8,7 +8,9 @@ Prototype of a space trading game with real orbital mechanics. You fly cargo bet
 With GitHub Pages the game runs at https://scuzzar.github.io/TransferOrbit/. Locally it needs a server (`npm run serve`, then http://localhost:8765/) — the game is made of ES modules, and browsers do not load those over `file://`.
 
 - Tapping or clicking a planet, moon or landing site selects a target. A double click zooms in.
-- The route planner works out the cheapest route; the autopilot flies it if you want.
+- The route planner offers two routes: *economical* saves propellant wherever it can, *leave now*
+  buys time with it — on the way back from the Moon that is 43 days against 4. The autopilot flies
+  whichever you pick.
 - Tapping during a flight speeds the animation up.
 - The menu (☰) holds save, load, letting time pass, and restart.
 
@@ -55,7 +57,7 @@ npm run serve          # in a second terminal: server on port 8765 (with the COR
 npm test               # regression test + UI bot (desktop and phone)
 npm run game-bot       # plays sensibly up to the Carrack and logs the balance
 ```
-- `tests/regress.js` checks restart, save and load, the stranding logic and refuelling in the route planner.
+- `tests/regress.js` checks restart, save and load, the stranding logic, refuelling in the route planner and that the two route modes really do differ.
 - `tests/test-bot.js` clicks its way through the interface, inside a locked iframe like the one on claude.ai (`tests/harness.html`). Configurable with the environment variables `STEPS`, `ONLY` and `LOG`.
 - `tests/game-bot.js` plays through the game functions, with `ANIM.instant` and no animations.
 - `tests/autopilot-arrival.js`, `tests/rocket-images.js` and `tests/rocket-perf.js` are single checks. All of them need the server running.

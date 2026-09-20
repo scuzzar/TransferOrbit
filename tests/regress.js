@@ -22,6 +22,20 @@ const { chromium } = require('playwright');
   console.log('Stranded at 0 Cr, 45 t on Pavonis:', await f.evaluate(()=>TO.stranded()));
   await f.evaluate(()=>{ TO.S.fuel=1; TO.strandCache.key=null; TO.changed(); });
   console.log('Stranded at 0 Cr, 1 t on Pavonis:', await f.evaluate(()=>TO.stranded()), '| box:', (await f.textContent('#rescue')).slice(0,60));
+  // the two route modes have to offer a real choice: "economical" takes the 40-day
+  // aerobraking step into low Earth orbit, "leave now" pays for the direct burn instead
+  const modes=await f.evaluate(()=>{
+    TO.newGame();
+    TO.setState({...TO.S, node:'moon.surf', site:'shackleton', fuel:TO.eng().cap});
+    const tgt={node:'earth.surf', site:'kourou'}, r={};
+    for(const m of ['eco','now']){ const pl=TO.planRoute(tgt,m);
+      r[m]={dv:+(pl.dv/1000).toFixed(2), days:Math.round(pl.days), brake:pl.steps.map(s=>s.label).find(l=>/low orbit/.test(l))}; }
+    return r;
+  });
+  console.log('Moon -> Earth, economical:', JSON.stringify(modes.eco));
+  console.log('Moon -> Earth, leave now :', JSON.stringify(modes.now),
+    modes.now.days<10 && modes.eco.days>30 ? '| ok' : '| WRONG: the modes do not differ');
+
   console.log('Errors:', errs.length?errs:'none');
   await p.screenshot({path:'regress_mob.png'});
   await b.close();

@@ -3,7 +3,7 @@
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa2c2"/></marker><marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f2b33d"/></marker></defs>
 <rect width="1020" height="990" fill="#10162b"/>
 <text x="30" y="28" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="15" fill="#e7e9f2" text-anchor="start" font-weight="600">TransferOrbit · components and their dependencies</text>
-<text x="30" y="47" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#9aa2c2" text-anchor="start">24 ES modules under js/ (version 44). Number in the circle: layer. Number on the right: lines.</text>
+<text x="30" y="47" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#9aa2c2" text-anchor="start">24 ES modules under js/ (version 45). Number in the circle: layer. Number on the right: lines.</text>
 <text x="30" y="63" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">The order drawn is one valid order, not a forced one - much of what sits side by side is independent.</text>
 <rect x="298" y="78" width="210" height="26" rx="6" fill="none" stroke="#9aa2c2" stroke-width="1" stroke-dasharray="3 3"/>
 <text x="403" y="95" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#9aa2c2" text-anchor="middle">index.html  ·  markup and CSS</text>
@@ -108,7 +108,7 @@
 <circle cx="316" cy="669" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
 <text x="316" y="672.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">9</text>
 <text x="334" y="673.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">game/planner</text>
-<text x="499" y="673.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">87</text>
+<text x="499" y="673.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">95</text>
 <rect x="64" y="710" width="688" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
 <text x="74" y="727" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Game model</text>
 <text x="153.0" y="727" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">reference data and pure queries on it</text>

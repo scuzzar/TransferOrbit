@@ -92,7 +92,7 @@ From the bottom up. "Imports from" lists only the modules actually used.
 | 6 | `game/economy.js` | 107 | The order board, deadlines, bulk goods | basics, graph, physics, state, world |
 | 7 | `game/actions.js` | 61 | Which manoeuvres are possible from here | physics, state, world |
 | 8 | `map/geometry.js` | 134 | Where something sits on screen | basics, physics, state, world |
-| 9 | `game/planner.js` | 87 | Route search for the player, date-aware | actions, basics, graph, physics, state, world |
+| 9 | `game/planner.js` | 95 | Route search for the player, date-aware | actions, basics, graph, physics, state, world |
 | 10 | `game/commands.js` | 346 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, state, world |
 | 11 | `map/canvas.js` | 46 | The three drawing layers and their helpers | basics, state, world |
 | 12 | `map/rocketdata.js` | 18 | The rocket model as number arrays | — |

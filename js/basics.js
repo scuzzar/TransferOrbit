@@ -1,6 +1,6 @@
 // Small helpers that know nothing about the game: formatting, angles, a DOM shorthand.
 
-export const VERSION = '44'; // shown in the menu so a stale copy from the browser cache is easy to spot
+export const VERSION = '45'; // shown in the menu so a stale copy from the browser cache is easy to spot
 
 export const TAU = Math.PI*2;
 
