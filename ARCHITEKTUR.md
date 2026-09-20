@@ -1,6 +1,6 @@
 # Architektur
 
-Das Spiel besteht aus 22 ES-Modulen unter `js/`. Der Browser lädt sie selbst,
+Das Spiel besteht aus 23 ES-Modulen unter `js/`. Der Browser lädt sie selbst,
 es gibt keine Baukette und kein `node_modules` im Auslieferstand. `index.html`
 enthält nur noch Markup und CSS und zieht eine einzige Zeile Javascript:
 
@@ -11,7 +11,7 @@ enthält nur noch Markup und CSS und zieht eine einzige Zeile Javascript:
 Wer eine einzige Datei braucht (Artefakt, Anhang), baut sie mit
 `python3 tools/einzeldatei.py`. Das Spiel selbst braucht das nie.
 
-![Komponentendiagramm: 22 Module in sieben Schichtbändern, Einfuhren nur nach unten,
+![Komponentendiagramm: 23 Module in sieben Schichtbändern, Einfuhren nur nach unten,
 der Rückweg nach oben nur über die zwei Signale](docs/komponenten.svg)
 
 <sub>Jedes Modul darf aus jeder Schicht unter sich einführen, nie umgekehrt. Der einzige Weg
@@ -104,11 +104,12 @@ Von unten nach oben. „Einfuhren aus" nennt nur die tatsächlich benutzten Modu
 | 14 | `karte/rakete.js` | 76 | Lage, Flamme, 3D-Modell oder Handzeichnung | basis, gl, leinwand, raketendaten, welt, zustand |
 | 15 | `karte/ansicht.js` | 87 | Welche Ebene die Karte zeigt; Klicks darauf | ereignisse, basis, leinwand, planer, welt, zustand |
 | 16 | `karte/zeichnen.js` | 301 | Sonne, System, Körper — und `draw()` | basis, ansicht, geometrie, gl, leinwand, rakete, raketendaten, physik, welt, zustand |
-| 17 | `ui/bausteine.js` | 40 | Knopf, Symbol, Chip, Überschrift | basis, steuerung, welt, zustand |
-| 18 | `ui/panels.js` | 315 | Kontor, Fracht, Tanken, Werft, Route | ereignisse, basis, graph, planer, steuerung, welt, wirtschaft, zustand, bausteine |
-| 19 | `ui/anzeige.js` | 146 | Kopfzeile, Meldung, Autopilotleiste, `render()` | ereignisse, basis, ansicht, leinwand, zeichnen, graph, physik, planer, steuerung, welt, zustand, bausteine, panels |
-| 20 | `ui/menue.js` | 71 | Menü, Vollbild, Legende, Versionszeile | ereignisse, basis, zeichnen, steuerung, zustand |
-| 21 | `start.js` | 56 | Verbinden, verdrahten, laden, `window.TO` | alle |
+| 17 | `ui/bausteine.js` | 39 | Knopf, Symbol, Chip, Überschrift | basis, steuerung, welt, zustand |
+| 18 | `ui/pickkarte.js` | 72 | Die Karte zum ausgewählten Kartenobjekt | ereignisse, basis, ansicht, leinwand, graph, physik, welt, zustand, bausteine |
+| 19 | `ui/panels.js` | 314 | Kontor, Fracht, Tanken, Werft, Route | ereignisse, basis, graph, planer, steuerung, welt, wirtschaft, zustand, bausteine |
+| 20 | `ui/anzeige.js` | 67 | Kopfzeile, Meldung, Autopilotleiste, `render()` | ereignisse, basis, zeichnen, planer, steuerung, welt, zustand, bausteine, pickkarte, panels |
+| 21 | `ui/menue.js` | 70 | Menü, Vollbild, Legende, Versionszeile | ereignisse, basis, zeichnen, steuerung, zustand |
+| 22 | `start.js` | 57 | Verbinden, verdrahten, laden, `window.TO` | alle |
 
 ### Die Stellen, an denen die Reihenfolge nicht offensichtlich ist
 
@@ -144,6 +145,13 @@ Sache der Technik, nicht der Zuständigkeit.
 Die eine Ausnahme ist `karte/geometrie.js`: Es steckt im Ordner `karte/`, ist aber keine
 Darstellung, sondern Mathematik — wo ein Körper steht, wie eine Flugbahn verläuft. Deshalb
 darf `spiel/steuerung.js` es einführen, obwohl es sonst nichts aus der Karte kennt.
+
+**`ui/pickkarte.js` ist von `ui/anzeige.js` getrennt.** Die Karte zum ausgewählten
+Kartenobjekt ist eine Tafel wie jede andere, nur dass sie im Hauptbild steht statt im
+Panel — sie gehört neben `renderPlace()` aus `ui/panels.js`, nicht in den Rahmen. Solange
+sie in `ui/anzeige.js` lag, zog sie 25 der 47 Namen herein, die das Modul einführte, und
+hob es allein dadurch über `spiel/physik`, `spiel/graph` und `karte/ansicht`. Ohne sie
+kommt `ui/anzeige.js` mit 22 Namen aus.
 
 **`ui/panels.js` liegt unter `ui/anzeige.js`.** `render()` entscheidet, ob eine
 Tafel oder die Hauptansicht sichtbar ist, und baut die Tafel dann auf.

@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 946" width="1020" height="946" role="img" aria-label="Komponentendiagramm von TransferOrbit: 22 ES-Module. Einfuhren gehen nur nach unten; der einzige Weg zurück nach oben sind die zwei Signale geaendert und zeitLief über das Modul ereignisse. Die Darstellung besteht aus zwei Hälften, Leinwand und Tafeln, die einander nicht einführen.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 946" width="1020" height="946" role="img" aria-label="Komponentendiagramm von TransferOrbit: 23 ES-Module. Einfuhren gehen nur nach unten; der einzige Weg zurück nach oben sind die zwei Signale geaendert und zeitLief über das Modul ereignisse. Die Darstellung besteht aus zwei Hälften, Leinwand und Tafeln, die einander nicht einführen.">
 <title>TransferOrbit — Komponenten und ihre Abhängigkeiten</title>
 <defs><marker id="pf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa2c2"/></marker><marker id="pfa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f2b33d"/></marker></defs>
 <rect width="1020" height="946" fill="#10162b"/>
 <text x="30" y="28" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="15" fill="#e7e9f2" text-anchor="start" font-weight="600">TransferOrbit · Komponenten und ihre Abhängigkeiten</text>
-<text x="30" y="47" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#9aa2c2" text-anchor="start">22 ES-Module unter js/ (Version 40). Zahl im Kreis: Schicht. Zahl rechts: Zeilen.</text>
+<text x="30" y="47" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#9aa2c2" text-anchor="start">23 ES-Module unter js/ (Version 41). Zahl im Kreis: Schicht. Zahl rechts: Zeilen.</text>
 <text x="30" y="63" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">Die Reihenfolge ist eine gültige Ordnung, keine erzwungene — vieles nebeneinander ist voneinander unabhängig.</text>
 <rect x="298" y="78" width="210" height="26" rx="6" fill="none" stroke="#9aa2c2" stroke-width="1" stroke-dasharray="3 3"/>
 <text x="403" y="95" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#9aa2c2" text-anchor="middle">index.html  ·  Markup und CSS</text>
@@ -19,20 +19,20 @@
 <text x="125.4" y="135" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">verbindet beide Seiten, lädt den Spielstand</text>
 <rect x="74" y="144" width="668" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
 <circle cx="92" cy="161" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="92" y="164.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">21</text>
-<text x="110" y="165.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">start.js</text>
-<text x="733" y="165.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">56</text>
+<text x="92" y="164.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">22</text>
+<text x="110" y="165.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">start</text>
+<text x="733" y="165.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">57</text>
 <rect x="64" y="232" width="688" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
 <text x="74" y="249" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Tafeln (DOM)</text>
 <text x="166.8" y="249" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">oben die zwei, die als Einzige beide Hälften kennen; darunter das reine HTML</text>
 <rect x="74" y="258" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
 <circle cx="92" cy="275" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="92" y="278.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">19</text>
+<text x="92" y="278.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">20</text>
 <text x="110" y="279.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/anzeige</text>
-<text x="275" y="279.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">145</text>
+<text x="275" y="279.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">67</text>
 <rect x="298" y="258" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
 <circle cx="316" cy="275" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="316" y="278.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">20</text>
+<text x="316" y="278.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">21</text>
 <text x="334" y="279.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/menue</text>
 <text x="499" y="279.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">70</text>
 <rect x="74" y="302" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
@@ -43,8 +43,13 @@
 <rect x="298" y="302" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
 <circle cx="316" cy="319" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
 <text x="316" y="322.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">18</text>
-<text x="334" y="323.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/panels</text>
-<text x="499" y="323.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">314</text>
+<text x="334" y="323.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/pickkarte</text>
+<text x="499" y="323.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">72</text>
+<rect x="522" y="302" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="540" cy="319" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="540" y="322.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">19</text>
+<text x="558" y="323.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/panels</text>
+<text x="723" y="323.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">314</text>
 <rect x="64" y="360" width="688" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
 <text x="74" y="377" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Leinwand (Canvas)</text>
 <text x="201.3" y="377" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">drei Ebenen, ein Bild — kennt die Tafeln nicht</text>

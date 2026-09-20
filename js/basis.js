@@ -1,6 +1,6 @@
 // Kleinteile ohne Spielwissen: Zahlen formatieren, Winkel, DOM-Kürzel.
 
-export const VERSION = '40'; // steht im Menü, damit man eine veraltete Fassung aus dem Cache erkennt
+export const VERSION = '41'; // steht im Menü, damit man eine veraltete Fassung aus dem Cache erkennt
 
 export const TAU = Math.PI*2;
 

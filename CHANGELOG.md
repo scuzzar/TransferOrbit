@@ -2,6 +2,25 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – Pick-Karte als eigenes Modul, toter Code raus (Version 41)
+
+`ui/anzeige.js` sollte der Rahmen sein — Kopfzeile, Meldung, Autopilotleiste und `render()`. Darin
+steckte aber auch `renderPick()`, die Karte zum ausgewählten Kartenobjekt: 59 von 145 Zeilen, und
+allein sie brauchte 25 der 47 Namen, die das Modul einführte. Nur deswegen hing `ui/anzeige.js` an
+`spiel/physik`, `spiel/graph` und `karte/ansicht`.
+
+`renderPick()` steht jetzt in `ui/pickkarte.js` (72 Zeilen). Es ist eine Tafel wie jede andere, nur
+im Hauptbild statt im Panel — es gehört neben `renderPlace()`. `ui/anzeige.js` schrumpft auf 67
+Zeilen und 22 eingeführte Namen.
+
+`actionTags()` ist ersatzlos gelöscht: 14 Zeilen, die nirgends aufgerufen wurden. Das war schon im
+alten Einzelskript so; die Modulaufteilung hat es nur sichtbar gemacht.
+
+`tools/diagramm.py` liest Zeilenzahl, Modulzahl und Versionsnummer jetzt aus `js/`, statt sie in
+einer Tabelle mitzuführen. Damit kann das Diagramm bei den Zahlen nicht mehr veralten.
+
+Am Spiel ändert sich nichts.
+
 ## 2026-09-20 – Das Spiel liegt jetzt in Modulen (Version 40)
 
 `index.html` war eine Datei mit 2.645 Zeilen, davon 2.242 in einem einzigen `<script>`. Daran ließ

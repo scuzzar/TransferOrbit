@@ -19,6 +19,7 @@ import * as Rakete from './karte/rakete.js';
 import * as Ansicht from './karte/ansicht.js';
 import * as Zeichnen from './karte/zeichnen.js';
 import * as Bausteine from './ui/bausteine.js';
+import * as Pickkarte from './ui/pickkarte.js';
 import * as Panels from './ui/panels.js';
 import * as Anzeige from './ui/anzeige.js';
 import * as Menue from './ui/menue.js';
@@ -47,7 +48,7 @@ setTimeout(()=>{ if(Gl.GL.state==='laden') Gl.glOff('three.js liess sich nicht l
 // Eine einzige Außenkante für Tests und die Konsole: TO.<Name> zeigt immer den
 // aktuellen Wert, TO.modul.<Modul> das ganze Modul.
 const MODULE = {
-  'ereignisse':Ereignisse, 'basis':Basis, 'spiel/welt':Welt, 'spiel/physik':Physik, 'spiel/zustand':Zustand, 'spiel/graph':Graph, 'spiel/wirtschaft':Wirtschaft, 'spiel/aktionen':Aktionen, 'karte/geometrie':Geometrie, 'spiel/planer':Planer, 'spiel/steuerung':Steuerung, 'karte/leinwand':Leinwand, 'karte/raketendaten':Raketendaten, 'karte/gl':Gl, 'karte/rakete':Rakete, 'karte/ansicht':Ansicht, 'karte/zeichnen':Zeichnen, 'ui/bausteine':Bausteine, 'ui/panels':Panels, 'ui/anzeige':Anzeige, 'ui/menue':Menue,
+  'ereignisse':Ereignisse, 'basis':Basis, 'spiel/welt':Welt, 'spiel/physik':Physik, 'spiel/zustand':Zustand, 'spiel/graph':Graph, 'spiel/wirtschaft':Wirtschaft, 'spiel/aktionen':Aktionen, 'karte/geometrie':Geometrie, 'spiel/planer':Planer, 'spiel/steuerung':Steuerung, 'karte/leinwand':Leinwand, 'karte/raketendaten':Raketendaten, 'karte/gl':Gl, 'karte/rakete':Rakete, 'karte/ansicht':Ansicht, 'karte/zeichnen':Zeichnen, 'ui/bausteine':Bausteine, 'ui/pickkarte':Pickkarte, 'ui/panels':Panels, 'ui/anzeige':Anzeige, 'ui/menue':Menue,
 };
 const TO = { modul: MODULE };
 for(const raum of Object.values(MODULE))

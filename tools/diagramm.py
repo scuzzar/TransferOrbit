@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """Erzeugt docs/komponenten.svg - das Komponentendiagramm aus ARCHITEKTUR.md.
 
-Die Schichtzahlen und Zeilenzahlen stehen unten in BAENDER und muessen zu den
-Dateien unter js/ passen. Nach einer groesseren Aenderung an der Aufteilung:
-Zahlen hier nachziehen und das Skript neu laufen lassen.
+Zeilenzahl, Modulzahl und Versionsnummer liest das Skript aus js/, damit sie
+nicht veralten koennen. Von Hand gepflegt sind nur die Baender, die Schichtzahlen
+und die Beschreibungen: nach einer Aenderung an der Aufteilung hier nachziehen
+und das Skript neu laufen lassen.
 
 Aufruf:  python3 tools/diagramm.py
 """
-import html
+import html, os, re
 
 BG='#10162b'; BAND='#171f3b'; LINE='#2b3662'; CHIP='#1d2748'
 TEXT='#e7e9f2'; MUTED='#9aa2c2'; AKZENT='#f2b33d'
@@ -21,25 +22,34 @@ SP=[74, 298, 522]
 KX0=768; KX1=1004
 TRUNK_AB=800
 
-# (Titel, Unterzeile, [(Reihe, Spalte, Rang, Name, Zeilen)], breit?, Gruppe)
+def zeilen(name):
+    with open(os.path.join('js', name + '.js'), encoding='utf-8') as f:
+        return sum(1 for _ in f)
+
+QUELLE=open('js/basis.js', encoding='utf-8').read()
+VERSION=re.search(r"VERSION = '([^']+)'", QUELLE).group(1)
+ANZAHL=sum(len(fs) for _,_,fs in os.walk('js') for f in [0]) if False else sum(
+    1 for wurzel,_,fs in os.walk('js') for f in fs if f.endswith('.js'))
+
+# (Titel, Unterzeile, [(Reihe, Spalte, Rang, Name)], breit?, Gruppe)
 BAENDER=[
  ('Aufbau','verbindet beide Seiten, lädt den Spielstand',
-   [(0,None,21,'start.js',56)], True, None),
+   [(0,None,22,'start')], True, None),
  ('Tafeln (DOM)','oben die zwei, die als Einzige beide Hälften kennen; darunter das reine HTML',
-   [(0,0,19,'ui/anzeige',145),(0,1,20,'ui/menue',70),
-    (1,0,17,'ui/bausteine',39),(1,1,18,'ui/panels',314)], False, 'Darstellung'),
+   [(0,0,20,'ui/anzeige'),(0,1,21,'ui/menue'),
+    (1,0,17,'ui/bausteine'),(1,1,18,'ui/pickkarte'),(1,2,19,'ui/panels')], False, 'Darstellung'),
  ('Leinwand (Canvas)','drei Ebenen, ein Bild — kennt die Tafeln nicht',
-   [(0,0,11,'karte/leinwand',55),(0,1,12,'karte/raketendaten',18),(0,2,13,'karte/gl',287),
-    (1,0,14,'karte/rakete',75),(1,1,15,'karte/ansicht',86),(1,2,16,'karte/zeichnen',300)], False, 'Darstellung'),
+   [(0,0,11,'karte/leinwand'),(0,1,12,'karte/raketendaten'),(0,2,13,'karte/gl'),
+    (1,0,14,'karte/rakete'),(1,1,15,'karte/ansicht'),(1,2,16,'karte/zeichnen')], False, 'Darstellung'),
  ('Kommandos','das Einzige, was den Spielstand ändert',
-   [(0,None,10,'spiel/steuerung',332)], True, None),
+   [(0,None,10,'spiel/steuerung')], True, None),
  ('Vorausberechnung','wo etwas liegt, welcher Weg wie teuer ist — ändert nichts',
-   [(0,0,8,'karte/geometrie',181),(0,1,9,'spiel/planer',87)], False, None),
+   [(0,0,8,'karte/geometrie'),(0,1,9,'spiel/planer')], False, None),
  ('Spielmodell','Stammdaten und reine Abfragen darauf',
-   [(0,0,2,'spiel/welt',196),(0,1,3,'spiel/physik',89),(0,2,4,'spiel/zustand',54),
-    (1,0,5,'spiel/graph',77),(1,1,6,'spiel/wirtschaft',107),(1,2,7,'spiel/aktionen',61)], False, None),
+   [(0,0,2,'spiel/welt'),(0,1,3,'spiel/physik'),(0,2,4,'spiel/zustand'),
+    (1,0,5,'spiel/graph'),(1,1,6,'spiel/wirtschaft'),(1,2,7,'spiel/aktionen')], False, None),
  ('Basis','kennt weder Spiel noch Karte noch Oberfläche',
-   [(0,None,1,'basis',32)], True, None),
+   [(0,None,1,'basis')], True, None),
 ]
 
 # ---- Hoehen und y-Werte ausrechnen, damit das Raster stimmt
@@ -67,7 +77,7 @@ def t(x,y,s,*,size=11,fill=TEXT,anchor='start',font=SANS,weight=None,extra=''):
              f'text-anchor="{anchor}"{w}{extra}>{html.escape(s)}</text>')
 
 o.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-         f'role="img" aria-label="Komponentendiagramm von TransferOrbit: 22 ES-Module. Einfuhren '
+         f'role="img" aria-label="Komponentendiagramm von TransferOrbit: {ANZAHL} ES-Module. Einfuhren '
          f'gehen nur nach unten; der einzige Weg zurück nach oben sind die zwei Signale geaendert '
          f'und zeitLief über das Modul ereignisse. Die Darstellung besteht aus zwei Hälften, '
          f'Leinwand und Tafeln, die einander nicht einführen.">')
@@ -81,7 +91,7 @@ o.append('<defs>'
 o.append(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
 
 t(30,28,'TransferOrbit · Komponenten und ihre Abhängigkeiten',size=15,weight='600')
-t(30,47,'22 ES-Module unter js/ (Version 40). Zahl im Kreis: Schicht. Zahl rechts: Zeilen.',size=11,fill=MUTED)
+t(30,47,f'{ANZAHL} ES-Module unter js/ (Version {VERSION}). Zahl im Kreis: Schicht. Zahl rechts: Zeilen.',size=11,fill=MUTED)
 t(30,63,'Die Reihenfolge ist eine gültige Ordnung, keine erzwungene — vieles nebeneinander ist voneinander unabhängig.',
   size=10,fill=MUTED)
 
@@ -109,7 +119,7 @@ for by,bh,titel,unter,chips,breit in lay:
     o.append(f'<rect x="{LX}" y="{by}" width="{BW}" height="{bh}" rx="9" fill="{BAND}" stroke="{LINE}"/>')
     t(LX+10,by+17,titel,size=11,weight='600')
     t(LX+10+len(titel)*6.9+10,by+17,unter,size=10,fill=MUTED)
-    for reihe,spalte,rang,name,zeilen in chips:
+    for reihe,spalte,rang,name in chips:
         cx = LX+10 if breit else SP[spalte]
         cw = BW-20 if breit else CW
         cy = by+26+reihe*(CH+10)
@@ -119,7 +129,7 @@ for by,bh,titel,unter,chips,breit in lay:
         o.append(f'<circle cx="{cx+18}" cy="{cy+17}" r="10" fill="none" stroke="{MUTED}" stroke-width="1"/>')
         t(cx+18,cy+20.5,str(rang),size=10,fill=MUTED,anchor='middle')
         t(cx+36,cy+21.5,name,size=11,font=MONO,weight='600' if stark else None)
-        t(cx+cw-9,cy+21.5,str(zeilen),size=9.5,fill=MUTED,anchor='end')
+        t(cx+cw-9,cy+21.5,str(zeilen(name)),size=9.5,fill=MUTED,anchor='end')
 
 # ereignisse als Nabe im Kanal
 o.append(f'<rect x="{KX0}" y="{EY}" width="{KX1-KX0}" height="70" rx="9" fill="{BAND}" '
