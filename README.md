@@ -12,6 +12,17 @@ Die ganze Seite steckt in einer einzigen Datei: `index.html`. Du kannst sie dire
 - Tippen während eines Fluges macht die Animation schneller.
 - Das Menü (☰) enthält Speichern, Laden, Zeit vergehen lassen und Neustart.
 
+## Darstellung
+Die Himmelskörper zeichnet [three.js](https://threejs.org/), als ES-Modul vom CDN geladen; es liegt nichts davon im Repo und es gibt keine Baukette. Darüber liegt weiterhin ein durchsichtiger 2D-Canvas mit Beschriftungen, Bahnen, Markierungen, Flammen und den Klickzielen. Beide nutzen dieselbe orthografische Projektion, deshalb liegen sie deckungsgleich übereinander.
+
+Reihenfolge der Ebenen: `#cvb` (2D, hinten) – `#glc` (three.js) – `#cv` bzw. `#sys` (2D, vorne).
+
+**Keine fremden Texturen.** Die Oberflächen entstehen beim ersten Bedarf im Browser: Kontinente aus denselben handgezeichneten Umrissen wie bisher, Polkappen, die Bänder der Gasriesen und der Saturnring. Das Spiel lädt damit außer three.js selbst keine einzige Datei nach und läuft auch in einem gesperrten iframe.
+
+**Kein Rückfall auf 2D.** Fehlt WebGL, geht der Kontext verloren oder lädt three.js nicht, bleibt das Kartenfeld leer und sagt das. Eine zweite, schlechtere Darstellung wäre irreführend: man sähe etwas und wüsste nicht, dass es nicht die eigentliche Ansicht ist. Aufträge, Routenplaner und Autopilot laufen in diesem Fall weiter, nur die Karte fehlt.
+
+Flach bleiben nur die Draufsicht aufs Sonnensystem (`drawSol`) und, darin, die Rakete.
+
 ## Physik und Wirtschaft
 - Delta-v nach Ziolkowski mit Leergewicht, Fracht und Treibstoff. Jedes Schiff hat einen eigenen Isp.
 - Hohmann- bzw. Kepler-Transfers. Das nächste Fenster hängt von der echten Planetenstellung ab.
@@ -22,7 +33,7 @@ Die ganze Seite steckt in einer einzigen Datei: `index.html`. Du kannst sie dire
 ## Aufbau des Repos
 | Pfad | Inhalt |
 |---|---|
-| `index.html` | das Spiel (HTML, CSS, JS, Canvas; keine Abhängigkeiten) |
+| `index.html` | das Spiel (HTML, CSS, JS, Canvas und three.js vom CDN; nichts zu bauen) |
 | `CHANGELOG.md` | Änderungsprotokoll aller Versionen |
 | `art/` | Modelle, Texturen und Bilder aus [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), siehe `art/README.md` |
 | `tools/` | Python-Werkzeuge: Godot-.escn → JSON, Modelle vereinfachen, Vorschau rendern |
@@ -39,7 +50,7 @@ npm run spiel-bot      # spielt klug bis zur Karacke und protokolliert die Balan
 - `tests/regress.js` prüft Neustart, Speichern und Laden, Strand-Logik und Tanken im Routenplaner.
 - `tests/test-bot.js` klickt sich durch die Oberfläche, in einem gesperrten iframe wie auf claude.ai (`tests/harness.html`). Einstellbar mit den Umgebungsvariablen `STEPS`, `ONLY` und `LOG`.
 - `tests/spiel-bot.js` spielt über die Spielfunktionen mit sofortigen Animationen.
-- `tests/autopilot-ankunft.js`, `tests/rakete-bilder.js` und `tests/rakete-perf.js` sind Einzelprüfungen.
+- `tests/autopilot-ankunft.js`, `tests/rakete-bilder.js` und `tests/rakete-perf.js` sind Einzelprüfungen. `rakete-bilder.js` braucht den laufenden Server.
 
 ## Herkunft der Art
 Die 3D-Rakete im Spiel ist das Modell „SimpleRocket“ aus Hanseatic Galaxy, vereinfacht auf 608 Dreiecke. Die Planetentexturen kommen von I, Voyager (Apache 2.0) und Solar System Scope (CC BY). Die Lizenztexte liegen in `art/lizenzen/`.

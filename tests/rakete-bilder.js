@@ -1,8 +1,11 @@
 const { chromium } = require('playwright');
 (async()=>{ const b=await chromium.launch(); const errs=[];
   const p=await b.newPage({viewport:{width:1100,height:760},deviceScaleFactor:4}); p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('file://'+__dirname+'/../index.html'); await p.waitForTimeout(400);
-  await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} newGame(); S.fuel=80; render(); window._rm=rocketMesh; rocketMesh=function(g,x,y,a,k){ const r=g.canvas.getBoundingClientRect(); window.RP={x:r.left+x,y:r.top+y}; return _rm(g,x,y,a,k); }; animateTo=function(){}; });
+  // Über den Server, nicht über file://: nur so lädt three.js die Texturen und die 3D-Ebene läuft.
+  await p.goto('http://localhost:8765/index.html'); await p.waitForTimeout(2500);
+  console.log('3D-Ebene an:', await p.evaluate(()=>GL.on));
+  // An drawRocket hängen, nicht an rocketMesh: drawRocket läuft in beiden Wegen (2D und three.js).
+  await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} newGame(); S.fuel=80; render(); window._dr=drawRocket; drawRocket=function(g,key,x,y,...r){ const b=g.canvas.getBoundingClientRect(); window.RP={x:b.left+x,y:b.top+y}; return _dr(g,key,x,y,...r); }; animateTo=function(){}; });
   const shots=[];
   const snap=async(setup,ts,tag)=>{ await p.evaluate(setup); for(const t of ts){ await p.evaluate(t=>{ const m=S.move; if(m){S.day=m.d0+(m.d1-m.d0)*t;} draw(); },t); const rp=await p.evaluate(()=>window.RP); if(!rp) continue; await p.screenshot({path:`z_${tag}_${t}.png`,clip:{x:rp.x-40,y:rp.y-40,width:80,height:80}}); shots.push(`z_${tag}_${t}.png`); } await p.evaluate(()=>{ S.move=null; S.busy=false; S.anim=null; window.RP=null; render(); }); };
   await snap(()=>{ doAction(localActions().find(a=>a.site==='kourou')); },[0.1,0.4,0.7,0.9],'land');

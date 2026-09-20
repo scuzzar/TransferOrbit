@@ -42,6 +42,11 @@ h2{font-size:1.05rem;font-weight:600;margin:22px 0 8px}
 canvas{display:block;width:100%;aspect-ratio:1/1;touch-action:manipulation}
 #sys{aspect-ratio:1.6/1}
 canvas[hidden]{display:none!important}
+/* Stapel: 2D hinten (#cvb), three.js in der Mitte (#glc), 2D vorne (#cv/#sys).
+   Die vorderen Canvas bleiben im Fluss und geben der Bühne ihre Höhe. */
+#cvb,#glc{position:absolute;top:0;left:0;width:auto;aspect-ratio:auto;pointer-events:none}
+/* Die Bühne zentriert ihr Kind, deshalb setzt der Zeichencode top/left auf die Lage von #cv bzw. #sys. */
+#cv,#sys{position:relative}
 .maptabs{display:flex;align-items:center;gap:6px;margin:12px 0 6px}
 .maptabs button{min-height:36px;padding:4px 12px;font-size:.9rem;font-weight:600;color:var(--muted)}
 .maptabs button[aria-selected="true"]{color:var(--text);border-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
@@ -359,6 +364,8 @@ label.order{display:block;cursor:pointer}
     </div>
   </div>
   <div class="stage" id="stage">
+    <canvas id="cvb" aria-hidden="true" hidden></canvas>
+    <canvas id="glc" aria-hidden="true" hidden></canvas>
     <canvas id="cv" aria-label="Sonnensystem, Draufsicht"></canvas>
     <canvas id="sys" aria-label="Planet mit seinen Monden" hidden></canvas>
     <button type="button" id="infobtn" class="infobtn" aria-label="Legende" aria-expanded="false">i</button>
@@ -1438,6 +1445,7 @@ function renderCrumbs(v){
 // ---------- Kartennavigation: Zeichnen ----------
 const cv=$('cv'), ctx=cv.getContext('2d');
 const sc=$('sys'), sctx=sc.getContext('2d');
+const cvb=$('cvb'), bctx=cvb.getContext('2d'), glc=$('glc'); // hintere 2D-Ebene und die three.js-Ebene
 let HITS=[];
 // Während einer Zeitraffer-Animation drehen sich schnelle Monde sonst viele Male (wildes Kreiseln).
 // Deshalb laufen sie in der Animation höchstens eine Runde vorwärts und landen genau auf ihrer echten Position.
@@ -1470,6 +1478,9 @@ const cargoTo = test => cargoOrders().filter(o=>test(KBY[o.to]));
 
 // ---------- Rakete: Lage folgt der Schubrichtung, dreht sich sichtbar vor dem Brennen ----------
 const HEAD = {};
+// 'gl' = three.js-Modell, 'flach' = der 2D-Handrenderer (Sonnenansicht und blasse Rückseite),
+// 'keine' = nur Flamme und Steuerdüsen, der Körper verdeckt die Rakete ohnehin.
+let rocketMode = 'gl';
 const angNorm = a => ((a+Math.PI)%TAU+TAU)%TAU-Math.PI;
 // velAng: Flugrichtung (Bildschirmwinkel), burn: brennt gerade ('pro'|'retro'), soon: brennt gleich, att: gewünschte Lage ohne Brennen
 function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
@@ -1491,20 +1502,24 @@ function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
     g.fillStyle=gr; g.beginPath(); g.moveTo(-9,-w*0.7); g.quadraticCurveTo(-9.5-L*0.45,-w,-9.5-L,0); g.quadraticCurveTo(-9.5-L*0.45,w,-9,w*0.7); g.closePath(); g.fill();
   }
   g.restore();
-  rocketMesh(g,x,y,a,key);
+  if(rocketMode==='gl') glRocket(x,y,a,key); else if(rocketMode==='flach') rocketMesh(g,x,y,a,key);
   // Steuerdüsen-Stöße an der Spitze beim Drehen
   if(turning){ g.save(); g.translate(x,y); g.rotate(-a); g.fillStyle='rgba(235,240,255,0.8)'; const sy=turning>0?6.5:-6.5; for(let i=0;i<2;i++){ g.beginPath(); g.arc(5-i*2.5, sy*(1+i*0.4)+(Math.random()-0.5), 1.2+Math.random()*0.8,0,TAU); g.fill(); } g.restore(); }
 }
 // 3D-Rakete aus Hanseatic Galaxy (SimpleRocket, auf ~600 Dreiecke vereinfacht, Farben aus der 4×4-Palette)
 const RKT={s:0.00495309,v:[-10,-8,-52,13,8,-51,-12,7,-51,16,-8,-51,30,9,-45,30,-8,-45,37,6,-37,38,-8,-38,45,9,-30,45,-8,-30,51,7,-10,52,-8,-10,51,7,15,51,-8,16,45,9,30,45,-8,30,37,6,37,38,-8,38,30,9,45,30,-8,45,13,8,51,16,-8,51,-12,7,51,-10,-8,52,-30,9,45,-30,-8,45,-37,6,37,-38,-8,38,-45,9,30,-45,-8,30,-51,7,15,-51,-8,16,-51,7,-10,-52,-8,-10,-45,9,-30,-45,-8,-30,-37,6,-37,-38,-8,-38,-30,9,-45,-30,-8,-45,-48,-28,14,-45,-46,-4,-49,-28,-10,-45,-46,9,9,-46,-45,14,-71,-34,17,-46,-42,14,-28,-48,48,-28,14,32,-46,32,35,-28,35,42,-46,17,-35,-28,35,-32,-46,32,-35,-28,-35,-32,-46,-32,49,-28,-10,45,-46,-4,42,-46,-17,14,-28,48,-4,-46,45,-10,-28,49,9,-46,45,32,-46,-32,35,-28,-35,-17,-46,-42,-10,-28,-49,-42,-46,-17,-42,-46,17,-4,-46,-45,45,-46,9,-17,-46,42,17,-46,42,-26,-93,-8,-12,-94,-11,-11,-71,-35,-26,-71,-26,-11,-71,35,14,-71,34,26,-71,-26,35,-71,-11,-26,-71,26,-34,-71,14,34,-71,14,-35,-71,-11,26,-71,26,-8,-93,-26,11,-93,-25,11,-94,-11,26,-93,-8,25,-93,11,12,-94,12,11,-93,25,-8,-93,26,-11,-94,12,-25,-93,11,48,35,15,45,55,-4,49,35,-10,45,55,9,-9,55,-45,-11,80,-35,-17,55,-42,-15,35,-48,-48,35,15,-32,55,32,-36,35,36,-42,55,17,36,35,36,32,55,32,36,35,-36,32,55,-32,-49,35,-10,-45,55,-4,-42,55,-17,-15,35,48,4,55,45,10,35,49,-9,55,45,-32,55,-32,-36,35,-36,17,55,-42,10,35,-49,42,55,-17,42,55,17,4,55,-45,-45,55,9,17,55,42,-17,55,42,14,80,-34,26,80,-26,11,80,35,-14,80,34,-26,80,-26,-35,80,-11,26,80,26,34,80,14,-34,80,14,35,80,-11,-26,80,26,-5,103,-23,7,103,-23,-17,103,-17,-23,103,-5,-23,103,7,-17,103,17,-7,103,23,5,103,23,17,103,17,23,103,7,23,103,-5,17,103,-17,-7,119,9,-6,121,-6,9,119,-7,8,119,8,-14,-72,44,-14,-81,25,-14,-52,38,-13,-96,32,12,-81,23,13,-96,30,14,-72,44,8,-29,47,14,-52,38,9,-57,59,-9,-57,59,-9,-83,65,-7,-107,69,-4,-127,73,-8,-127,69,-8,-29,47,-10,-127,57,8,-127,69,10,-127,57,-11,-116,41,11,-127,45,11,-116,40,-10,-127,46,-11,-107,53,11,-107,53,7,-107,69,4,-127,73,8,-83,66,-12,-91,50,11,-104,34,12,-91,50,-12,-104,36,-31,-72,-34,-15,-81,-24,-26,-52,-31,-21,-96,-28,-26,-81,-1,-33,-96,-4,-45,-72,-10,-45,-29,-16,-40,-52,-7,-55,-58,-19,-44,-58,-39,-52,-83,-40,-52,-56,-30,-56,-107,-41,-61,-127,-40,-55,-127,-42,-35,-30,-32,-44,-127,-37,-64,-127,-29,-54,-127,-19,-30,-116,-30,-45,-127,-13,-40,-116,-10,-35,-127,-32,-41,-107,-36,-52,-107,-17,-64,-107,-28,-39,-28,-28,-61,-83,-29,-61,-84,-22,-37,-91,-36,-35,-104,-7,-49,-91,-14,-25,-104,-28,45,-72,-10,28,-81,-1,40,-52,-7,34,-96,-4,14,-81,-22,20,-96,-26,31,-72,-34,35,-30,-32,26,-52,-31,44,-58,-39,55,-58,-19,61,-83,-29,61,-84,-22,52,-56,-30,64,-107,-28,64,-127,-30,44,-29,-16,54,-127,-19,55,-127,-42,44,-127,-37,41,-116,-11,33,-127,-32,29,-116,-30,45,-127,-15,52,-107,-17,41,-107,-36,56,-107,-41,39,-28,-28,61,-127,-40,53,-83,-40,49,-91,-14,24,-104,-27,37,-91,-36,37,-104,-8,-9,-94,11,-8,-102,10,-23,-96,-7,-10,-102,-9,-22,-96,9,9,-94,-9,9,-102,-9,10,-102,10,10,-94,10,-11,-94,-9,-23,-123,-23,-27,-125,-9,22,-96,9,17,-96,17,9,-96,22,7,-96,-23,-17,-96,-17,-9,-96,-22,-7,-96,23,17,-96,-17,23,-96,-7,-17,-96,17,11,-125,-27,23,-123,-23,11,-125,27,23,-123,23,7,-122,-34,-3,-122,-34,7,-122,34,-3,-122,34,-9,-125,-27,-9,-125,27,-23,-123,23,27,-125,-9,34,-122,-3,-27,-125,11,34,-122,7,-34,-122,7,27,-125,11,-34,-122,-3,18,-107,8,19,-107,-6,-18,-107,8,-19,-107,-6,8,-107,18,8,-107,-18,-6,-107,-19,-6,-107,19,8,-108,8,7,-70,8,8,-70,-6,-7,-70,7,8,-108,-7,-7,-108,-7,-7,-70,-8,-7,-108,8],f:[0,1,2,12,0,3,1,12,3,4,1,12,3,5,4,12,5,6,4,12,5,7,6,12,7,8,6,12,7,9,8,12,9,10,8,12,9,11,10,12,11,12,10,12,11,13,12,12,13,14,12,12,13,15,14,12,15,16,14,12,15,17,16,12,17,18,16,12,17,19,18,12,19,20,18,12,19,21,20,12,21,22,20,12,21,23,22,12,23,24,22,12,23,25,24,12,25,26,24,12,25,27,26,12,27,28,26,12,27,29,28,12,29,30,28,12,29,31,30,12,31,32,30,12,31,33,32,12,33,34,32,12,33,35,34,12,35,36,34,12,35,37,36,12,37,38,36,12,37,39,38,12,39,2,38,12,39,0,2,12,40,41,42,12,40,43,41,12,44,45,46,12,47,44,46,12,48,49,50,12,48,51,49,12,56,58,57,12,59,60,61,12,59,62,60,12,47,63,64,12,47,46,63,12,54,65,66,12,54,55,65,12,42,41,67,12,52,68,40,12,52,53,68,12,66,65,69,12,56,70,48,12,56,57,70,12,61,60,71,12,42,55,54,12,42,67,55,12,50,72,59,12,50,49,72,12,40,68,43,12,66,44,47,12,66,69,44,12,48,70,51,12,61,53,52,12,61,71,53,12,64,58,56,12,64,63,58,12,59,72,62,12,55,76,75,12,62,77,60,12,62,78,77,12,46,45,63,12,55,75,65,12,63,45,79,12,65,75,69,12,60,77,71,12,63,79,80,12,71,77,53,12,63,80,58,12,53,77,81,12,58,80,57,12,53,81,82,12,53,82,68,12,57,83,70,12,57,80,83,12,68,82,43,12,70,83,51,12,43,84,41,12,43,82,84,12,51,83,49,12,49,83,85,12,41,84,67,12,49,85,78,12,67,84,55,12,49,78,72,12,69,45,44,12,69,75,45,12,55,84,76,12,72,78,62,12,0,47,3,12,0,66,47,12,75,87,45,12,75,86,87,12,3,64,5,12,3,47,64,12,5,64,7,12,7,64,9,12,45,88,79,12,45,87,88,12,9,56,11,12,9,64,56,12,79,89,80,12,79,88,89,12,11,48,13,12,11,56,48,12,80,90,83,12,80,89,90,12,13,50,15,12,13,48,50,12,15,50,17,12,17,50,19,12,83,91,85,12,83,90,91,12,19,59,21,12,19,50,59,12,85,92,78,12,85,91,92,12,21,61,23,12,21,59,61,12,78,93,77,12,78,92,93,12,23,52,25,12,23,61,52,12,25,52,27,12,27,52,29,12,77,94,81,12,77,93,94,12,29,40,31,12,29,52,40,12,81,95,82,12,81,94,95,12,31,42,33,12,31,40,42,12,82,73,84,12,82,95,73,12,33,54,35,12,33,42,54,12,35,54,37,12,37,54,39,12,84,74,76,12,84,73,74,12,39,66,0,12,39,54,66,12,76,86,75,12,76,74,86,12,86,88,87,12,92,94,93,12,92,91,94,12,86,74,88,12,89,91,90,12,89,88,91,12,95,74,73,12,95,94,74,12,20,16,18,12,24,26,22,12,10,6,8,12,14,16,12,12,4,6,1,12,2,36,38,12,30,26,28,12,34,36,32,12,96,97,98,12,96,99,97,12,100,101,102,12,103,100,102,12,104,105,106,12,104,107,105,12,112,114,113,12,115,116,117,12,115,118,116,12,103,119,120,12,103,102,119,12,110,121,122,12,110,111,121,12,98,97,123,12,108,124,96,12,108,109,124,12,122,121,125,12,112,126,104,12,112,113,126,12,117,116,127,12,98,111,110,12,98,123,111,12,106,128,115,12,106,105,128,12,96,124,99,12,122,100,103,12,122,125,100,12,104,126,107,12,117,109,108,12,117,127,109,12,120,114,112,12,120,119,114,12,115,128,118,12,111,130,129,12,118,131,116,12,118,132,131,12,102,101,119,12,111,129,121,12,119,101,133,12,121,129,125,12,116,131,127,12,119,133,134,12,125,129,101,12,127,131,109,12,119,134,114,12,109,131,135,12,114,134,113,12,109,135,136,12,109,136,124,12,113,137,126,12,113,134,137,12,124,136,99,12,126,137,107,12,99,138,97,12,99,136,138,12,107,137,105,12,105,137,139,12,97,138,123,12,105,139,132,12,123,138,111,12,105,132,128,12,125,101,100,12,111,138,130,12,128,132,118,12,129,140,101,12,129,141,140,12,1,103,2,12,1,122,103,12,2,120,38,12,2,103,120,12,38,120,36,12,101,140,142,12,36,120,34,12,101,142,133,12,34,112,32,12,34,120,112,12,133,142,134,12,134,142,143,12,32,104,30,12,32,112,104,12,134,144,137,12,134,143,144,12,30,106,28,12,30,104,106,12,28,106,26,12,137,144,145,12,26,106,24,12,137,145,139,12,24,115,22,12,24,106,115,12,139,145,132,12,132,145,146,12,22,117,20,12,22,115,117,12,132,147,131,12,132,146,147,12,20,108,18,12,20,117,108,12,18,108,16,12,131,147,148,12,16,108,14,12,131,148,135,12,14,96,12,12,14,108,96,12,135,148,136,12,136,148,149,12,12,98,10,12,12,96,98,12,136,150,138,12,136,149,150,12,10,110,8,12,10,98,110,12,8,110,6,12,138,150,151,12,6,110,4,12,138,151,130,12,4,122,1,12,4,110,122,12,130,151,129,12,129,151,141,12,144,152,145,12,149,154,150,12,149,155,154,12,143,152,144,12,143,153,152,12,148,155,149,12,142,153,143,12,147,155,148,12,141,153,140,12,141,154,153,12,147,152,155,12,151,154,141,12,140,153,142,12,146,152,147,12,145,152,146,12,150,154,151,12,152,153,155,12,155,153,154,12,156,157,158,9,156,159,157,9,159,160,157,9,159,161,160,9,162,163,164,9,162,165,163,9,168,169,170,9,164,171,158,9,164,163,171,9,172,173,174,9,172,170,173,9,175,176,177,9,175,178,176,9,179,178,175,9,179,172,178,9,180,173,181,9,180,174,173,9,165,171,163,9,165,166,171,9,181,169,168,9,181,182,169,9,170,182,173,9,170,169,182,9,177,174,180,9,177,176,174,9,168,172,179,9,168,170,172,9,178,174,176,9,178,172,174,9,160,158,157,9,160,164,158,9,161,164,160,9,161,162,164,9,166,158,171,9,166,156,158,9,167,179,184,9,167,168,179,9,185,180,186,9,185,177,180,9,173,182,181,9,183,168,167,9,183,181,168,9,186,181,183,9,186,180,181,9,184,175,187,9,184,179,175,9,187,177,185,9,187,175,177,9,167,156,166,9,167,184,156,9,185,162,161,9,185,186,162,9,183,166,165,9,183,167,166,9,186,165,162,9,186,183,165,9,187,161,159,9,187,185,161,9,184,159,156,9,184,187,159,9,188,189,190,9,188,191,189,9,191,192,189,9,191,193,192,9,194,195,196,9,194,197,195,9,198,200,199,9,201,202,203,9,196,204,190,9,196,195,204,9,205,206,207,9,205,203,206,9,208,209,210,9,208,211,209,9,212,211,208,9,212,205,211,9,213,206,214,9,213,207,206,9,200,215,195,9,214,202,201,9,214,206,202,9,214,216,217,9,203,202,206,9,195,215,204,9,197,200,195,9,210,207,213,9,210,209,207,9,201,205,212,9,201,203,205,9,211,207,209,9,211,205,207,9,192,190,189,9,192,196,190,9,193,196,192,9,193,194,196,9,198,190,204,9,198,188,190,9,199,212,218,9,199,201,212,9,219,213,220,9,219,210,213,9,216,201,199,9,216,214,201,9,220,214,217,9,220,213,214,9,218,208,221,9,218,212,208,9,221,210,219,9,221,208,210,9,199,188,198,9,199,218,188,9,219,194,193,9,219,220,194,9,217,200,197,9,217,216,200,9,216,199,200,9,204,200,198,9,204,215,200,9,220,197,194,9,220,217,197,9,221,193,191,9,221,219,193,9,218,191,188,9,218,221,191,9,222,223,224,9,222,225,223,9,225,226,223,9,225,227,226,9,228,229,230,9,228,231,229,9,232,233,234,9,232,235,233,9,230,238,224,9,230,229,238,9,239,240,241,9,239,237,240,9,242,243,244,9,242,245,243,9,246,245,242,9,246,239,245,9,247,240,248,9,247,241,240,9,235,238,249,9,248,237,236,9,248,250,237,9,237,250,240,9,229,249,238,9,231,249,229,9,231,235,249,9,244,241,247,9,244,243,241,9,236,239,246,9,236,237,239,9,245,241,243,9,245,239,241,9,226,224,223,9,226,230,224,9,227,230,226,9,227,228,230,9,232,224,238,9,232,222,224,9,234,246,252,9,234,236,246,9,253,247,254,9,253,244,247,9,240,250,248,9,251,236,233,9,251,248,236,9,254,248,251,9,254,247,248,9,252,242,255,9,252,246,242,9,255,244,253,9,255,242,244,9,234,233,236,9,234,222,232,9,234,252,222,9,253,228,227,9,253,254,228,9,251,235,231,9,251,233,235,9,238,235,232,9,254,231,228,9,254,251,231,9,255,227,225,9,255,253,227,9,252,225,222,9,252,255,225,9,257,258,259,5,257,260,258,5,261,263,264,5,261,262,263,5,256,259,265,5,256,257,259,5,264,257,256,5,264,263,257,5,265,262,261,5,265,259,262,5,258,267,266,5,263,268,269,5,263,269,270,5,259,258,272,5,259,272,273,5,263,274,257,5,263,270,274,5,262,271,275,5,262,275,276,5,259,271,262,5,259,273,271,5,257,274,277,5,257,277,260,5,262,268,263,5,262,276,268,5,270,281,280,5,271,283,282,5,258,266,272,5,270,280,284,5,271,282,278,5,272,266,273,5,270,285,274,5,270,284,285,5,271,278,279,5,273,266,286,5,271,279,275,5,273,286,283,5,274,285,287,5,275,279,276,5,273,283,271,5,274,287,288,5,276,279,289,5,274,288,277,5,276,289,290,5,277,288,260,5,260,288,291,5,276,292,268,5,276,290,292,5,260,291,293,5,268,292,294,5,260,295,258,5,260,293,295,5,268,294,281,5,268,281,269,5,258,295,267,5,269,281,270,5,289,296,294,5,289,297,296,5,290,294,292,5,290,289,294,5,293,267,295,5,293,291,267,5,283,278,282,5,283,286,278,5,284,287,285,5,284,280,287,5,291,299,267,5,291,298,299,5,294,263,281,5,294,296,263,5,281,300,280,5,281,263,300,5,286,301,278,5,286,302,301,5,267,259,266,5,267,299,259,5,266,302,286,5,266,259,302,5,280,303,287,5,280,300,303,5,278,262,279,5,278,301,262,5,279,297,289,5,279,262,297,5,287,257,288,5,287,303,257,5,288,298,291,5,288,257,298,5,302,262,301,5,302,259,262,5,300,257,303,5,300,263,257,5,297,263,296,5,297,262,263,5,298,259,299,5,298,257,259,5,306,307,305,0,304,307,311,0,304,305,307,0,308,305,304,0,308,306,305,0,311,310,309,0,311,307,310,0,309,306,308,0,309,310,306,0,310,307,306,0]};
-const RKT_PAL=['#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8','#ffccaa'].map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
+const RKT_HEX=['#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8','#ffccaa'];
+const RKT_PAL=RKT_HEX.map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const RKT_LEN=22, RKT_TILT=0.38; // Länge in px; Nase leicht zum Betrachter gekippt, damit man die Form sieht
 const RKT_ROLL={};
+// langsames Rollen um die Längsachse, gleich für den 2D- und den three.js-Weg
+function rollOf(key){
+  const now=performance.now(), r=RKT_ROLL[key]||(RKT_ROLL[key]={roll:0.6,t:now});
+  r.roll+=Math.min(0.1,(now-r.t)/1000)*0.5; r.t=now; return r.roll;
+}
 function rocketMesh(g,x,y,a,key){
-  const n=RKT.v.length/3, sc=RKT.s*RKT_LEN/1.25;
-  // langsames Rollen um die Längsachse
-  const now=performance.now(), r=RKT_ROLL[key]||(RKT_ROLL[key]={roll:0.6,t:now}); r.roll+=Math.min(0.1,(now-r.t)/1000)*0.5; r.t=now;
-  const cr=Math.cos(r.roll), sr=Math.sin(r.roll), ct=Math.cos(RKT_TILT), st=Math.sin(RKT_TILT), ca=Math.cos(a-Math.PI/2), sa=Math.sin(a-Math.PI/2);
+  const n=RKT.v.length/3, sc=RKT.s*RKT_LEN/1.25, roll=rollOf(key);
+  const cr=Math.cos(roll), sr=Math.sin(roll), ct=Math.cos(RKT_TILT), st=Math.sin(RKT_TILT), ca=Math.cos(a-Math.PI/2), sa=Math.sin(a-Math.PI/2);
   const X=new Float32Array(n), Y=new Float32Array(n), Z=new Float32Array(n);
   for(let i=0;i<n;i++){
     let px=RKT.v[3*i]*sc, py=RKT.v[3*i+1]*sc, pz=RKT.v[3*i+2]*sc;
@@ -1534,7 +1549,227 @@ function shipGlyph(g,x,y,ang,col){ g.save(); g.translate(x,y); g.rotate(-ang); g
 function prep(canvas,g,W,H){ const dpr=window.devicePixelRatio||1;
   if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); }
+// Hintere 2D-Ebene: nur nötig, wenn three.js zeichnet. Sonst bleibt alles auf einem Canvas.
+// front ist der vordere Canvas (#cv oder #sys); die Bühne zentriert ihn, also die Lage übernehmen.
+function layFor(layer,front,W,H){ layer.style.left=front.offsetLeft+'px'; layer.style.top=front.offsetTop+'px';
+  layer.style.width=W+'px'; layer.style.height=H+'px'; }
+function prepBack(front,W,H){ layFor(cvb,front,W,H); prep(cvb,bctx,W,H); }
 const cssv = () => { const css=getComputedStyle(document.documentElement); return n=>css.getPropertyValue(n).trim(); };
+
+// ---------- 3D-Ebene mit three.js ----------
+// three.js zeichnet nur die Körper: texturierte Kugeln, den Saturnring und die Rakete als Modell.
+// Beschriftungen, Bahnen, Markierungen, Flammen und die Klickziele bleiben auf den 2D-Canvas.
+// Der Stapel ist #cvb (2D hinten) – #glc (three.js) – #cv bzw. #sys (2D vorne).
+// Die Kamera ist orthografisch und rechnet in Bildschirmpixeln, mit denselben Werten wie makeCam
+// bzw. drawSys. Damit liegen 2D und 3D genau übereinander.
+// Ohne three.js bleibt die Karte leer. Eine zweite, schlechtere Darstellung daneben zu pflegen
+// wäre irreführend: man sähe etwas und wüsste nicht, dass es nicht die eigentliche Ansicht ist.
+// Keine fremden Texturen: die Oberflächen entstehen im Browser aus den Daten, die das Spiel
+// ohnehin hat — Kontinente von Hand, Polkappen, Bänder der Gasriesen, Saturnring. Damit lädt
+// die 3D-Ebene kein einziges Bild und läuft auch im gesperrten iframe ohne Herkunftsprobleme.
+const GL = {on:false, state:'laden', why:'', T:null, r:null, mat:{}, mesh:{}, ring:null, rocket:null};
+
+function glOff(why){
+  if(GL.state==='aus') return;
+  GL.state='aus'; GL.on=false; GL.T=null; GL.why=why||'';
+  console.warn('3D-Ansicht aus:', why);
+  glc.hidden=true; cvb.hidden=true;
+  try{ draw(); }catch(e){}
+}
+// Hinweis auf dem sonst leeren Kartenfeld, solange three.js lädt oder wenn es ausfällt.
+function glNote(canvas,g,W,H){
+  prep(canvas,g,W,H); glHide();
+  const v=cssv(), laden=GL.state==='laden';
+  g.textAlign='center'; g.textBaseline='middle'; g.fillStyle=v('--muted');
+  g.font=`600 15px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
+  g.fillText(laden?'3D-Ansicht wird geladen …':'Diese Karte braucht WebGL.', W/2, H/2-8);
+  if(!laden){
+    g.font=`400 12.5px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
+    g.fillText(GL.why||'Der Browser stellt keine 3D-Grafik bereit.', W/2, H/2+14);
+    g.fillText('Aufträge, Routenplaner und Autopilot funktionieren weiter.', W/2, H/2+32);
+  }
+}
+
+// Rakete: dieselben Daten wie der 2D-Handrenderer, nur als Dreiecksnetz mit Vertexfarben.
+function glRocketGeo(T){
+  const n=RKT.f.length/4, pos=new Float32Array(n*9), col=new Float32Array(n*9), c=new T.Color();
+  for(let k=0;k<n;k++){
+    c.set(RKT_HEX[RKT.f[4*k+3]]);
+    for(let j=0;j<3;j++){
+      const vi=RKT.f[4*k+j], o=k*9+j*3;
+      pos[o]=RKT.v[3*vi]*RKT.s; pos[o+1]=RKT.v[3*vi+1]*RKT.s; pos[o+2]=RKT.v[3*vi+2]*RKT.s;
+      col[o]=c.r; col[o+1]=c.g; col[o+2]=c.b;
+    }
+  }
+  const gm=new T.BufferGeometry();
+  gm.setAttribute('position', new T.BufferAttribute(pos,3));
+  gm.setAttribute('color', new T.BufferAttribute(col,3));
+  gm.computeVertexNormals(); // ohne Index: eine Normale je Dreieck, also facettiert wie bisher
+  return gm;
+}
+
+// ---- Oberflächen als Zeichnung, equirektangular (Länge waagerecht, Breite senkrecht) ----
+const TEX_W = 1024, TEX_H = 512;
+function texCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+// Länge/Breite in Pixel der Karte. bodyLon0 kommt erst bei der Drehung der Kugel dazu,
+// die Karte selbst ist immer bei 0° zentriert.
+const texX = lon => (lon+180)/360*TEX_W, texY = lat => (90-lat)/180*TEX_H;
+function texPoly(g,pts,fill){
+  g.fillStyle=fill;
+  for(const dx of [-TEX_W,0,TEX_W]){ // dreimal zeichnen, damit nichts an der Datumsgrenze abreißt
+    g.beginPath();
+    pts.forEach(([lon,lat],i)=>{ const x=texX(lon)+dx, y=texY(lat); i?g.lineTo(x,y):g.moveTo(x,y); });
+    g.closePath(); g.fill();
+  }
+}
+// Polkappe: geschlossene Fläche von der Breite bis zum Pol, weicher Saum nur zur Äquatorseite.
+// Zum Pol hin darf sie nicht ausblenden: dort ist die Karte so gestaucht, dass daraus eine Blendung wird.
+function texCap(g,lat,alpha){
+  // Der Saum richtet sich nach der Kappe selbst: ein fester Anteil der Kartenhöhe wäre bei einer
+  // 10°-Kappe wie auf dem Mars breiter als die halbe Kappe und verwischt sie zu einem Schleier.
+  const col='236,240,246', y=texY(lat), pole=lat>0?0:TEX_H;
+  const soft=(lat>0?1:-1)*Math.max(2, Math.abs(y-pole)*0.2);
+  g.fillStyle=`rgba(${col},${alpha})`;
+  g.fillRect(0, Math.min(y,pole), TEX_W, Math.abs(y-pole));
+  const gr=g.createLinearGradient(0,y,0,y+soft);
+  gr.addColorStop(0,`rgba(${col},${alpha})`); gr.addColorStop(1,`rgba(${col},0)`);
+  g.fillStyle=gr; g.fillRect(0, Math.min(y,y+soft), TEX_W, Math.abs(soft));
+}
+// Bänder der Gasriesen: dieselben vier Lagen wie in der 2D-Schattierung, dort als Anteil
+// des Radius angegeben, also als Sinus der Breite.
+function texBands(g){
+  [-0.45,-0.2,0.15,0.4].forEach((f,i)=>{
+    const lat=a=>Math.asin(Math.max(-1,Math.min(1,a)))*180/Math.PI;
+    const y0=texY(lat(f+0.09)), y1=texY(lat(f-0.09));
+    const gr=g.createLinearGradient(0,y0,0,y1), c=i%2?'120,80,50':'255,240,220', a=i%2?0.38:0.28;
+    gr.addColorStop(0,`rgba(${c},0)`); gr.addColorStop(0.5,`rgba(${c},${a})`); gr.addColorStop(1,`rgba(${c},0)`);
+    g.fillStyle=gr; g.fillRect(0,y0,TEX_W,y1-y0);
+  });
+}
+// Karte eines Körpers. Ohne Besonderheiten gibt es keine Karte, dann genügt die Grundfarbe.
+function glSurface(T,b){
+  const caps=CAPS[b]||[], gas=b==='jupiter'||b==='saturn', earth=b==='earth';
+  if(!caps.length && !gas && !earth) return null;
+  const col=bodyColor(b), cn=texCanvas(TEX_W,TEX_H), g=cn.getContext('2d');
+  g.fillStyle=col; g.fillRect(0,0,TEX_W,TEX_H);
+  if(earth){
+    LAND.forEach((pts,i)=>texPoly(g,pts,EARTH_LAND(i)));
+    DESERT.forEach(([pts,fill])=>texPoly(g,pts,fill));
+    WATER.forEach(pts=>texPoly(g,pts,col)); // Binnenmeere wieder aufmachen
+  }
+  if(gas) texBands(g);
+  caps.forEach(([lat,a])=>texCap(g,lat,a));
+  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
+}
+// Saturnring: Bänder über den Radius, innen und außen durchsichtig. Die Cassini-Teilung
+// sitzt bei knapp zwei Dritteln, wie in der Natur.
+function glRingTexture(T){
+  const N=512, cn=texCanvas(N,N), g=cn.getContext('2d'), c=N/2;
+  const inner=0.614; // 1,35 von 2,2 Saturnradien: der Ring beginnt nicht am Planeten
+  const band=(r0,r1,fill)=>{ g.beginPath(); g.arc(c,c,r1*c,0,TAU); g.arc(c,c,r0*c,0,TAU,true);
+    g.fillStyle=fill; g.fill('evenodd'); };
+  band(inner,1,'rgba(222,205,160,0.72)');
+  band(inner,inner+0.06,'rgba(198,182,142,0.4)');   // innerer, blasser Rand
+  band(0.80,0.845,'rgba(0,0,0,0)');                  // Cassini-Teilung
+  g.globalCompositeOperation='destination-out'; band(0.80,0.845,'rgba(0,0,0,0.85)');
+  g.globalCompositeOperation='source-over';
+  band(0.86,0.95,'rgba(236,224,190,0.5)');
+  band(0.97,1,'rgba(200,186,150,0.25)');
+  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
+}
+
+function glInit(T){
+  let r;
+  try{ r=new T.WebGLRenderer({canvas:glc, alpha:true, antialias:true, powerPreference:'low-power'}); }
+  catch(e){ glOff('kein WebGL-Kontext'); return; }
+  GL.T=T; GL.r=r;
+  r.setClearAlpha(0);
+  r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); // mobil: höchstens 2
+  r.autoClear=false;
+  GL.aniso=Math.min(4, r.capabilities.getMaxAnisotropy());
+  glc.addEventListener('webglcontextlost', e=>{ e.preventDefault(); glOff('WebGL-Kontext verloren'); });
+
+  GL.scene=new T.Scene();
+  GL.cam=new T.OrthographicCamera(-1,1,1,-1,1,4000);
+  GL.cam.position.set(0,0,2000);
+  // Das Licht steht im Weltraum der Szene, also in Kamerakoordinaten: genau der Vektor LIGHT
+  // aus der 2D-Schattierung. Die Körper hängen in einer gedrehten Gruppe, das Licht nicht.
+  const dl=new T.DirectionalLight(0xfff3e0, 1.25), amb=new T.AmbientLight(0x93a4d2, 0.2);
+  dl.position.set(LIGHT[0]*500, LIGHT[1]*500, LIGHT[2]*500);
+  GL.dl=dl; GL.amb=amb;
+  GL.scene.add(dl, dl.target, amb);
+  GL.root=new T.Group(); GL.scene.add(GL.root);   // gedreht wie die Kamera in makeCam/drawSys
+  GL.flat=new T.Group(); GL.scene.add(GL.flat);   // ungedreht: die Rakete in Bildschirmkoordinaten
+
+  // Eine Kugel für alle Körper. phiStart so, dass Länge 0° nach +Z zeigt;
+  // die Blickmitte je Körper kommt dann aus einer Drehung um Y.
+  GL.sphere=new T.SphereGeometry(1, 64, 32, -Math.PI/2);
+  GL.plane=new T.PlaneGeometry(2,2);
+  GL.rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide}));
+  GL.rocket.scale.setScalar(RKT_LEN/1.25);
+  GL.rocket.visible=false; GL.flat.add(GL.rocket);
+  GL.qa=new T.Quaternion(); GL.qb=new T.Quaternion();
+  GL.AX=new T.Vector3(1,0,0); GL.AY=new T.Vector3(0,1,0); GL.AZ=new T.Vector3(0,0,1);
+  GL.on=true; GL.state='an';
+  draw();
+}
+
+function glMat(key){
+  if(GL.mat[key]) return GL.mat[key];
+  const T=GL.T, map=glSurface(T,key);
+  return GL.mat[key]=new T.MeshLambertMaterial(map?{map}:{color:new T.Color(bodyColor(key))});
+}
+function glBody(key){
+  if(GL.mesh[key]) return GL.mesh[key];
+  const m=new GL.T.Mesh(GL.sphere, glMat(key));
+  m.rotation.y=-bodyLon0(key)*D2R; // Blickmitte des Körpers nach +Z drehen
+  GL.root.add(m); return GL.mesh[key]=m;
+}
+function glSaturnRing(){
+  if(GL.ring) return GL.ring;
+  const T=GL.T;
+  const mat=new T.MeshBasicMaterial({map:glRingTexture(T), transparent:true, side:T.DoubleSide, depthWrite:false});
+  const m=new T.Mesh(GL.plane, mat);
+  m.rotation.x=-Math.PI/2; // Plane liegt in XY, der Ring gehört in die Äquatorebene XZ
+  GL.root.add(m); return GL.ring=m;
+}
+
+// Eine Ansicht beginnen: Canvas auf die Größe des vorderen 2D-Canvas bringen,
+// Kamera in Pixeln aufspannen und die Gruppe wie makeCam bzw. drawSys drehen.
+// scale ist die Zahl der Pixel je Einheit in der Gruppe (drawBody: R, drawSys: 1).
+function glBegin(front,W,H,cx,cy,scale,el){
+  if(!GL.on) return false;
+  glc.hidden=false; cvb.hidden=false;
+  layFor(glc,front,W,H);
+  GL.r.setSize(W,H,false);
+  const c=GL.cam; c.left=-W/2; c.right=W/2; c.top=H/2; c.bottom=-H/2; c.updateProjectionMatrix();
+  GL.root.position.set(cx-W/2, H/2-cy, 0);
+  GL.root.rotation.set(el,0,0);
+  GL.root.scale.setScalar(scale);
+  GL.flat.position.set(-W/2, H/2, 0);
+  for(const k in GL.mesh) GL.mesh[k].visible=false;
+  if(GL.ring) GL.ring.visible=false;
+  GL.rocket.visible=false;
+  return true;
+}
+// Körper an eine Stelle der Gruppe setzen (p in Gruppenkoordinaten, r in Gruppeneinheiten)
+function glPut(key,p,r){
+  const m=glBody(key); m.visible=true; m.scale.setScalar(r);
+  m.position.set(p?p[0]:0, p?p[1]:0, p?p[2]:0);
+  return m;
+}
+// Rakete in Bildschirmkoordinaten: x,y wie im 2D-Canvas, a der Bildschirmwinkel der Nase.
+// z=900 hält sie vor allen Körpern, genau wie der 2D-Weg sie zuletzt zeichnet.
+function glRocket(x,y,a,key){
+  const m=GL.rocket, r=rollOf(key);
+  m.visible=true; m.position.set(x,-y,900);
+  GL.qa.setFromAxisAngle(GL.AY, r);
+  GL.qb.setFromAxisAngle(GL.AX, RKT_TILT); GL.qa.premultiply(GL.qb);
+  GL.qb.setFromAxisAngle(GL.AZ, a-Math.PI/2); GL.qa.premultiply(GL.qb);
+  m.quaternion.copy(GL.qa);
+}
+function glEnd(){ if(!GL.on) return; GL.r.clear(); GL.r.render(GL.scene, GL.cam); }
+function glHide(){ glc.hidden=true; cvb.hidden=true; }
 
 function draw(){
   const v=mapView(); renderCrumbs(v); HITS=[];
@@ -1563,6 +1798,7 @@ function transferConic(r1,r2,dth){
 }
 function drawSol(){
   const [W]=fitCanvas(cv,1); if(W<60) return; prep(cv,ctx,W,W);
+  rocketMode='flach'; glHide(); // die Draufsicht aufs Sonnensystem bleibt flach
   const v=cssv(), c=W/2, maxR=W/2-20;
   const rOf=a=>16+(maxR-16)*Math.sqrt(a/9.537);
   const pos=(k,day)=>{const th=theta(k,day), r=rOf(B[k].a); return [c+r*Math.cos(th), c-r*Math.sin(th)];};
@@ -1639,6 +1875,14 @@ const WATER = [
   [[28,42],[33,41],[41,41],[40,44],[35,45],[31,46],[29,45]],
   [[47,37],[54,37],[53,42],[51,45],[53,47],[49,47],[47,43]],
 ];
+// Wüstengürtel (Sahara/Arabien, Iran, Australien) und die beiden Erdfarben, von 2D und 3D genutzt
+const DESERT = [
+  [[[-12,20],[0,28],[20,30],[32,24],[34,16],[15,14],[-5,15]],'rgba(196,170,112,0.75)'],
+  [[[40,16],[55,22],[56,27],[48,29],[40,26]],'rgba(196,170,112,0.7)'],
+  [[[125,-22],[140,-24],[140,-30],[125,-30]],'rgba(196,170,112,0.6)'],
+];
+const EARTH_LAND = i => i===1 ? 'rgba(236,240,244,0.92)' : 'rgba(104,146,86,0.95)'; // 1 = Grönland (Eis)
+
 // ---------- 3D-Ansicht der Himmelskörper: echte Geometrie, feste leicht schräge Kamera ----------
 const D2R = Math.PI/180;
 const CAM_EL = 22*D2R;                 // Kamera 22° über (oder unter) der Äquatorebene
@@ -1741,18 +1985,14 @@ function sysPlan(mv){
   if(fb===p && fl==='capt' && tl==='orbit'){ const aero=!!mv.aero, th=aero?4*TAU+Math.PI:Math.PI; return {kind:'lower', u0:st.capU, aero, th, final:{lowU:st.capU+th}}; }
   return null;
 }
-function shadeSphere(g,x,y,R,col,opt={}){
-  g.fillStyle=col; g.beginPath(); g.arc(x,y,R,0,TAU); g.fill();
-  if(opt.bands){ g.save(); g.beginPath(); g.arc(x,y,R,0,TAU); g.clip(); opt.bands(g); g.restore(); }
-  const lz=LIGHT[2], al=Math.atan2(-LIGHT[1],LIGHT[0]);
-  g.save(); g.translate(x,y); g.rotate(al); g.beginPath(); g.ellipse(0,0,Math.abs(lz)*R,R,0,Math.PI/2,Math.PI*1.5); g.arc(0,0,R,-Math.PI/2,Math.PI/2,true); g.closePath();
-  g.fillStyle='rgba(6,9,22,0.55)'; g.fill(); g.restore();
-  const gr=g.createRadialGradient(x-R*0.35,y-R*0.3,R*0.1,x,y,R*1.02); gr.addColorStop(0,'rgba(255,255,255,0.12)'); gr.addColorStop(0.7,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,0.4)');
-  g.fillStyle=gr; g.beginPath(); g.arc(x,y,R,0,TAU); g.fill();
-}
 function drawSys(p){
-  const ms=moonsOf(p), [W,H]=fitCanvas(sc,1.6); if(W<60||H<30) return; prep(sc,sctx,W,H);
+  const ms=moonsOf(p), [W,H]=fitCanvas(sc,1.6); if(W<60||H<30) return;
+  if(!GL.on) return glNote(sc,sctx,W,H);
+  prep(sc,sctx,W,H);
   const g=sctx, v=cssv(), cx=W/2, cy=H/2+6, ce=Math.cos(SYS_EL), se=Math.sin(SYS_EL);
+  // three.js zeichnet Planet, Monde und den Saturnring; hier wird in Pixeln gerechnet (Maßstab 1).
+  glBegin(sc,W,H,cx,cy,1,SYS_EL); prepBack(sc,W,H);
+  const gb = bctx; // verdeckte Teile gehören hinter die Kugel
   const rH=Math.min(W/2-34, (H/2-26)/se), rMax=rH*0.82, Rp=Math.max(13,Math.min(22,W*0.028)), rLow=Rp+11, rMin=rLow+22, rMo=10;
   const lo=Math.log(Math.min(...ms.map(m=>M[m].rv))), hi=Math.log(Math.max(...ms.map(m=>M[m].rv)));
   const rOf=m=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(M[m].rv)-lo)/(hi-lo);
@@ -1762,8 +2002,8 @@ function drawSys(p){
   const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back=[], front=[];
   const poly=(pts,style)=>{ const q=pts.map(P);
-    const seg=hid=>()=>{ g.strokeStyle=style.col; g.lineWidth=style.w||1; g.setLineDash(style.dash||[]); g.globalAlpha=(style.a||1)*(hid?0.35:1); g.beginPath(); let on=false;
-      q.forEach(c=>{ if((c.z<0)===hid){ on?g.lineTo(c.x,c.y):g.moveTo(c.x,c.y); on=true; } else on=false; }); g.stroke(); g.setLineDash([]); g.globalAlpha=1; };
+    const seg=hid=>{ const w=hid?gb:g; return ()=>{ w.strokeStyle=style.col; w.lineWidth=style.w||1; w.setLineDash(style.dash||[]); w.globalAlpha=(style.a||1)*(hid?0.35:1); w.beginPath(); let on=false;
+      q.forEach(c=>{ if((c.z<0)===hid){ on?w.lineTo(c.x,c.y):w.moveTo(c.x,c.y); on=true; } else on=false; }); w.stroke(); w.setLineDash([]); w.globalAlpha=1; }; };
     back.push(seg(true)); front.push(seg(false)); };
   const circle=r=>{ const a=[]; for(let j=0;j<=120;j++) a.push(ringPt(r,j/120*TAU)); return a; };
   poly(circle(rH),{col:v('--line'),w:1.5,dash:[6,5]}); ms.forEach(m=>poly(circle(rOf(m)),{col:v('--orbit'),w:1})); poly(circle(rLow),{col:v('--line'),w:1.5});
@@ -1802,28 +2042,27 @@ function drawSys(p){
         if(nd==='surf') dir=[0,-1];
         ship={pt:P(w), dir, up:nd==='surf'}; } }
   }
-  if(ship){ const s=ship; (s.pt.hidden?back:front).push(()=>{ const dl=Math.hypot(...s.dir)||1, ux=s.dir[0]/dl, uy=s.dir[1]/dl;
-      if(s.glow){ const gr=g.createRadialGradient(s.pt.x,s.pt.y,0,s.pt.x,s.pt.y,12); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); g.fillStyle=gr; g.beginPath(); g.arc(s.pt.x,s.pt.y,12,0,TAU); g.fill(); }
-      const va=Math.atan2(-uy,ux); if(s.up) drawRocket(g,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent')); else drawRocket(g,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent')); }); }
+  if(ship){ const s=ship, hid=s.pt.hidden, c=hid?gb:g; (hid?back:front).push(()=>{ const dl=Math.hypot(...s.dir)||1, ux=s.dir[0]/dl, uy=s.dir[1]/dl;
+      if(s.glow){ const gr=c.createRadialGradient(s.pt.x,s.pt.y,0,s.pt.x,s.pt.y,12); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(s.pt.x,s.pt.y,12,0,TAU); c.fill(); }
+      const va=Math.atan2(-uy,ux); rocketMode = hid ? 'keine' : 'gl'; // hinter dem Planeten nur Flamme, der Rest ist verdeckt
+      if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent')); else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent'));
+      rocketMode='gl'; }); }
 
   // Monde als kleine Kugeln, hinten oder vorne
-  const drawMoon=m=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
-    shadeSphere(g,x,y,5.5,bodyColor(m));
-    if(hasDepot(m)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+7,y-6,2.5,0,TAU); g.fill(); }
-    if(cargoTo(kk=>bodyOf(kk)===m).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,11,0,TAU); g.stroke(); g.setLineDash([]); }
-    if(sel){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(x,y,15,0,TAU); g.stroke(); }
-    font(sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign='center'; g.textBaseline='bottom'; g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=3; g.fillText(M[m].name,x,y-12); g.shadowBlur=0;
+  const drawMoon=(m,w)=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
+    glPut(m, moonW(m,S.day), 5.5);
+    if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
+    if(cargoTo(kk=>bodyOf(kk)===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
+    if(sel){ w.strokeStyle=v('--accent'); w.lineWidth=2; w.beginPath(); w.arc(x,y,15,0,TAU); w.stroke(); }
+    font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(M[m].name,x,y-12); w.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
-  ms.forEach(m=>{ const c=P(moonW(m,S.day)); (c.z<0?back:front).push(()=>drawMoon(m)); });
+  ms.forEach(m=>{ const c=P(moonW(m,S.day)); const hid=c.z<0; (hid?back:front).push(()=>drawMoon(m,hid?gb:g)); });
   // Reihenfolge: hinten, Ringe hinten (Saturn), Planet, vorne
   back.forEach(f=>f());
-  const saturnRing=(frontOnly)=>{ if(p!=='saturn') return; g.save(); if(frontOnly){ g.beginPath(); g.rect(0,cy,W,H); g.clip(); }
-    g.fillStyle='rgba(222,205,160,0.45)'; g.beginPath(); g.ellipse(cx,cy,Rp*2.2,Rp*2.2*se,0,0,TAU); g.ellipse(cx,cy,Rp*1.35,Rp*1.35*se,0,0,TAU,true); g.fill('evenodd'); g.restore(); };
-  saturnRing(false);
-  const bands = p==='jupiter'||p==='saturn' ? (gg)=>{ [-0.45,-0.2,0.15,0.4].forEach((f,i)=>{ const y=cy-Rp*f*ce; gg.strokeStyle=i%2?'rgba(120,80,50,0.35)':'rgba(255,240,220,0.25)'; gg.lineWidth=Rp*0.16;
-      gg.beginPath(); gg.ellipse(cx,y+Rp*0.04,Rp*Math.sqrt(1-f*f),Rp*Math.sqrt(1-f*f)*se,0,0,Math.PI); gg.stroke(); }); } : null;
-  shadeSphere(g,cx,cy,Rp,bodyColor(p),{bands});
-  saturnRing(true);
+  glPut(p,null,Rp);
+  // Der Ring liegt in der Äquatorebene. Die Zeichnung reicht bis an den Bildrand, deshalb ist die
+  // halbe Kantenlänge der äußere Ringradius; innen bleibt sie durchsichtig.
+  if(p==='saturn'){ const rg=glSaturnRing(); rg.visible=true; rg.scale.set(Rp*2.24,Rp*2.24,1); }
   const pp={type:'body',body:p};
   if(cargoTo(kk=>bodyOf(kk)===p && kk.node!==p+'.capt' && kk.node!==p+'.orbit').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
   if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }
@@ -1838,21 +2077,28 @@ function drawSys(p){
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
   nodeMark(ringPt(rLow,3.7),p+'.orbit','Niedriger Orbit','right');
   nodeMark(ringPt(rH,-0.75),p+'.capt','Hoher Orbit','left');
+  glEnd();
 }
 
 // Polkappen je Körper: [Breite, Deckkraft]
 const CAPS = {earth:[[-68,0.9],[80,0.85]], mars:[[80,0.85]], mercury:[], ceres:[], europa:[], enceladus:[[-70,0.5]]};
 function drawBody(b){
-  const [W]=fitCanvas(cv,1); if(W<60) return; prep(cv,ctx,W,W);
-  const g=ctx, v=cssv(), cx=W/2, cy=W/2+4, R=W*0.3, cam=makeCam(cx,cy,R,bodyView(b).el), col=bodyColor(b);
+  const [W]=fitCanvas(cv,1); if(W<60) return;
+  if(!GL.on) return glNote(cv,ctx,W,W);
+  prep(cv,ctx,W,W);
+  const g=ctx, v=cssv(), cx=W/2, cy=W/2+4, R=W*0.3, cam=makeCam(cx,cy,R,bodyView(b).el);
+  // three.js übernimmt die Kugel; dieselbe Kamera, R Pixel je Körperradius
+  glBegin(cv,W,W,cx,cy,R,bodyView(b).el); prepBack(cv,W,W);
+  const gb = bctx; // verdeckte Teile gehören hinter die Kugel
+  glPut(b,null,1);
   const [k,l]=here(), mine=k===b && !S.transit;
   const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back=[], front=[]; // Zeichenaufträge hinter bzw. vor dem Körper
   const P=p=>cam.proj(p);
   // Bahnring als Polylinie, getrennt in verdeckte und sichtbare Stücke
   const ring=(fn,style)=>{ const pts=[]; for(let j=0;j<=96;j++) pts.push(P(fn(j/96*TAU)));
-    const seg=(hid)=>()=>{ g.strokeStyle=style.col; g.lineWidth=style.w; g.setLineDash(style.dash||[]); g.globalAlpha=hid?0.35:1; g.beginPath(); let on=false;
-      pts.forEach(q=>{ const h=q.z<0; if(h===hid){ on?g.lineTo(q.x,q.y):g.moveTo(q.x,q.y); on=true; } else on=false; }); g.stroke(); g.setLineDash([]); g.globalAlpha=1; };
+    const seg=(hid)=>{ const c=hid?gb:g; return ()=>{ c.strokeStyle=style.col; c.lineWidth=style.w; c.setLineDash(style.dash||[]); c.globalAlpha=hid?0.35:1; c.beginPath(); let on=false;
+      pts.forEach(q=>{ const h=q.z<0; if(h===hid){ on?c.lineTo(q.x,q.y):c.moveTo(q.x,q.y); on=true; } else on=false; }); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }; };
     back.push(seg(true)); front.push(seg(false)); };
   // Hoher Orbit nur bei Planeten ohne Monde (sonst in der Systemansicht)
   const showHigh = B[b] && !moonsOf(b).length;
@@ -1865,8 +2111,8 @@ function drawBody(b){
   if(mine && S.move && S.move.path && S.move.path.b===b){
     const pa=S.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
     const trail=[]; for(let j=0;j<=80;j++) trail.push(P(pa.at(j/80).p));
-    const tseg=(hid)=>()=>{ g.strokeStyle=v('--accent'); g.lineWidth=1.4; g.setLineDash([3,4]); g.globalAlpha=hid?0.25:0.6; g.beginPath(); let on=false;
-      trail.forEach(p=>{ if(p.hidden===hid){ on?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y); on=true; } else on=false; }); g.stroke(); g.setLineDash([]); g.globalAlpha=1; };
+    const tseg=(hid)=>{ const c=hid?gb:g; return ()=>{ c.strokeStyle=v('--accent'); c.lineWidth=1.4; c.setLineDash([3,4]); c.globalAlpha=hid?0.25:0.6; c.beginPath(); let on=false;
+      trail.forEach(p=>{ if(p.hidden===hid){ on?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y); on=true; } else on=false; }); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }; };
     back.push(tseg(true)); front.push(tseg(false));
     shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
     soon=pa.at(Math.min(1,t+0.06)).burn; att=q.att?{mode:q.att}:null;
@@ -1878,41 +2124,27 @@ function drawBody(b){
     const sp=P(shipAt);
     // nah an der Oberfläche steht die Rakete auf dem Platz (wie im gelandeten Zustand), nicht mitten in der Markierung
     { const rr=Math.hypot(...shipAt), k=Math.max(0,Math.min(1,1-(rr-1)/0.07)); if(k>0){ const dx=sp.x-cx, dy=sp.y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1; sp.x+=ux*17*k; sp.y+=uy*17*k; } }
-    const drawShip=()=>{ const ang=Math.atan2(-shipDir[1],shipDir[0]), dl=Math.hypot(...shipDir)||1, ux=shipDir[0]/dl, uy=shipDir[1]/dl;
-      g.globalAlpha=fade;
-      if(glow){ const gr=g.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); g.fillStyle=gr; g.beginPath(); g.arc(sp.x,sp.y,14,0,TAU); g.fill(); }
-      drawRocket(g,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent')); g.globalAlpha=1; };
-    if(sp.hidden) back.push(drawShip); else shipLast=drawShip;
+    // Verdeckt zeichnet nur die hintere Ebene (und three.js lässt die Rakete weg), sonst vorne.
+    const drawShip=(c,hid)=>{ const ang=Math.atan2(-shipDir[1],shipDir[0]);
+      c.globalAlpha=fade;
+      if(glow){ const gr=c.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(sp.x,sp.y,14,0,TAU); c.fill(); }
+      rocketMode = hid ? 'keine' : 'gl';
+      drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent'));
+      rocketMode='gl'; c.globalAlpha=1; };
+    if(sp.hidden) back.push(()=>drawShip(gb,true)); else shipLast=()=>drawShip(g,false);
   }
 
   // --- Hinteres, dann Körper, dann Vorderes
   back.forEach(f=>f());
-  // Körper: Grundfarbe, Oberfläche, Gitter, Nachtseite, Randverdunklung
-  g.fillStyle=col; g.beginPath(); g.arc(cx,cy,R,0,TAU); g.fill();
+  // Kugel, Oberfläche, Tag-Nacht-Grenze und Randverdunklung kommen aus der 3D-Ebene.
+  // Hier bleibt nur das Gitter, auf die Kugel zugeschnitten.
   g.save(); g.beginPath(); g.arc(cx,cy,R,0,TAU); g.clip();
-  const surfPoly=(pts,fill)=>{ const q=pts.map(([lon,lat])=>{ const p=cam.proj(bvec(b,lat,lon)); if(p.z>=0) return [p.x,p.y,true];
-      const dx=p.x-cx, dy=p.y-cy, n=Math.hypot(dx,dy)||1; return [cx+dx/n*R, cy+dy/n*R, false]; });
-    if(!q.some(p=>p[2])) return; g.beginPath(); q.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath(); g.fillStyle=fill; g.fill(); };
-  if(b==='earth'){
-    LAND.forEach((pts,i)=>surfPoly(pts, i===1?'rgba(236,240,244,0.92)':'rgba(104,146,86,0.95)'));
-    surfPoly([[-12,20],[0,28],[20,30],[32,24],[34,16],[15,14],[-5,15]],'rgba(196,170,112,0.75)');
-    surfPoly([[40,16],[55,22],[56,27],[48,29],[40,26]],'rgba(196,170,112,0.7)');
-    surfPoly([[125,-22],[140,-24],[140,-30],[125,-30]],'rgba(196,170,112,0.6)');
-    WATER.forEach(pts=>surfPoly(pts,col));
-  }
-  (CAPS[b]||[]).forEach(([lat,a])=>{ const pts=[]; for(let lon=-180;lon<180;lon+=6) pts.push([lon,lat]); surfPoly(pts,`rgba(240,242,246,${a})`); });
   // Gitter: Breitenkreise und Meridiane (nur Vorderseite)
   const line=(fn,n,style)=>{ g.strokeStyle=style.col; g.lineWidth=style.w||1; g.setLineDash(style.dash||[]); g.beginPath(); let on=false;
     for(let j=0;j<=n;j++){ const p=cam.proj(fn(j/n)); if(p.z>=0){ on?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y); on=true; } else on=false; } g.stroke(); g.setLineDash([]); };
   [-60,-30,30,60].forEach(lat=>line(s=>bvec(b,lat,s*360),90,{col:'rgba(255,240,230,0.22)'}));
   line(s=>bvec(b,0,s*360),120,{col:'rgba(255,240,230,0.6)',w:1.2,dash:[5,4]});
   for(let lon=-180;lon<180;lon+=30) line(s=>bvec(b,-90+180*s,lon),40,{col:'rgba(255,240,230,0.12)'});
-  // Nachtseite: Terminator als Halbellipse
-  { const lu=Math.hypot(LIGHT[0],LIGHT[1]), lz=LIGHT[2], al=Math.atan2(-LIGHT[1],LIGHT[0]);
-    g.save(); g.translate(cx,cy); g.rotate(al); g.beginPath(); g.ellipse(0,0,Math.abs(lz)*R,R,0,Math.PI/2,Math.PI*1.5); g.arc(0,0,R,-Math.PI/2,Math.PI/2,true); g.closePath();
-    g.fillStyle='rgba(6,9,22,0.55)'; g.fill(); g.restore(); }
-  const grd=g.createRadialGradient(cx-R*0.35,cy-R*0.3,R*0.15,cx,cy,R*1.02); grd.addColorStop(0,'rgba(255,255,255,0.08)'); grd.addColorStop(0.7,'rgba(0,0,0,0)'); grd.addColorStop(1,'rgba(0,0,0,0.45)');
-  g.fillStyle=grd; g.beginPath(); g.arc(cx,cy,R,0,TAU); g.fill();
   g.restore();
   // Breitenbeschriftung am sichtbaren rechten Rand
   font(500,11); g.fillStyle=v('--muted'); g.textAlign='left'; g.textBaseline='middle';
@@ -1952,9 +2184,13 @@ function drawBody(b){
     HITS.push({canvas:cv,x,y,r:22,pick:pk});
     // gelandetes Schiff: aufrecht, zeigt vom Körper weg
     if(mine && !S.move && l==='surf' && S.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
-      g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux); drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent')); g.globalAlpha=1; }
+      g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
+      rocketMode = hid ? 'flach' : 'gl'; // auf der Rückseite blass, aber sichtbar, wie die Marke selbst
+      drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent'));
+      rocketMode='gl'; g.globalAlpha=1; }
   });
   if(shipLast) shipLast();
+  glEnd();
 }
 // Schiff im Orbit kreist langsam weiter (nur Anzeige)
 let idleT=0;
@@ -2328,6 +2564,14 @@ function toggleFs(){
 if(!load()) newGame();
 render();
 requestAnimationFrame(idleLoop);
+// Kommt das Modul nicht an (kein Netz, blockiertes CDN), bleibt die Karte sonst ewig bei "wird geladen".
+setTimeout(()=>{ if(GL.state==='laden') glOff('three.js ließ sich nicht laden.'); }, 10000);
+</script>
+<!-- three.js für die 3D-Ebene. Kein Baukasten, nur ein ES-Modul vom CDN.
+     Das Modul läuft nach dem Hauptskript. Fehlt das Netz oder WebGL, bleibt es bei 2D. -->
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+try{ glInit(THREE); }catch(e){ glOff(e && e.message || String(e)); }
 </script>
 </body>
 </html>
