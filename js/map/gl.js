@@ -127,8 +127,8 @@ function glRingTexture(T){
   const band=(r0,r1,fill)=>{ g.beginPath(); g.arc(c,c,r1*c,0,TAU); g.arc(c,c,r0*c,0,TAU,true);
     g.fillStyle=fill; g.fill('evenodd'); };
   band(inner,1,'rgba(222,205,160,0.72)');
-  band(inner,inner+0.06,'rgba(198,182,142,0.4)');   // innerer, blasser Rand
-  band(0.80,0.845,'rgba(0,0,0,0)');                  // Cassini-Teilung
+  band(inner,inner+0.06,'rgba(198,182,142,0.4)');   // inner, paler edge
+  band(0.80,0.845,'rgba(0,0,0,0)');                  // Cassini division
   g.globalCompositeOperation='destination-out'; band(0.80,0.845,'rgba(0,0,0,0.85)');
   g.globalCompositeOperation='source-over';
   band(0.86,0.95,'rgba(236,224,190,0.5)');

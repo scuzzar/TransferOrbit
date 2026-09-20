@@ -27,6 +27,8 @@ def lines(name):
         return sum(1 for _ in f)
 
 VERSION=re.search(r"VERSION = '([^']+)'", open('js/basics.js', encoding='utf-8').read()).group(1)
+# How often the commands report upwards - counted, so the label cannot go stale.
+REPORTS=len(re.findall(r'\bchanged\(\)', open('js/game/commands.js', encoding='utf-8').read()))
 COUNT=sum(1 for root,_,fs in os.walk('js') for f in fs if f.endswith('.js'))
 
 # (title, subtitle, [(row, column, layer, name)], wide?, group)
@@ -142,7 +144,7 @@ t(KX0+12,EY+57,'changed() · tick()',size=9.5,font=MONO,fill=MUTED)
 PANELS,CANVAS,COMMANDS = lay[1],lay[2],lay[3]
 stubs=[(PANELS[0]+PANELS[1]-14,'panels · menu · display'),
        (CANVAS[0]+CANVAS[1]-14,'view · gl'),
-       (COMMANDS[0]+COMMANDS[1]//2,'commands, 29×')]
+       (COMMANDS[0]+COMMANDS[1]//2,f'commands, {REPORTS}×')]
 for y,who in stubs:
     o.append(f'<path d="M{RX},{y} H{TRUNK_UP}" stroke="{ACCENT}" stroke-width="1.4" fill="none"/>')
     o.append(f'<circle cx="{RX}" cy="{y}" r="2.6" fill="{ACCENT}"/>')

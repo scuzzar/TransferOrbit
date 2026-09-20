@@ -3,7 +3,10 @@
 import { esc } from '../basics.js';
 import { GOODS, postLabel } from '../game/world.js';
 import { S } from '../game/state.js';
-import { BACK_LABEL, openView } from '../game/commands.js';
+import { openView } from '../game/commands.js';
+
+// The label of the back button, per view it returns to.
+const BACK_LABEL = {main:'Map', post:'Order board', cargo:'Cargo hold', route:'Route'};
 
 export const gchip = g => `<span class="gchip" style="background:${GOODS[g].color}"></span>`;
 

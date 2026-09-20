@@ -138,7 +138,7 @@ function drawSys(p){
     font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(M[m].name,x,y-12); w.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
   ms.forEach(m=>{ const c=P(moonW(m,S.day)); const hid=c.z<0; (hid?back:front).push(()=>drawMoon(m,hid?gb:g)); });
-  // Reihenfolge: hinten, Ringe hinten (Saturn), Planet, vorne
+  // Order: far side, the ring behind (Saturn), the planet, the near side
   back.forEach(f=>f());
   glPut(p,null,Rp);
   // The ring lies in the equatorial plane. The drawing reaches the edge of the image, so half the
@@ -228,14 +228,14 @@ function drawBody(b){
   line(s=>bvec(b,0,s*360),120,{col:'rgba(255,240,230,0.6)',w:1.2,dash:[5,4]});
   for(let lon=-180;lon<180;lon+=30) line(s=>bvec(b,-90+180*s,lon),40,{col:'rgba(255,240,230,0.12)'});
   g.restore();
-  // Breitenbeschriftung am sichtbaren rechten Rand
+  // Latitude labels along the visible right-hand edge
   font(500,11); g.fillStyle=v('--muted'); g.textAlign='left'; g.textBaseline='middle';
   [[60,'60° N'],[30,'30° N'],[0,'0°'],[-30,'30° S'],[-60,'60° S']].forEach(([lat,t])=>{ let bx=null;
     for(let d=0;d<=180;d+=3){ const p=cam.proj(bvec(b,lat,bodyLon0(b)+d)); if(p.z>=0 && (!bx||p.x>bx.x)) bx=p; }
     if(bx && bx.x>cx+R*0.35) g.fillText(t,bx.x+6,bx.y); });
   front.forEach(f=>f());
 
-  // Bahn-Markierungen
+  // Orbit markers
   const marker=(p,node,label,al)=>{ const pk={type:'node',node}, sel=isPick(pk);
     g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(p.x,p.y,6,0,TAU); g.fill(); g.stroke();
     if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(p.x,p.y,12,0,TAU); g.stroke(); g.setLineDash([]); }

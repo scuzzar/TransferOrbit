@@ -83,29 +83,38 @@ From the bottom up. "Imports from" lists only the modules actually used.
 
 | # | Module | Lines | What for | Imports from |
 |--:|---|--:|---|---|
-| 0 | `events.js` | 16 | The two signals | — |
-| 1 | `basics.js` | 33 | Numbers, dates, angles, `$`, `ANIM` | — |
-| 2 | `game/world.js` | 196 | Bodies, moons, landing sites, trading posts, goods | — |
-| 3 | `game/physics.js` | 90 | Tsiolkovsky, Kepler, Hohmann, hops | basics, world |
-| 4 | `game/state.js` | 55 | `S` and the queries on it | world |
-| 5 | `game/graph.js` | 78 | Idealised cost, used for pricing | physics, state, world |
-| 6 | `game/economy.js` | 108 | The order board, deadlines, bulk goods | basics, graph, physics, state, world |
-| 7 | `game/actions.js` | 62 | Which manoeuvres are possible from here | physics, state, world |
-| 8 | `map/geometry.js` | 182 | Where something sits on screen | basics, physics, state, world |
-| 9 | `game/planner.js` | 88 | Route search for the player, date-aware | actions, basics, graph, physics, state, world |
-| 10 | `game/commands.js` | 357 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, state, world |
-| 11 | `map/canvas.js` | 56 | The three drawing layers and their helpers | basics, state, world |
-| 12 | `map/rocketdata.js` | 19 | The rocket model as number arrays | — |
-| 13 | `map/gl.js` | 288 | The three.js layer | basics, canvas, events, geometry, rocketdata, world |
-| 14 | `map/rocket.js` | 76 | Attitude, flame, 3D model or hand-drawn | basics, canvas, gl, rocketdata, state, world |
-| 15 | `map/view.js` | 87 | Which level the map shows; taps on it | basics, canvas, events, planner, state, world |
-| 16 | `map/draw.js` | 301 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, state, view, world |
-| 17 | `ui/widgets.js` | 40 | Button, icon, chip, panel heading | basics, commands, state, world |
-| 18 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, graph, physics, state, view, widgets, world |
-| 19 | `ui/panels.js` | 315 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, graph, planner, state, widgets, world |
-| 20 | `ui/display.js` | 68 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, state, widgets, world |
-| 21 | `ui/menu.js` | 71 | Menu, fullscreen, legend, version line | basics, commands, draw, events, state |
-| 22 | `start.js` | 58 | Connect, wire, load, `window.TO` | all |
+| 0 | `events.js` | 15 | The two signals | — |
+| 1 | `basics.js` | 32 | Numbers, dates, angles, `$`, `ANIM` | — |
+| 2 | `game/world.js` | 195 | Bodies, moons, landing sites, trading posts, goods | — |
+| 3 | `game/physics.js` | 89 | Tsiolkovsky, Kepler, Hohmann, hops | basics, world |
+| 4 | `game/state.js` | 54 | `S` and the queries on it | world |
+| 5 | `game/graph.js` | 77 | Idealised cost, used for pricing | physics, state, world |
+| 6 | `game/economy.js` | 107 | The order board, deadlines, bulk goods | basics, graph, physics, state, world |
+| 7 | `game/actions.js` | 61 | Which manoeuvres are possible from here | physics, state, world |
+| 8 | `map/geometry.js` | 179 | Where something sits on screen | basics, physics, state, world |
+| 9 | `game/planner.js` | 87 | Route search for the player, date-aware | actions, basics, graph, physics, state, world |
+| 10 | `game/commands.js` | 346 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, state, world |
+| 11 | `map/canvas.js` | 46 | The three drawing layers and their helpers | basics, state, world |
+| 12 | `map/rocketdata.js` | 18 | The rocket model as number arrays | — |
+| 13 | `map/gl.js` | 287 | The three.js layer | basics, canvas, events, geometry, rocketdata, world |
+| 14 | `map/rocket.js` | 75 | Attitude, flame, 3D model or hand-drawn | basics, canvas, gl, rocketdata, state, world |
+| 15 | `map/view.js` | 86 | Which level the map shows; taps on it | basics, canvas, events, planner, state, world |
+| 16 | `map/draw.js` | 300 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, state, view, world |
+| 17 | `ui/widgets.js` | 42 | Button, icon, chip, panel heading | basics, commands, state, world |
+| 18 | `ui/pickcard.js` | 72 | The card for the selected map object | basics, canvas, events, graph, physics, state, view, widgets, world |
+| 19 | `ui/panels.js` | 316 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, graph, planner, state, widgets, world |
+| 20 | `ui/display.js` | 67 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, state, widgets, world |
+| 21 | `ui/menu.js` | 70 | Menu, fullscreen, legend, version line | basics, commands, draw, events, state |
+| 22 | `start.js` | 57 | Connect, wire, load, `window.TO` | all |
+
+The numbering above is one valid order out of many. What the import graph really
+forces is much flatter: the longest chain of imports is nine deep
+(`basics`/`events`/`world`/`rocketdata` → `physics`/`state` →
+`actions`/`graph`/`canvas`/`geometry` → `economy`/`planner`/`gl` →
+`commands`/`rocket`/`view` → `draw`/`widgets` → `menu`/`panels`/`pickcard` →
+`display` → `start`), and everything on the same step is independent of
+everything else there. Measured against the table, no module imports one that
+comes later in it.
 
 ### The places where the order is not obvious
 

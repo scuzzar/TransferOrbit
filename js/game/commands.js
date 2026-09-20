@@ -3,7 +3,7 @@
 
 import { changed, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, isDesk, km, reduce, tons } from '../basics.js';
-import { B, BANKRUPT, DEPOTS, G0, GOODS, POST_BY_ID, POSTS, M, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, START_DAY, fmtCr, postLabel, planetOfBody, siteOf } from './world.js';
+import { B, BANKRUPT, DEPOTS, G0, GOODS, POST_BY_ID, POSTS, M, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, START_DAY, fmtCr, planetOfBody, siteOf } from './world.js';
 import { theta, transfer } from './physics.js';
 import { S, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName } from './state.js';
 import { payout, route } from './graph.js';
@@ -113,14 +113,6 @@ function animateTo(target, ms, done){
   requestAnimationFrame(step);
 }
 
-export function acceptOrder(o){
-  if(S.busy||S.over) return;
-  const k=postAt(); if(!k || k.id!==o.from || o.state!=='open') return;
-  if(slotsUsed()+o.n>eng().slots) return;
-  o.deadline=freshDeadline(o,S.day); o.created=S.day;
-  o.state='aboard'; S.msg=`Accepted: ${o.n} × ${GOODS[o.good].name} to ${postLabel(POST_BY_ID[o.to])}. Due ${dateStr(o.deadline)}.`; changed();
-}
-
 function removeOrder(o){ S.eco.orders=S.eco.orders.filter(x=>x!==o); }
 
 export function deliverOrder(o,silent){
@@ -209,8 +201,6 @@ export function rescue(){
     changed();
   });
 }
-
-export const BACK_LABEL = {main:'Map', post:'Order board', cargo:'Cargo hold', route:'Route'};
 
 export function openView(v,back){ S.ui.rmsg=false; S.ui.back = v==='main' ? null : (back||null); S.ui.view=v; S.ui.sel=new Set(); S.ui.tank=null; changed();
   if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }

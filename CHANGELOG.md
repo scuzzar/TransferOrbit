@@ -2,6 +2,36 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-20 – The split gone over again (version 43)
+
+A pass over all 23 modules, looking for dead code, for parts that sit in the wrong file and for
+seams worth splitting. Nothing about the game changed.
+
+- **Dead code removed.** Five declarations that nothing anywhere referenced — not in `js/`, not in
+  `tests/`, not in `index.html`: `acceptOrder()` in `game/commands.js` (its last caller went when
+  the order board switched to `acceptSelected()`), `bezier()`, `drawPath()` and `shipGlyph()` in
+  `map/canvas.js` (leftovers of the single script, from before the 3D layer drew the paths and the
+  ship), and `ICE` in `map/geometry.js`. With them, the now unused import of `postLabel` in
+  `game/commands.js`.
+- **29 unused CSS rules removed from `index.html`**, 16 classes in all: `.act` (with `.act .t`,
+  `.act .t b`, `.act .t small`, `.act .c`, `.act.hot`), `.tr`, `.tr.sel`, `.tr-top`, `.tr-bot`,
+  `.win`, `.top`, `.topr`, `.sub`, `.line`, `.foot`, `.fsbtn`, `.dvnum`, `.sysname`, `.stats3`,
+  `.manual`. No markup and no module produces any of these class names. 403 lines → 373.
+- **`BACK_LABEL` moved** from `game/commands.js` into `ui/widgets.js`. It is the caption of the
+  back button — `Map`, `Order board`, `Cargo hold`, `Route` — and `ui/widgets.js` was its only
+  reader. Interface text now sits in the interface.
+- **The rest of the German** that the translation had left behind: the parameter `ebene` in
+  `clearHits()`, the continent comments in `map/geometry.js` (`Nordamerika`, `Irland`, `Island`, …),
+  three comments in `map/draw.js`, `innerer, blasser Rand` and `Cassini-Teilung` in `map/gl.js`,
+  and the CSS comments `/* Aktionen */`, `/* Standort, kompakt */`, `/* Streckenplan */`.
+- **`tools/diagram.py` counts how often the commands report** instead of carrying the number by
+  hand. The diagram said `commands, 29×` while the code had 28; it now reads the real 27.
+
+Checked and left alone: there are no cycles and no import pointing upwards, the longest chain of
+imports is nine modules deep, and exactly one line of code appears in two modules (`if(done.has(ck))
+continue; done.add(ck);` in `game/graph.js` and `game/planner.js` — two Dijkstra loops that are
+deliberately separate, one idealised for pricing, one date-aware for the player).
+
 ## 2026-09-20 – Everything translated into English (version 42)
 
 The code, all visible text and the documentation are now English. Nothing about the game itself
