@@ -1,177 +1,181 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 896" width="1020" height="896" role="img" aria-label="Komponentendiagramm von TransferOrbit: 22 ES-Module in sieben Schichtbändern. Einfuhren gehen nur nach unten; der einzige Weg zurück nach oben sind die zwei Signale geaendert und zeitLief über das Modul ereignisse.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 946" width="1020" height="946" role="img" aria-label="Komponentendiagramm von TransferOrbit: 22 ES-Module. Einfuhren gehen nur nach unten; der einzige Weg zurück nach oben sind die zwei Signale geaendert und zeitLief über das Modul ereignisse. Die Darstellung besteht aus zwei Hälften, Leinwand und Tafeln, die einander nicht einführen.">
 <title>TransferOrbit — Komponenten und ihre Abhängigkeiten</title>
 <defs><marker id="pf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa2c2"/></marker><marker id="pfa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f2b33d"/></marker></defs>
-<rect width="1020" height="896" fill="#10162b"/>
+<rect width="1020" height="946" fill="#10162b"/>
 <text x="30" y="28" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="15" fill="#e7e9f2" text-anchor="start" font-weight="600">TransferOrbit · Komponenten und ihre Abhängigkeiten</text>
-<text x="30" y="48" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#9aa2c2" text-anchor="start">22 ES-Module unter js/ (Version 40). Die Zahl im Kreis ist die Schicht, die Zahl rechts die Zeilen.</text>
-<rect x="296" y="68" width="216" height="28" rx="6" fill="none" stroke="#9aa2c2" stroke-width="1" stroke-dasharray="3 3"/>
-<text x="404" y="86" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#9aa2c2" text-anchor="middle">index.html  ·  Markup und CSS</text>
-<line x1="404" y1="96" x2="404" y2="114" stroke="#9aa2c2" stroke-width="1.2" marker-end="url(#pf)"/>
-<text x="412" y="110" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="start">lädt &lt;script type=&quot;module&quot;&gt;</text>
-<line x1="34" y1="126" x2="34" y2="816" stroke="#9aa2c2" stroke-width="1.6" marker-end="url(#pf)"/>
-<text x="0" y="0" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#9aa2c2" text-anchor="middle" transform="translate(22,471) rotate(-90)">führt ein — jedes Modul darf aus jeder Schicht darunter einführen, nie umgekehrt</text>
-<rect x="56" y="118" width="696" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="135" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Aufbau</text>
-<text x="117.4" y="135" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">verbindet beide Seiten, lädt den Spielstand</text>
-<rect x="66" y="144" width="676" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="161" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="164.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">21</text>
-<text x="102" y="165.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">start.js</text>
+<text x="30" y="47" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#9aa2c2" text-anchor="start">22 ES-Module unter js/ (Version 40). Zahl im Kreis: Schicht. Zahl rechts: Zeilen.</text>
+<text x="30" y="63" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">Die Reihenfolge ist eine gültige Ordnung, keine erzwungene — vieles nebeneinander ist voneinander unabhängig.</text>
+<rect x="298" y="78" width="210" height="26" rx="6" fill="none" stroke="#9aa2c2" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="403" y="95" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#9aa2c2" text-anchor="middle">index.html  ·  Markup und CSS</text>
+<line x1="403" y1="104" x2="403" y2="114" stroke="#9aa2c2" stroke-width="1.2" marker-end="url(#pf)"/>
+<text x="516" y="99" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="start">lädt &lt;script type=&quot;module&quot;&gt;</text>
+<line x1="34" y1="122" x2="34" y2="870" stroke="#9aa2c2" stroke-width="1.6" marker-end="url(#pf)"/>
+<text x="0" y="0" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#9aa2c2" text-anchor="middle" transform="translate(22,493) rotate(-90)">führt ein — jedes Modul darf aus jeder Schicht darunter einführen, nie umgekehrt</text>
+<rect x="52" y="202" width="712" height="284" rx="12" fill="none" stroke="#9aa2c2" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="62" y="221" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" fill="#e7e9f2" text-anchor="start" font-weight="600">Darstellung</text>
+<text x="148" y="221" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">zwei Hälften — keine führt die andere ein. Erst ui/anzeige und ui/menue kennen beide.</text>
+<rect x="64" y="118" width="688" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="135" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Aufbau</text>
+<text x="125.4" y="135" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">verbindet beide Seiten, lädt den Spielstand</text>
+<rect x="74" y="144" width="668" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="161" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="164.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">21</text>
+<text x="110" y="165.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">start.js</text>
 <text x="733" y="165.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">56</text>
-<rect x="56" y="202" width="696" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="219" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Oberfläche</text>
-<text x="145.0" y="219" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">baut HTML, hängt Klicks an die Kommandos</text>
-<rect x="66" y="228" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="245" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="248.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">17</text>
-<text x="102" y="249.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/bausteine</text>
-<text x="273" y="249.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">39</text>
-<rect x="296" y="228" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="245" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="248.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">18</text>
-<text x="332" y="249.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/panels</text>
-<text x="503" y="249.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">314</text>
-<rect x="526" y="228" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="544" cy="245" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="544" y="248.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">19</text>
-<text x="562" y="249.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/anzeige</text>
-<text x="733" y="249.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">145</text>
-<rect x="296" y="272" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="289" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="292.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">20</text>
-<text x="332" y="293.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/menue</text>
-<text x="503" y="293.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">70</text>
-<rect x="56" y="330" width="696" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="347" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Karte</text>
-<text x="110.5" y="347" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">drei Ebenen, ein Bild</text>
-<rect x="66" y="356" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="373" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="376.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">11</text>
-<text x="102" y="377.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/leinwand</text>
-<text x="273" y="377.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">55</text>
-<rect x="296" y="356" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="373" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="376.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">12</text>
-<text x="332" y="377.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/raketendaten</text>
-<text x="503" y="377.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">18</text>
-<rect x="526" y="356" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="544" cy="373" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="544" y="376.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">13</text>
-<text x="562" y="377.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/gl</text>
-<text x="733" y="377.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">287</text>
-<rect x="66" y="400" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="417" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="420.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">14</text>
-<text x="102" y="421.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/rakete</text>
-<text x="273" y="421.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">75</text>
-<rect x="296" y="400" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="417" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="420.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">15</text>
-<text x="332" y="421.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/ansicht</text>
-<text x="503" y="421.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">86</text>
-<rect x="526" y="400" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="544" cy="417" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="544" y="420.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">16</text>
-<text x="562" y="421.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/zeichnen</text>
-<text x="733" y="421.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">300</text>
-<rect x="56" y="458" width="696" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="475" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Kommandos</text>
-<text x="138.1" y="475" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">das Einzige, was den Spielstand ändert</text>
-<rect x="66" y="484" width="676" height="34" rx="6" fill="#1d2748" stroke="#e7e9f2" stroke-width="1.4"/>
-<circle cx="84" cy="501" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="504.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">10</text>
-<text x="102" y="505.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">spiel/steuerung</text>
-<text x="733" y="505.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">332</text>
-<rect x="56" y="542" width="696" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="559" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Vorausberechnung</text>
-<text x="186.4" y="559" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">wo etwas liegt, welcher Weg wie teuer ist — ändert nichts</text>
-<rect x="66" y="568" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="585" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="588.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">8</text>
-<text x="102" y="589.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/geometrie</text>
-<text x="273" y="589.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">181</text>
-<rect x="296" y="568" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="585" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="588.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">9</text>
-<text x="332" y="589.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/planer</text>
-<text x="503" y="589.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">87</text>
-<rect x="56" y="626" width="696" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="643" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Spielmodell</text>
-<text x="151.9" y="643" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">Stammdaten und reine Abfragen darauf</text>
-<rect x="66" y="652" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="669" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="672.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">2</text>
-<text x="102" y="673.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/welt</text>
-<text x="273" y="673.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">196</text>
-<rect x="296" y="652" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="669" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="672.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">3</text>
-<text x="332" y="673.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/physik</text>
-<text x="503" y="673.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">89</text>
-<rect x="526" y="652" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="544" cy="669" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="544" y="672.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">4</text>
-<text x="562" y="673.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/zustand</text>
-<text x="733" y="673.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">54</text>
-<rect x="66" y="696" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="713" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="716.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">5</text>
-<text x="102" y="717.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/graph</text>
-<text x="273" y="717.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">77</text>
-<rect x="296" y="696" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="314" cy="713" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="314" y="716.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">6</text>
-<text x="332" y="717.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/wirtschaft</text>
-<text x="503" y="717.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">107</text>
-<rect x="526" y="696" width="216" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="544" cy="713" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="544" y="716.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">7</text>
-<text x="562" y="717.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/aktionen</text>
-<text x="733" y="717.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">61</text>
-<rect x="56" y="754" width="696" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
-<text x="66" y="771" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Basis</text>
-<text x="110.5" y="771" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">kennt weder Spiel noch Karte noch Oberfläche</text>
-<rect x="66" y="780" width="676" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
-<circle cx="84" cy="797" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
-<text x="84" y="800.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">1</text>
-<text x="102" y="801.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">basis</text>
-<text x="733" y="801.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">32</text>
-<rect x="768" y="754" width="236" height="70" rx="9" fill="#171f3b" stroke="#f2b33d" stroke-width="1.4"/>
-<circle cx="788" cy="773" r="10" fill="none" stroke="#f2b33d" stroke-width="1"/>
-<text x="788" y="776.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#f2b33d" text-anchor="middle">0</text>
-<text x="806" y="777" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#f2b33d" text-anchor="start" font-weight="600">js/ereignisse.js</text>
-<text x="780" y="796" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">beiAenderung(fn) · beiZeit(fn)</text>
-<text x="780" y="811" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">geaendert() · zeitLief()</text>
-<path d="M752,300 H800" stroke="#f2b33d" stroke-width="1.4" fill="none"/>
-<circle cx="752" cy="300" r="2.6" fill="#f2b33d"/>
-<text x="809" y="303.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9" fill="#9aa2c2" text-anchor="start">Tafeln · Menü · Anzeige</text>
-<path d="M752,430 H800" stroke="#f2b33d" stroke-width="1.4" fill="none"/>
-<circle cx="752" cy="430" r="2.6" fill="#f2b33d"/>
-<text x="809" y="433.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9" fill="#9aa2c2" text-anchor="start">Ansicht · GL</text>
-<path d="M752,493 H800" stroke="#f2b33d" stroke-width="1.4" fill="none"/>
-<circle cx="752" cy="493" r="2.6" fill="#f2b33d"/>
-<text x="809" y="496.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9" fill="#9aa2c2" text-anchor="start">Steuerung, 29×</text>
-<line x1="800" y1="300" x2="800" y2="754" stroke="#f2b33d" stroke-width="1.4" marker-end="url(#pfa)"/>
-<text x="809" y="570" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#f2b33d" text-anchor="start" font-weight="600">meldet</text>
-<text x="809" y="585" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">geaendert()</text>
-<text x="809" y="598" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">zeitLief()</text>
-<path d="M972,754 V252" stroke="#f2b33d" stroke-width="1.4" fill="none" stroke-dasharray="6 4"/>
-<path d="M972,417 H746" stroke="#f2b33d" stroke-width="1.4" fill="none" stroke-dasharray="6 4" marker-end="url(#pfa)"/>
-<path d="M972,252 H746" stroke="#f2b33d" stroke-width="1.4" fill="none" stroke-dasharray="6 4" marker-end="url(#pfa)"/>
-<text x="960" y="690" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#f2b33d" text-anchor="end" font-weight="600">ruft</text>
-<text x="960" y="705" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="end">render() · header()</text>
-<text x="960" y="718" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="end">speedHint() · draw()</text>
+<rect x="64" y="232" width="688" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="249" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Tafeln (DOM)</text>
+<text x="166.8" y="249" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">oben die zwei, die als Einzige beide Hälften kennen; darunter das reine HTML</text>
+<rect x="74" y="258" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="275" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="278.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">19</text>
+<text x="110" y="279.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/anzeige</text>
+<text x="275" y="279.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">145</text>
+<rect x="298" y="258" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="275" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="278.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">20</text>
+<text x="334" y="279.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/menue</text>
+<text x="499" y="279.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">70</text>
+<rect x="74" y="302" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="319" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="322.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">17</text>
+<text x="110" y="323.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/bausteine</text>
+<text x="275" y="323.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">39</text>
+<rect x="298" y="302" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="319" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="322.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">18</text>
+<text x="334" y="323.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">ui/panels</text>
+<text x="499" y="323.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">314</text>
+<rect x="64" y="360" width="688" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="377" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Leinwand (Canvas)</text>
+<text x="201.3" y="377" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">drei Ebenen, ein Bild — kennt die Tafeln nicht</text>
+<rect x="74" y="386" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="403" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="406.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">11</text>
+<text x="110" y="407.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/leinwand</text>
+<text x="275" y="407.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">55</text>
+<rect x="298" y="386" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="403" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="406.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">12</text>
+<text x="334" y="407.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/raketendaten</text>
+<text x="499" y="407.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">18</text>
+<rect x="522" y="386" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="540" cy="403" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="540" y="406.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">13</text>
+<text x="558" y="407.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/gl</text>
+<text x="723" y="407.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">287</text>
+<rect x="74" y="430" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="447" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="450.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">14</text>
+<text x="110" y="451.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/rakete</text>
+<text x="275" y="451.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">75</text>
+<rect x="298" y="430" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="447" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="450.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">15</text>
+<text x="334" y="451.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/ansicht</text>
+<text x="499" y="451.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">86</text>
+<rect x="522" y="430" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="540" cy="447" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="540" y="450.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">16</text>
+<text x="558" y="451.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/zeichnen</text>
+<text x="723" y="451.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">300</text>
+<rect x="64" y="498" width="688" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="515" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Kommandos</text>
+<text x="146.1" y="515" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">das Einzige, was den Spielstand ändert</text>
+<rect x="74" y="524" width="668" height="34" rx="6" fill="#1d2748" stroke="#e7e9f2" stroke-width="1.4"/>
+<circle cx="92" cy="541" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="544.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">10</text>
+<text x="110" y="545.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">spiel/steuerung</text>
+<text x="733" y="545.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">332</text>
+<rect x="64" y="582" width="688" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="599" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Vorausberechnung</text>
+<text x="194.4" y="599" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">wo etwas liegt, welcher Weg wie teuer ist — ändert nichts</text>
+<rect x="74" y="608" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="625" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="628.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">8</text>
+<text x="110" y="629.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">karte/geometrie</text>
+<text x="275" y="629.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">181</text>
+<rect x="298" y="608" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="625" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="628.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">9</text>
+<text x="334" y="629.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/planer</text>
+<text x="499" y="629.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">87</text>
+<rect x="64" y="666" width="688" height="114" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="683" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Spielmodell</text>
+<text x="159.9" y="683" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">Stammdaten und reine Abfragen darauf</text>
+<rect x="74" y="692" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="709" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="712.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">2</text>
+<text x="110" y="713.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/welt</text>
+<text x="275" y="713.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">196</text>
+<rect x="298" y="692" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="709" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="712.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">3</text>
+<text x="334" y="713.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/physik</text>
+<text x="499" y="713.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">89</text>
+<rect x="522" y="692" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="540" cy="709" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="540" y="712.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">4</text>
+<text x="558" y="713.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/zustand</text>
+<text x="723" y="713.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">54</text>
+<rect x="74" y="736" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="753" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="756.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">5</text>
+<text x="110" y="757.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/graph</text>
+<text x="275" y="757.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">77</text>
+<rect x="298" y="736" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="316" cy="753" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="316" y="756.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">6</text>
+<text x="334" y="757.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/wirtschaft</text>
+<text x="499" y="757.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">107</text>
+<rect x="522" y="736" width="210" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="540" cy="753" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="540" y="756.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">7</text>
+<text x="558" y="757.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">spiel/aktionen</text>
+<text x="723" y="757.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">61</text>
+<rect x="64" y="794" width="688" height="70" rx="9" fill="#171f3b" stroke="#2b3662"/>
+<text x="74" y="811" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#e7e9f2" text-anchor="start" font-weight="600">Basis</text>
+<text x="118.5" y="811" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">kennt weder Spiel noch Karte noch Oberfläche</text>
+<rect x="74" y="820" width="668" height="34" rx="6" fill="#1d2748" stroke="#2b3662" stroke-width="1"/>
+<circle cx="92" cy="837" r="10" fill="none" stroke="#9aa2c2" stroke-width="1"/>
+<text x="92" y="840.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="middle">1</text>
+<text x="110" y="841.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e7e9f2" text-anchor="start">basis</text>
+<text x="733" y="841.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#9aa2c2" text-anchor="end">32</text>
+<rect x="768" y="794" width="236" height="70" rx="9" fill="#171f3b" stroke="#f2b33d" stroke-width="1.4"/>
+<circle cx="788" cy="813" r="10" fill="none" stroke="#f2b33d" stroke-width="1"/>
+<text x="788" y="816.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#f2b33d" text-anchor="middle">0</text>
+<text x="806" y="817" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#f2b33d" text-anchor="start" font-weight="600">js/ereignisse.js</text>
+<text x="780" y="836" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">beiAenderung(fn) · beiZeit(fn)</text>
+<text x="780" y="851" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">geaendert() · zeitLief()</text>
+<path d="M752,332 H800" stroke="#f2b33d" stroke-width="1.4" fill="none"/>
+<circle cx="752" cy="332" r="2.6" fill="#f2b33d"/>
+<text x="809" y="335.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9" fill="#9aa2c2" text-anchor="start">Tafeln · Menü · Anzeige</text>
+<path d="M752,460 H800" stroke="#f2b33d" stroke-width="1.4" fill="none"/>
+<circle cx="752" cy="460" r="2.6" fill="#f2b33d"/>
+<text x="809" y="463.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9" fill="#9aa2c2" text-anchor="start">Ansicht · GL</text>
+<path d="M752,533 H800" stroke="#f2b33d" stroke-width="1.4" fill="none"/>
+<circle cx="752" cy="533" r="2.6" fill="#f2b33d"/>
+<text x="809" y="536.5" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9" fill="#9aa2c2" text-anchor="start">Steuerung, 29×</text>
+<line x1="800" y1="332" x2="800" y2="794" stroke="#f2b33d" stroke-width="1.4" marker-end="url(#pfa)"/>
+<text x="809" y="663" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#f2b33d" text-anchor="start" font-weight="600">meldet</text>
+<text x="809" y="678" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">geaendert()</text>
+<text x="809" y="691" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">zeitLief()</text>
+<path d="M972,794 V275" stroke="#f2b33d" stroke-width="1.4" fill="none" stroke-dasharray="6 4"/>
+<path d="M972,275 H746" stroke="#f2b33d" stroke-width="1.4" fill="none" stroke-dasharray="6 4" marker-end="url(#pfa)"/>
+<path d="M972,447 H746" stroke="#f2b33d" stroke-width="1.4" fill="none" stroke-dasharray="6 4" marker-end="url(#pfa)"/>
+<text x="960" y="724" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#f2b33d" text-anchor="end" font-weight="600">ruft</text>
+<text x="960" y="739" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="end">render() · header()</text>
+<text x="960" y="752" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="end">speedHint() · draw()</text>
 <rect x="768" y="118" width="236" height="70" rx="9" fill="none" stroke="#2b3662" stroke-dasharray="3 3"/>
 <text x="780" y="136" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#e7e9f2" text-anchor="start" font-weight="600">Nur start.js trägt ein:</text>
 <text x="780" y="151" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">beiAenderung → render + save</text>
 <text x="780" y="165" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">beiZeit → header + speedHint</text>
-<text x="780" y="178" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">            + draw</text>
-<path d="M742,153 H768" stroke="#9aa2c2" stroke-width="1.2" fill="none" stroke-dasharray="2 3" marker-end="url(#pf)"/>
-<line x1="30" y1="858" x2="70" y2="858" stroke="#9aa2c2" stroke-width="1.6" marker-end="url(#pf)"/>
-<text x="78" y="862" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">führt ein (nur nach unten)</text>
-<line x1="290" y1="858" x2="330" y2="858" stroke="#f2b33d" stroke-width="1.6" marker-end="url(#pfa)"/>
-<text x="338" y="862" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">meldet ein Signal</text>
-<line x1="500" y1="858" x2="540" y2="858" stroke="#f2b33d" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#pfa)"/>
-<text x="548" y="862" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">ruft die eingetragene Funktion</text>
-<text x="1004" y="862" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#e7e9f2" text-anchor="end" font-weight="600">keine Einfuhr zeigt nach oben</text>
+<text x="780" y="178" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" fill="#9aa2c2" text-anchor="start">          + draw</text>
+<path d="M746,153 H768" stroke="#9aa2c2" stroke-width="1.2" fill="none" stroke-dasharray="2 3" marker-end="url(#pf)"/>
+<line x1="30" y1="904" x2="70" y2="904" stroke="#9aa2c2" stroke-width="1.6" marker-end="url(#pf)"/>
+<text x="78" y="908" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">führt ein (nur nach unten)</text>
+<line x1="290" y1="904" x2="330" y2="904" stroke="#f2b33d" stroke-width="1.6" marker-end="url(#pfa)"/>
+<text x="338" y="908" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">meldet ein Signal</text>
+<line x1="500" y1="904" x2="540" y2="904" stroke="#f2b33d" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#pfa)"/>
+<text x="548" y="908" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#9aa2c2" text-anchor="start">ruft die eingetragene Funktion</text>
+<text x="1004" y="908" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#e7e9f2" text-anchor="end" font-weight="600">keine Einfuhr zeigt nach oben</text>
 </svg>

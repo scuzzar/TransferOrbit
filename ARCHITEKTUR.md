@@ -16,7 +16,8 @@ der Rückweg nach oben nur über die zwei Signale](docs/komponenten.svg)
 
 <sub>Jedes Modul darf aus jeder Schicht unter sich einführen, nie umgekehrt. Der einzige Weg
 zurück nach oben sind die zwei Signale, die `js/ereignisse.js` verteilt und die `js/start.js`
-einmal verbindet. Erzeugt mit `python3 tools/diagramm.py`.</sub>
+einmal verbindet. Die gezeichnete Reihenfolge ist eine gültige Ordnung, keine erzwungene: vieles,
+was nebeneinander steht, ist voneinander unabhängig. Erzeugt mit `python3 tools/diagramm.py`.</sub>
 
 ## Die zwei Regeln
 
@@ -131,6 +132,18 @@ sie beide Welten bedienen.
 Zustand („welche Ebene zeigt die Karte gerade"), und `draw()` fragt ihn zuerst.
 Die Klickbehandlung liegt im selben Modul, weil ein Klick auf die Karte genau
 diesen Zustand ändert.
+
+**`karte/` ist keine eigene Welt neben `ui/`, sondern die andere Hälfte derselben.**
+Beides ist Darstellung; der Unterschied ist nur, worauf gezeichnet wird — Canvas oder DOM.
+Der Code zeigt das deutlich: `karte/` führt nirgends aus `ui/` ein, und `ui/bausteine.js`
+und `ui/panels.js` führen nirgends aus `karte/` ein. Die beiden Hälften kennen einander
+nicht. Zusammen kommen sie erst in `ui/anzeige.js` (`render()` ruft `draw()`) und in
+`ui/menue.js` (Vollbild zeichnet die Karte neu). Die Trennung in zwei Ordner ist also eine
+Sache der Technik, nicht der Zuständigkeit.
+
+Die eine Ausnahme ist `karte/geometrie.js`: Es steckt im Ordner `karte/`, ist aber keine
+Darstellung, sondern Mathematik — wo ein Körper steht, wie eine Flugbahn verläuft. Deshalb
+darf `spiel/steuerung.js` es einführen, obwohl es sonst nichts aus der Karte kennt.
 
 **`ui/panels.js` liegt unter `ui/anzeige.js`.** `render()` entscheidet, ob eine
 Tafel oder die Hauptansicht sichtbar ist, und baut die Tafel dann auf.
