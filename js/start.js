@@ -1,57 +1,57 @@
-// Der Aufbau des Spiels: Module verbinden, Signale verteilen, Spielstand laden.
-// Nur hier weiß jemand, dass es sowohl eine Steuerung als auch eine Anzeige gibt.
+// Wiring the game together: connect the modules, route the signals, load the save.
+// This is the only place that knows both a command side and a display side exist.
 
-import * as Ereignisse from './ereignisse.js';
-import * as Basis from './basis.js';
-import * as Welt from './spiel/welt.js';
-import * as Physik from './spiel/physik.js';
-import * as Zustand from './spiel/zustand.js';
-import * as Graph from './spiel/graph.js';
-import * as Wirtschaft from './spiel/wirtschaft.js';
-import * as Aktionen from './spiel/aktionen.js';
-import * as Geometrie from './karte/geometrie.js';
-import * as Planer from './spiel/planer.js';
-import * as Steuerung from './spiel/steuerung.js';
-import * as Leinwand from './karte/leinwand.js';
-import * as Raketendaten from './karte/raketendaten.js';
-import * as Gl from './karte/gl.js';
-import * as Rakete from './karte/rakete.js';
-import * as Ansicht from './karte/ansicht.js';
-import * as Zeichnen from './karte/zeichnen.js';
-import * as Bausteine from './ui/bausteine.js';
-import * as Pickkarte from './ui/pickkarte.js';
+import * as Events from './events.js';
+import * as Basics from './basics.js';
+import * as World from './game/world.js';
+import * as Physics from './game/physics.js';
+import * as State from './game/state.js';
+import * as Graph from './game/graph.js';
+import * as Economy from './game/economy.js';
+import * as Actions from './game/actions.js';
+import * as Geometry from './map/geometry.js';
+import * as Planner from './game/planner.js';
+import * as Commands from './game/commands.js';
+import * as Canvas from './map/canvas.js';
+import * as Rocketdata from './map/rocketdata.js';
+import * as Gl from './map/gl.js';
+import * as Rocket from './map/rocket.js';
+import * as View from './map/view.js';
+import * as Draw from './map/draw.js';
+import * as Widgets from './ui/widgets.js';
+import * as Pickcard from './ui/pickcard.js';
 import * as Panels from './ui/panels.js';
-import * as Anzeige from './ui/anzeige.js';
-import * as Menue from './ui/menue.js';
+import * as Display from './ui/display.js';
+import * as Menu from './ui/menu.js';
 
-// Die Anzeige hört zu, die Steuerung ruft. Andersherum kennt niemand die Anzeige.
-Ereignisse.beiAenderung(()=>{ Anzeige.render(); Steuerung.save(); });
-Ereignisse.beiZeit(()=>{ Anzeige.header(); Anzeige.speedHint(); Zeichnen.draw(); });
+// The display listens, the commands call. The other way round, nobody knows the display.
+Events.onChange(()=>{ Display.render(); Commands.save(); });
+Events.onTick(()=>{ Display.header(); Display.speedHint(); Draw.draw(); });
 
-// Jedes Modul hängt seine eigenen Ereignisse an.
-Ansicht.verdrahteKarte();
-Zeichnen.verdrahteZeichnen();
-Anzeige.verdrahteAnzeige();
-Menue.verdrahteMenue();
+// Every module attaches its own DOM events.
+View.wireMap();
+Draw.wireDraw();
+Display.wireDisplay();
+Menu.wireMenu();
 
-if(!Steuerung.load()) Steuerung.newGame();
-Ereignisse.geaendert();
-requestAnimationFrame(Zeichnen.idleLoop);
+if(!Commands.load()) Commands.newGame();
+Events.changed();
+requestAnimationFrame(Draw.idleLoop);
 
-// three.js kommt erst nach dem ersten Bild und nur, wenn das Netz mitspielt.
-// Ein dynamisches import() hält den Rest des Spiels am Leben, wenn das CDN gesperrt ist.
+// three.js arrives only after the first frame, and only if the network plays along.
+// A dynamic import() keeps the rest of the game alive when the CDN is blocked.
 import('https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js')
   .then(THREE => Gl.glInit(THREE))
   .catch(e => Gl.glOff(e && e.message || String(e)));
-setTimeout(()=>{ if(Gl.GL.state==='laden') Gl.glOff('three.js liess sich nicht laden.'); }, 10000);
+setTimeout(()=>{ if(Gl.GL.state==='loading') Gl.glOff('three.js could not be loaded.'); }, 10000);
 
-// Eine einzige Außenkante für Tests und die Konsole: TO.<Name> zeigt immer den
-// aktuellen Wert, TO.modul.<Modul> das ganze Modul.
-const MODULE = {
-  'ereignisse':Ereignisse, 'basis':Basis, 'spiel/welt':Welt, 'spiel/physik':Physik, 'spiel/zustand':Zustand, 'spiel/graph':Graph, 'spiel/wirtschaft':Wirtschaft, 'spiel/aktionen':Aktionen, 'karte/geometrie':Geometrie, 'spiel/planer':Planer, 'spiel/steuerung':Steuerung, 'karte/leinwand':Leinwand, 'karte/raketendaten':Raketendaten, 'karte/gl':Gl, 'karte/rakete':Rakete, 'karte/ansicht':Ansicht, 'karte/zeichnen':Zeichnen, 'ui/bausteine':Bausteine, 'ui/pickkarte':Pickkarte, 'ui/panels':Panels, 'ui/anzeige':Anzeige, 'ui/menue':Menue,
+// A single outside edge for tests and the console: TO.<name> always shows the current
+// value, TO.module['<path>'] the whole module.
+const MODULES = {
+  'events':Events, 'basics':Basics, 'game/world':World, 'game/physics':Physics, 'game/state':State, 'game/graph':Graph, 'game/economy':Economy, 'game/actions':Actions, 'map/geometry':Geometry, 'game/planner':Planner, 'game/commands':Commands, 'map/canvas':Canvas, 'map/rocketdata':Rocketdata, 'map/gl':Gl, 'map/rocket':Rocket, 'map/view':View, 'map/draw':Draw, 'ui/widgets':Widgets, 'ui/pickcard':Pickcard, 'ui/panels':Panels, 'ui/display':Display, 'ui/menu':Menu,
 };
-const TO = { modul: MODULE };
-for(const raum of Object.values(MODULE))
-  for(const name of Object.keys(raum))
-    if(!(name in TO)) Object.defineProperty(TO, name, { get:()=>raum[name], enumerable:true });
+const TO = { module: MODULES };
+for(const space of Object.values(MODULES))
+  for(const name of Object.keys(space))
+    if(!(name in TO)) Object.defineProperty(TO, name, { get:()=>space[name], enumerable:true });
 window.TO = TO;

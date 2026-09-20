@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Testserver für die Entwicklung.
+"""Development server.
 
-Wie python3 -m http.server, aber mit "Access-Control-Allow-Origin: *".
-Das braucht die Testhülle: dort liegt das Spiel in einem iframe mit
-sandbox="allow-scripts", und ein solcher Rahmen hat einen undurchsichtigen
-Ursprung. ES-Module werden mit CORS geholt, also lehnt der Browser sie ohne
-diesen Kopf ab. GitHub Pages schickt ihn von sich aus.
+Like python3 -m http.server, but with "Access-Control-Allow-Origin: *".
+The test harness needs that header: there the game sits in an iframe with
+sandbox="allow-scripts", and such a frame has an opaque origin. ES modules
+are fetched with CORS, so without the header the browser refuses them.
+GitHub Pages sends it by itself.
 """
 import sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer

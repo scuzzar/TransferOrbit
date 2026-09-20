@@ -1,24 +1,24 @@
-// Wegsuche für den Spieler: datumsabhaengig, mit Sprit- und Fristpruefung.
+// Route search for the player: date-aware, checking fuel and deadlines.
 
-import { km } from '../basis.js';
-import { B, FUEL_SPOTS, KBY, LAUNCH_FEE, M, bodyName, fmtCr, fuelHere, planetGen, siteOf } from './welt.js';
-import { HOP_FEE_SHARE, transfer } from './physik.js';
-import { S, cargoMass, cargoOrders, dvAvail, eng, homePlanet, kontorAt, locKey, targetName } from './zustand.js';
+import { km } from '../basics.js';
+import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, bodyName, fmtCr, fuelHere, siteOf } from './world.js';
+import { HOP_FEE_SHARE, transfer } from './physics.js';
+import { S, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, locKey, targetName } from './state.js';
 import { edgesFrom, idealTransfer, route } from './graph.js';
-import { feeBlocked, localActions } from './aktionen.js';
+import { feeBlocked, localActions } from './actions.js';
 
-// Markierungen für Manöver: Lieferziele, Richtung zur Fracht, Kontore mit Aufträgen
+// Markers for manoeuvres: delivery targets, the way towards the cargo, posts with orders
 export function cargoHints(){
   const H={step:[], transfer:{}};
   if(!S.node) return H;
-  const me={id:'@'+locKey(), node:S.node, site:S.site}, hereK=kontorAt();
+  const me={id:'@'+locKey(), node:S.node, site:S.site}, hereK=postAt();
   const byDest={};
   cargoOrders().forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
   Object.keys(byDest).forEach(id=>{
-    const r=route(me,KBY[id]); if(!r.first) return;
-    const name=KBY[id].name;
+    const r=route(me,POST_BY_ID[id]); if(!r.first) return;
+    const name=POST_BY_ID[id].name;
     if(r.first.leg){ const p=r.first.leg[1]; (H.transfer[p]=H.transfer[p]||[]).includes(name)||H.transfer[p].push(name); }
-    else H.step.push({node:r.first.node, site:r.first.site, dv:r.first.dv, name, n:byDest[id], final: KBY[id].node===r.first.node && (!KBY[id].site||KBY[id].site===r.first.site)});
+    else H.step.push({node:r.first.node, site:r.first.site, dv:r.first.dv, name, n:byDest[id], final: POST_BY_ID[id].node===r.first.node && (!POST_BY_ID[id].site||POST_BY_ID[id].site===r.first.site)});
   });
   return H;
 }
@@ -47,7 +47,7 @@ export function planRoute(target, mode, start){
   while(prev[k]){ path.unshift({from:prev[k].from, ed:prev[k].ed}); k=prev[k].k; }
   const steps=[]; let day=start.day, fee=0;
   path.forEach(({from,ed})=>{
-    if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Auf das Fenster ${zuName(ed.leg[1])} warten`, until:day+ed.wait}); day+=ed.wait; }
+    if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1])}`, until:day+ed.wait}); day+=ed.wait; }
     const days=ed.days-(ed.wait||0);
     if(ed.launch) fee+=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel)*(ed.hop?HOP_FEE_SHARE:1));
     steps.push({kind:ed.leg?'leg':'move', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label:stepLabel(from,ed)}); day+=days;
@@ -55,17 +55,17 @@ export function planRoute(target, mode, start){
   return {steps, dv:goal.dv, days:goal.days, arrive:start.day+goal.days, fee};
 }
 
-const zuName = p => (p==='venus'||p==='earth'?'zur ':'zum ')+B[p].name;
+const toName = p => B[p].name;
 
 function stepLabel(from,e){
-  if(e.leg) return `Transfer ${zuName(e.leg[1])}`;
+  if(e.leg) return `Transfer to ${toName(e.leg[1])}`;
   const [fk,fl]=from.n.split('.'), [tk,tl]=e.node.split('.');
-  if(tl==='surf'){ const st=siteOf(tk,e.site); if(fl==='surf') return `${e.launch?'Suborbitaler Flug':'Hüpfer'} nach ${st?st.name:bodyName(tk)}`; return `Landen: ${st?st.name:bodyName(tk)}`; }
-  if(fl==='surf') return e.launch?'Mit Trägerrakete in den Orbit':`Aufstieg in den Orbit${M[fk]?' um '+M[fk].name:''}`;
-  if(fl==='orbit' && tl==='capt') return 'In den hohen Orbit';
-  if(fl==='capt' && tk===fk) return e.dv<100?'Aerobremsen in den niedrigen Orbit':'Abstieg in den niedrigen Orbit';
-  if(fl==='capt' && M[tk]) return tk==='moon'?'Zum Mond':`Zum Mond ${M[tk].name}`;
-  if(M[fk] && tl==='capt') return `Zurück in den hohen Orbit ${planetGen(tk)}`;
+  if(tl==='surf'){ const st=siteOf(tk,e.site); if(fl==='surf') return `${e.launch?'Suborbital flight':'Hop'} to ${st?st.name:bodyName(tk)}`; return `Land at ${st?st.name:bodyName(tk)}`; }
+  if(fl==='surf') return e.launch?'Ride a launcher to orbit':`Ascend to orbit${M[fk]?' around '+M[fk].name:''}`;
+  if(fl==='orbit' && tl==='capt') return 'Up to high orbit';
+  if(fl==='capt' && tk===fk) return e.dv<100?'Aerobrake into low orbit':'Down to low orbit';
+  if(fl==='capt' && M[tk]) return tk==='moon'?'To the Moon':`To ${M[tk].name}`;
+  if(M[fk] && tl==='capt') return `Back to high orbit of ${B[tk].name}`;
   return targetName({node:e.node});
 }
 
@@ -77,11 +77,11 @@ export function nearestFuel(start){
 }
 
 export function stepBlocker(st){
-  if(st.kind==='leg'){ const hp=homePlanet(); if(S.node!==hp+'.capt') return 'Transfers starten aus dem hohen Orbit.';
-    return `Der Transfer kostet gerade ${km(transfer(hp,st.leg[1],S.day).total)} km/s, du hast ${km(dvAvail())}.`; }
+  if(st.kind==='leg'){ const hp=homePlanet(); if(S.node!==hp+'.capt') return 'Transfers start from high orbit.';
+    return `The transfer currently costs ${km(transfer(hp,st.leg[1],S.day).total)} km/s, you have ${km(dvAvail())}.`; }
   const a=localActions().find(a=>a.to===st.node && (a.site||null)===(st.site||null));
-  if(!a) return 'Dieses Manöver ist von hier nicht möglich.';
-  if(a.dv>dvAvail()+0.5) return `Es braucht ${km(a.dv)} km/s, du hast ${km(dvAvail())}.`;
-  if(feeBlocked(a)) return `Die Startgebühr von ${fmtCr(a.fee)} würde dich in den Konkurs treiben.`;
-  return 'Unbekannter Grund.';
+  if(!a) return 'That manoeuvre is not possible from here.';
+  if(a.dv>dvAvail()+0.5) return `It needs ${km(a.dv)} km/s, you have ${km(dvAvail())}.`;
+  if(feeBlocked(a)) return `The launch fee of ${fmtCr(a.fee)} would bankrupt you.`;
+  return 'Unknown reason.';
 }

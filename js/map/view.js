@@ -1,14 +1,14 @@
-// Welche Ebene die Karte zeigt (Sonne, System, Körper) und was ein Tippen bedeutet.
+// Which level the map shows (Sun, system, body) and what a tap means.
 
-import { geaendert } from '../ereignisse.js';
-import { $ } from '../basis.js';
-import { B, SITES, SYSNAME, bodyName, moonsOf, planetOfBody } from '../spiel/welt.js';
-import { S, cargoOrders, here, homePlanet } from '../spiel/zustand.js';
-import { cargoHints } from '../spiel/planer.js';
-import { HITS, cv, sc } from './leinwand.js';
+import { changed } from '../events.js';
+import { $ } from '../basics.js';
+import { B, SITES, SYSNAME, bodyName, moonsOf, planetOfBody } from '../game/world.js';
+import { S, cargoOrders, here, homePlanet } from '../game/state.js';
+import { cargoHints } from '../game/planner.js';
+import { HITS, cv, sc } from './canvas.js';
 
-// Automatik: Transfer → Sonnensystem; im niedrigen Orbit oder am Boden → Körper mit Landeplätzen;
-// im hohen Orbit → Systemkarte, außer der nächste Schritt zur Fracht ist ein interplanetarer Transfer.
+// Automatic: in transit -> solar system; in low orbit or on the ground -> the body with its sites;
+// in high orbit -> system map, unless the next step towards the cargo is an interplanetary transfer.
 export function autoView(){
   if(S.transit || !S.node) return {level:'sol'};
   const [k,l]=here(), hp=homePlanet(), moons=moonsOf(hp).length>0;
@@ -35,11 +35,11 @@ export function mapView(){
   return S.ui.mapView||autoView();
 }
 
-export function setView(v){ S.ui.mapView=v; S.ui.pick=null; geaendert(); }
+export function setView(v){ S.ui.mapView=v; S.ui.pick=null; changed(); }
 
 export function renderCrumbs(v){
   const nav=$('crumbs'); nav.innerHTML='';
-  const segs=[{t:'Sonnensystem', v:{level:'sol'}}];
+  const segs=[{t:'Solar system', v:{level:'sol'}}];
   if(v.planet && moonsOf(v.planet).length) segs.push({t:SYSNAME[v.planet]||B[v.planet].name, v:{level:'sys', planet:v.planet}});
   if(v.level==='body') segs.push({t:bodyName(v.body), v});
   segs.forEach((sg,i)=>{
@@ -48,14 +48,14 @@ export function renderCrumbs(v){
     b.className=last?'cur':''; if(last) b.setAttribute('aria-current','page');
     b.onclick=()=>setView(sg.v); nav.appendChild(b);
   });
-  nav.scrollLeft=nav.scrollWidth; // aktuelle Ebene sichtbar halten
+  nav.scrollLeft=nav.scrollWidth; // keep the current level in view
   const au=$('mapauto'); au.innerHTML='';
-  if(S.ui.mapView){ const b=document.createElement('button'); b.type='button'; b.className='linky'; b.textContent='Auto'; b.title='Karte folgt wieder dem Schiff'; b.onclick=()=>setView(null); au.appendChild(b); }
-  else { au.textContent='Auto'; au.title='Die Karte folgt dem Schiff'; }
+  if(S.ui.mapView){ const b=document.createElement('button'); b.type='button'; b.className='linky'; b.textContent='Auto'; b.title='Let the map follow the ship again'; b.onclick=()=>setView(null); au.appendChild(b); }
+  else { au.textContent='Auto'; au.title='The map follows the ship'; }
   $('legend').textContent = v.level==='sol'
-    ? 'Planet antippen für Details, doppelt antippen zum Näheransehen. Bernstein gestrichelt: wo das Ziel für ein ideales Fenster stehen müsste. Grün gestrichelt: Ziele deiner Fracht.'
-    : v.level==='sys' ? 'Planet, Mond oder Orbit antippen, doppelt antippen für die Landeplätze. Grüner Punkt: Tankstelle dort. Grün gestrichelt: Ziel deiner Fracht.'
-    : 'Landeplatz oder Orbit antippen. Grüner Punkt: Tankstelle. Grün gestrichelt: Ziel deiner Fracht.';
+    ? 'Tap a planet for details, double-tap to look closer. Dashed amber: where the target would have to be for an ideal window. Dashed green: destinations of your cargo.'
+    : v.level==='sys' ? 'Tap a planet, moon or orbit, double-tap for the landing sites. Green dot: a fuel depot there. Dashed green: destination of your cargo.'
+    : 'Tap a landing site or an orbit. Green dot: fuel depot. Dashed green: destination of your cargo.';
 }
 
 export function onMapClick(e){
@@ -63,12 +63,12 @@ export function onMapClick(e){
   let best=null, bd=Infinity;
   HITS.filter(h=>h.canvas===t).forEach(h=>{ const d=Math.hypot(h.x-x,h.y-y); if(d<h.r && d<bd){ bd=d; best=h; } });
   const pk=best?best.pick:null, key=pk?JSON.stringify(pk):null, now=performance.now();
-  // Doppelklick oder doppeltes Antippen: näher ansehen bzw. Landeplätze zeigen
+  // Double click or double tap: look closer, or show the landing sites
   if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=deeperView(pk); if(dv){ setView(dv); return; } }
   lastTap={key,t:now};
   S.ui.pick=pk;
   if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.target=best.pick.planet;
-  geaendert();
+  changed();
 }
 
 let lastTap={key:null,t:0};
@@ -80,7 +80,7 @@ function deeperView(pk){
   return null;
 }
 
-export function verdrahteKarte(){
+export function wireMap(){
   cv.addEventListener('click',onMapClick);
   sc.addEventListener('click',onMapClick);
 }

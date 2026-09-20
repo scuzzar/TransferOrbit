@@ -1,48 +1,48 @@
-// Die three.js-Ebene: Kugeln, Ringe, Bahnbänder, Rakete. Nichts davon weiß,
-// was gerade gespielt wird.
+// The three.js layer: spheres, rings, orbit ribbons, the rocket. None of it knows
+// anything about the game being played.
 
-import { zeitLief } from '../ereignisse.js';
-import { TAU } from '../basis.js';
-import { bodyColor } from '../spiel/welt.js';
-import { CAPS, D2R, DESERT, EARTH_LAND, LAND, LIGHT, WATER, bodyLon0 } from './geometrie.js';
-import { cssv, cvb, glc, layFor, prep } from './leinwand.js';
-import { RKT, RKT_HEX, RKT_LEN, RKT_TILT, rollOf } from './raketendaten.js';
+import { tick } from '../events.js';
+import { TAU } from '../basics.js';
+import { bodyColor } from '../game/world.js';
+import { CAPS, D2R, DESERT, EARTH_LAND, LAND, LIGHT, WATER, bodyLon0 } from './geometry.js';
+import { cssVar, cvb, glc, layFor, prep } from './canvas.js';
+import { RKT, RKT_HEX, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
 
-// three.js zeichnet nur die Körper: texturierte Kugeln, den Saturnring und die Rakete als Modell.
-// Beschriftungen, Bahnen, Markierungen, Flammen und die Klickziele bleiben auf den 2D-Canvas.
-// Der Stapel ist #cvb (2D hinten) – #glc (three.js) – #cv bzw. #sys (2D vorne).
-// Die Kamera ist orthografisch und rechnet in Bildschirmpixeln, mit denselben Werten wie makeCam
-// bzw. drawSys. Damit liegen 2D und 3D genau übereinander.
-// Ohne three.js bleibt die Karte leer. Eine zweite, schlechtere Darstellung daneben zu pflegen
-// wäre irreführend: man sähe etwas und wüsste nicht, dass es nicht die eigentliche Ansicht ist.
-// Keine fremden Texturen: die Oberflächen entstehen im Browser aus den Daten, die das Spiel
-// ohnehin hat — Kontinente von Hand, Polkappen, Bänder der Gasriesen, Saturnring. Damit lädt
-// die 3D-Ebene kein einziges Bild und läuft auch im gesperrten iframe ohne Herkunftsprobleme.
-export const GL = {on:false, state:'laden', why:'', T:null, r:null, mat:{}, mesh:{}, path:{}, ring:null, rocket:null};
+// three.js draws the bodies only: textured spheres, Saturn's ring and the rocket model.
+// Labels, orbits, markers, flames and the hit targets stay on the 2D canvases.
+// The stack is #cvb (2D behind) - #glc (three.js) - #cv or #sys (2D in front).
+// The camera is orthographic and works in screen pixels, with the same values as makeCam
+// and drawSys, so 2D and 3D line up exactly.
+// Without three.js the map stays empty. Keeping a second, poorer rendering alongside would
+// be misleading: you would see something without knowing it is not the real view.
+// No foreign textures: the surfaces are built in the browser from data the game already has -
+// hand-drawn continents, polar caps, gas giant bands, Saturn's ring. That way the 3D layer
+// loads not a single image and runs inside a locked iframe without any origin trouble.
+export const GL = {on:false, state:'loading', why:'', T:null, r:null, mat:{}, mesh:{}, path:{}, ring:null, rocket:null};
 
 export function glOff(why){
-  if(GL.state==='aus') return;
-  GL.state='aus'; GL.on=false; GL.T=null; GL.why=why||'';
-  console.warn('3D-Ansicht aus:', why);
+  if(GL.state==='off') return;
+  GL.state='off'; GL.on=false; GL.T=null; GL.why=why||'';
+  console.warn('3D view off:', why);
   glc.hidden=true; cvb.hidden=true;
-  try{ zeitLief(); }catch(e){}
+  try{ tick(); }catch(e){}
 }
 
-// Hinweis auf dem sonst leeren Kartenfeld, solange three.js lädt oder wenn es ausfällt.
+// A note on the otherwise empty map area while three.js loads, or if it fails.
 export function glNote(canvas,g,W,H){
   prep(canvas,g,W,H); glHide();
-  const v=cssv(), laden=GL.state==='laden';
+  const v=cssVar(), loading=GL.state==='loading';
   g.textAlign='center'; g.textBaseline='middle'; g.fillStyle=v('--muted');
   g.font=`600 15px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
-  g.fillText(laden?'3D-Ansicht wird geladen …':'Diese Karte braucht WebGL.', W/2, H/2-8);
-  if(!laden){
+  g.fillText(loading?'Loading the 3D view …':'This map needs WebGL.', W/2, H/2-8);
+  if(!loading){
     g.font=`400 12.5px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
-    g.fillText(GL.why||'Der Browser stellt keine 3D-Grafik bereit.', W/2, H/2+14);
-    g.fillText('Aufträge, Routenplaner und Autopilot funktionieren weiter.', W/2, H/2+32);
+    g.fillText(GL.why||'This browser provides no 3D graphics.', W/2, H/2+14);
+    g.fillText('Orders, route planner and autopilot still work.', W/2, H/2+32);
   }
 }
 
-// Rakete: dieselben Daten wie der 2D-Handrenderer, nur als Dreiecksnetz mit Vertexfarben.
+// Rocket: the same data as the hand-rolled 2D renderer, only as a triangle mesh with vertex colours.
 function glRocketGeo(T){
   const n=RKT.f.length/4, pos=new Float32Array(n*9), col=new Float32Array(n*9), c=new T.Color();
   for(let k=0;k<n;k++){
@@ -56,7 +56,7 @@ function glRocketGeo(T){
   const gm=new T.BufferGeometry();
   gm.setAttribute('position', new T.BufferAttribute(pos,3));
   gm.setAttribute('color', new T.BufferAttribute(col,3));
-  gm.computeVertexNormals(); // ohne Index: eine Normale je Dreieck, also facettiert wie bisher
+  gm.computeVertexNormals(); // unindexed: one normal per triangle, so faceted as before
   return gm;
 }
 
@@ -64,24 +64,24 @@ const TEX_W = 1024, TEX_H = 512;
 
 function texCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
 
-// Länge/Breite in Pixel der Karte. bodyLon0 kommt erst bei der Drehung der Kugel dazu,
-// die Karte selbst ist immer bei 0° zentriert.
+// Longitude/latitude to pixels on the map. bodyLon0 is only applied when the sphere is rotated;
+// the map itself is always centred on 0°.
 const texX = lon => (lon+180)/360*TEX_W, texY = lat => (90-lat)/180*TEX_H;
 
 function texPoly(g,pts,fill){
   g.fillStyle=fill;
-  for(const dx of [-TEX_W,0,TEX_W]){ // dreimal zeichnen, damit nichts an der Datumsgrenze abreißt
+  for(const dx of [-TEX_W,0,TEX_W]){ // drawn three times so nothing is cut off at the date line
     g.beginPath();
     pts.forEach(([lon,lat],i)=>{ const x=texX(lon)+dx, y=texY(lat); i?g.lineTo(x,y):g.moveTo(x,y); });
     g.closePath(); g.fill();
   }
 }
 
-// Polkappe: geschlossene Fläche von der Breite bis zum Pol, weicher Saum nur zur Äquatorseite.
-// Zum Pol hin darf sie nicht ausblenden: dort ist die Karte so gestaucht, dass daraus eine Blendung wird.
+// Polar cap: a solid area from the given latitude to the pole, soft edge only on the equator side.
+// It must not fade towards the pole: the map is so compressed there that the fade turns into a glare.
 function texCap(g,lat,alpha){
-  // Der Saum richtet sich nach der Kappe selbst: ein fester Anteil der Kartenhöhe wäre bei einer
-  // 10°-Kappe wie auf dem Mars breiter als die halbe Kappe und verwischt sie zu einem Schleier.
+  // The soft edge scales with the cap itself: a fixed share of the map height would be wider than
+  // half of a 10° cap like the one on Mars, blurring it into a haze.
   const col='236,240,246', y=texY(lat), pole=lat>0?0:TEX_H;
   const soft=(lat>0?1:-1)*Math.max(2, Math.abs(y-pole)*0.2);
   g.fillStyle=`rgba(${col},${alpha})`;
@@ -91,8 +91,8 @@ function texCap(g,lat,alpha){
   g.fillStyle=gr; g.fillRect(0, Math.min(y,y+soft), TEX_W, Math.abs(soft));
 }
 
-// Bänder der Gasriesen: dieselben vier Lagen wie in der 2D-Schattierung, dort als Anteil
-// des Radius angegeben, also als Sinus der Breite.
+// Gas giant bands: the same four layers as in the 2D shading, given there as a share of the
+// radius, i.e. as the sine of the latitude.
 function texBands(g){
   [-0.45,-0.2,0.15,0.4].forEach((f,i)=>{
     const lat=a=>Math.asin(Math.max(-1,Math.min(1,a)))*180/Math.PI;
@@ -103,7 +103,7 @@ function texBands(g){
   });
 }
 
-// Karte eines Körpers. Ohne Besonderheiten gibt es keine Karte, dann genügt die Grundfarbe.
+// The map of a body. With no features there is no map, and the base colour is enough.
 function glSurface(T,b){
   const caps=CAPS[b]||[], gas=b==='jupiter'||b==='saturn', earth=b==='earth';
   if(!caps.length && !gas && !earth) return null;
@@ -119,11 +119,11 @@ function glSurface(T,b){
   const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
 }
 
-// Saturnring: Bänder über den Radius, innen und außen durchsichtig. Die Cassini-Teilung
-// sitzt bei knapp zwei Dritteln, wie in der Natur.
+// Saturn's ring: bands across the radius, transparent at the inner and outer edge. The Cassini
+// division sits at just under two thirds, as it does in nature.
 function glRingTexture(T){
   const N=512, cn=texCanvas(N,N), g=cn.getContext('2d'), c=N/2;
-  const inner=0.614; // 1,35 von 2,2 Saturnradien: der Ring beginnt nicht am Planeten
+  const inner=0.614; // 1.35 of 2.2 Saturn radii: the ring does not start at the planet
   const band=(r0,r1,fill)=>{ g.beginPath(); g.arc(c,c,r1*c,0,TAU); g.arc(c,c,r0*c,0,TAU,true);
     g.fillStyle=fill; g.fill('evenodd'); };
   band(inner,1,'rgba(222,205,160,0.72)');
@@ -139,10 +139,10 @@ function glRingTexture(T){
 export function glInit(T){
   let r;
   try{ r=new T.WebGLRenderer({canvas:glc, alpha:true, antialias:true, powerPreference:'low-power'}); }
-  catch(e){ glOff('kein WebGL-Kontext'); return; }
+  catch(e){ glOff('no WebGL context'); return; }
   GL.T=T; GL.r=r;
   r.setClearAlpha(0);
-  r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); // mobil: höchstens 2
+  r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); // on mobile: at most 2
   r.autoClear=false;
   GL.aniso=Math.min(4, r.capabilities.getMaxAnisotropy());
   glc.addEventListener('webglcontextlost', e=>{ e.preventDefault(); glOff('WebGL-Kontext verloren'); });
@@ -150,27 +150,27 @@ export function glInit(T){
   GL.scene=new T.Scene();
   GL.cam=new T.OrthographicCamera(-1,1,1,-1,1,4000);
   GL.cam.position.set(0,0,2000);
-  // Das Licht steht im Weltraum der Szene, also in Kamerakoordinaten: genau der Vektor LIGHT
-  // aus der 2D-Schattierung. Die Körper hängen in einer gedrehten Gruppe, das Licht nicht.
+  // The light sits in the scene's space, i.e. in camera coordinates: exactly the LIGHT vector
+  // from the 2D shading. The bodies hang in a rotated group, the light does not.
   const dl=new T.DirectionalLight(0xfff3e0, 1.25), amb=new T.AmbientLight(0x93a4d2, 0.2);
   dl.position.set(LIGHT[0]*500, LIGHT[1]*500, LIGHT[2]*500);
   GL.dl=dl; GL.amb=amb;
   GL.scene.add(dl, dl.target, amb);
-  GL.root=new T.Group(); GL.scene.add(GL.root);   // gedreht wie die Kamera in makeCam/drawSys
-  GL.flat=new T.Group(); GL.scene.add(GL.flat);   // ungedreht: die Rakete in Bildschirmkoordinaten
+  GL.root=new T.Group(); GL.scene.add(GL.root);   // rotated like the camera in makeCam/drawSys
+  GL.flat=new T.Group(); GL.scene.add(GL.flat);   // unrotated: the rocket in screen coordinates
 
-  // Eine Kugel für alle Körper. phiStart so, dass Länge 0° nach +Z zeigt;
-  // die Blickmitte je Körper kommt dann aus einer Drehung um Y.
+  // One sphere for every body. phiStart is chosen so longitude 0° points towards +Z;
+  // each body's centre of view then comes from a rotation around Y.
   GL.sphere=new T.SphereGeometry(1, 64, 32, -Math.PI/2);
   GL.plane=new T.PlaneGeometry(2,2);
   GL.rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide, transparent:true}));
   GL.rocket.scale.setScalar(RKT_LEN/1.25);
-  GL.rocket.renderOrder=3; // nach den Bahnbändern, damit die blasse Rückseite nicht darüber liegt
+  GL.rocket.renderOrder=3; // after the orbit ribbons, so the faded far side does not sit on top
   GL.rocket.visible=false; GL.flat.add(GL.rocket);
   GL.qa=new T.Quaternion(); GL.qb=new T.Quaternion();
   GL.AX=new T.Vector3(1,0,0); GL.AY=new T.Vector3(0,1,0); GL.AZ=new T.Vector3(0,0,1);
-  GL.on=true; GL.state='an';
-  zeitLief();
+  GL.on=true; GL.state='on';
+  tick();
 }
 
 function glMat(key){
@@ -182,7 +182,7 @@ function glMat(key){
 function glBody(key){
   if(GL.mesh[key]) return GL.mesh[key];
   const m=new GL.T.Mesh(GL.sphere, glMat(key));
-  m.rotation.y=-bodyLon0(key)*D2R; // Blickmitte des Körpers nach +Z drehen
+  m.rotation.y=-bodyLon0(key)*D2R; // turn the body's centre of view towards +Z
   GL.root.add(m); return GL.mesh[key]=m;
 }
 
@@ -191,13 +191,13 @@ export function glSaturnRing(){
   const T=GL.T;
   const mat=new T.MeshBasicMaterial({map:glRingTexture(T), transparent:true, side:T.DoubleSide, depthWrite:false});
   const m=new T.Mesh(GL.plane, mat);
-  m.rotation.x=-Math.PI/2; // Plane liegt in XY, der Ring gehört in die Äquatorebene XZ
+  m.rotation.x=-Math.PI/2; // a plane lies in XY, the ring belongs in the equatorial plane XZ
   GL.root.add(m); return GL.ring=m;
 }
 
-// Eine Ansicht beginnen: Canvas auf die Größe des vorderen 2D-Canvas bringen,
-// Kamera in Pixeln aufspannen und die Gruppe wie makeCam bzw. drawSys drehen.
-// scale ist die Zahl der Pixel je Einheit in der Gruppe (drawBody: R, drawSys: 1).
+// Begin a view: size the canvas to match the front 2D canvas, set up the camera in pixels
+// and rotate the group the way makeCam and drawSys do.
+// scale is the number of pixels per unit inside the group (drawBody: R, drawSys: 1).
 export function glBegin(W,H,cx,cy,scale,el){
   if(!GL.on) return false;
   glc.hidden=false; cvb.hidden=false;
@@ -215,16 +215,16 @@ export function glBegin(W,H,cx,cy,scale,el){
   return true;
 }
 
-// Körper an eine Stelle der Gruppe setzen (p in Gruppenkoordinaten, r in Gruppeneinheiten)
+// Place a body somewhere in the group (p in group coordinates, r in group units)
 export function glPut(key,p,r){
   const m=glBody(key); m.visible=true; m.scale.setScalar(r);
   m.position.set(p?p[0]:0, p?p[1]:0, p?p[2]:0);
   return m;
 }
 
-// Bahnen und Flugspuren als schmale Bänder aus Dreiecken. WebGL kann Linien nicht verbreitern
-// (immer 1 px), ein Band dagegen hat genau die Breite und Strichelung des bisherigen 2D-Wegs.
-// Gerechnet wird in Bildschirmkoordinaten plus Tiefe, also mit derselben Projektion wie in 2D.
+// Orbits and flight paths as narrow ribbons of triangles. WebGL cannot widen lines (always 1 px),
+// while a ribbon has exactly the width and dash pattern of the old 2D path.
+// The maths runs in screen coordinates plus depth, so the same projection as in 2D.
 function glPathGeo(pts,w,dash){
   const out=[], hw=w/2;
   let on=true, rem=dash?dash[0]:Infinity;
@@ -250,8 +250,8 @@ function glPathGeo(pts,w,dash){
   return out;
 }
 
-// Zwei Durchgänge: blass ohne Tiefentest (die Rückseite scheint gedämpft durch den Körper,
-// wie bisher), darüber voll mit Tiefentest. So verdeckt die Rakete die Bahn und umgekehrt.
+// Two passes: faded without a depth test (the far side shows dimmed through the body, as before),
+// then the full one with a depth test. That way the rocket hides the orbit and the other way round.
 export function glPath(key,pts,style){
   const T=GL.T, tri=glPathGeo(pts, style.w||1, style.dash||null), n=tri.length/3;
   let o=GL.path[key];
@@ -270,8 +270,8 @@ export function glPath(key,pts,style){
   o.ghost.visible=o.solid.visible=n>0;
 }
 
-// Rakete in Bildschirmkoordinaten: x,y wie im 2D-Canvas, z die echte Tiefe in Pixeln, damit der
-// Körper sie stückweise verdeckt. a ist der Bildschirmwinkel der Nase.
+// Rocket in screen coordinates: x,y as on the 2D canvas, z the real depth in pixels so the body
+// hides it piece by piece. a is the screen angle of the nose.
 export function glRocket(x,y,z,a,key,alpha){
   const m=GL.rocket, r=rollOf(key);
   m.visible=true; m.position.set(x,-y,z);

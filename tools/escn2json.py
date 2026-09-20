@@ -1,7 +1,7 @@
 import re, json, sys, numpy as np
 from PIL import Image
 import os
-PAL=Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','art','texturen','palet_4x4.png')).convert('RGB')
+PAL=Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','art','textures','palet_4x4.png')).convert('RGB')
 def pal(u,v):
     x=min(3,max(0,int(u*4))); y=min(3,max(0,int(v*4))); return x+4*y
 def arrs(txt):

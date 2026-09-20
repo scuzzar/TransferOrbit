@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -7,13 +7,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Transferfenster – Prototyp</title>
+<title>TransferOrbit – prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Immer dunkel, wie in den Mockups */
+/* Always dark, as in the mockups */
   color-scheme: dark;
   --bg:#10162b; --panel:#171f3b; --line:#2b3662; --text:#e7e9f2; --muted:#9aa2c2;
   --accent:#f2b33d; --accent-ink:#1a1400; --good:#5cc9a0; --warn:#e6c14b; --bad:#ec7a7e;
@@ -42,11 +42,11 @@ h2{font-size:1.05rem;font-weight:600;margin:22px 0 8px}
 canvas{display:block;width:100%;aspect-ratio:1/1;touch-action:manipulation}
 #sys{aspect-ratio:1.6/1}
 canvas[hidden]{display:none!important}
-/* Stapel: 2D hinten (#cvb), three.js in der Mitte (#glc), 2D vorne (#cv/#sys).
-   Alle vier stecken in .cwrap. Der Kasten ist das Element, das die Bühne zentriert, und der
-   vordere Canvas gibt ihm seine Größe. Die hinteren Ebenen liegen absolut in seiner linken
-   oberen Ecke und sitzen damit von selbst deckungsgleich — auch wenn sich das Layout ändert,
-   ohne dass neu gezeichnet wird (etwa wenn die Autopilotleiste erscheint). */
+/* Stack: 2D behind (#cvb), three.js in the middle (#glc), 2D in front (#cv/#sys).
+   All four sit inside .cwrap. That box is the element the stage centres, and the front
+   canvas gives it its size. The rear layers are positioned absolutely at its top left
+   corner and therefore line up by themselves - even when the layout changes without a
+   redraw (for instance when the autopilot bar appears). */
 .cwrap{position:relative;min-width:0}
 #cvb,#glc{position:absolute;top:0;left:0;width:auto;aspect-ratio:auto;pointer-events:none}
 #cv,#sys{position:relative}
@@ -99,7 +99,7 @@ button:focus-visible,.tr:focus-visible{outline:2px solid var(--accent);outline-o
 .win.good{color:var(--good)} .win.ok{color:var(--warn)} .win.bad{color:var(--muted)}
 .wait{display:flex;gap:6px;flex-wrap:wrap}
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:22px;color:var(--muted);font-size:.85rem;gap:10px}
-/* Layout: mobil eine Spalte (Kacheln, Karte, Standort); Desktop: Karte links über volle Höhe, rechts schmale Spalte */
+/* Layout: one column on mobile (tiles, map, location); on desktop the map fills the left at full height, with a narrow column on the right */
 .layout{display:flex;flex-direction:column;gap:10px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:stretch;margin-top:0}
 .stats .card{display:flex;flex-direction:column;gap:2px}
@@ -163,8 +163,10 @@ button:focus-visible,.tr:focus-visible{outline:2px solid var(--accent);outline-o
 .phdr .pname b{font-size:1.05rem;font-weight:700;display:block;line-height:1.2}
 .phdr .kinfo{flex:1 1 180px;font-size:.85rem;margin:0;line-height:1.3}
 .phdr .tag{margin-left:auto;align-self:flex-start}
-.pbtns{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px}
-.pbtns button{min-width:0;overflow:hidden;text-overflow:ellipsis;min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:4px 8px;font-size:.88rem;white-space:nowrap}
+/* Flex, not a fixed grid: the buttons size to their text and only shrink when the row
+   is genuinely too narrow. With fixed columns "Orders (10)" lost its digits. */
+.pbtns{display:flex;gap:6px}
+.pbtns button{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:4px 8px;font-size:.88rem;white-space:nowrap}
 .pbtns button.full{flex-basis:100%}
 .pbtns svg{flex:0 0 auto}
 .pbtns button span{overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -188,7 +190,7 @@ h3{font-size:.98rem;font-weight:600;margin:14px 0 6px}
 .money b{font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums}
 .money b.neg{color:var(--bad)}
 .money span{color:var(--muted);font-size:.9rem}
-.kontor h2 .tag,.tag{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);vertical-align:middle}
+.post h2 .tag,.tag{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);vertical-align:middle}
 .kinfo{color:var(--muted);font-size:.9rem;margin:0 0 6px}
 .needs{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.9rem;margin-bottom:6px}
 .need{display:inline-flex;align-items:center;gap:6px}
@@ -252,8 +254,8 @@ label.order{display:block;cursor:pointer}
 .legendrow{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.85rem;color:var(--muted)}
 .legendrow i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .linkbtn{align-self:flex-start;border:none;padding:4px 0;color:var(--accent);text-decoration:underline;min-height:32px}
-.frist{margin-top:6px;font-size:.85rem;color:var(--muted)}
-.frist .ok{color:var(--good)} .frist .late{color:var(--bad)}
+.due{margin-top:6px;font-size:.85rem;color:var(--muted)}
+.due .ok{color:var(--good)} .due .late{color:var(--bad)}
 .fbar{height:5px;border-radius:3px;background:var(--line);margin-top:3px;overflow:hidden}
 .fbar i{display:block;height:100%}
 .tankbox{display:flex;flex-direction:column;gap:8px}
@@ -276,7 +278,7 @@ label.order{display:block;cursor:pointer}
 .mtag{font-size:.75rem;font-weight:600;padding:1px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .mtag.deliver{background:var(--good);border-color:var(--good);color:#0c1a14}
 .mtag.toward{border-color:var(--good);color:var(--good)}
-.mtag.kontor{border-color:var(--accent);color:var(--accent)}
+.mtag.post{border-color:var(--accent);color:var(--accent)}
 .act.hot{border-color:var(--good);box-shadow:inset 3px 0 0 var(--good)}
 .tr-top .mtag{margin-left:6px;vertical-align:1px}
 @media (max-width:899px){ body.panel-open .col-map, body.panel-open .stats{display:none} }
@@ -336,32 +338,32 @@ label.order{display:block;cursor:pointer}
 <main>
   <div class="layout">
   <div class="stats" id="stats">
-    <div class="card"><div class="muted">Konto</div><b class="stat" id="credits"></b></div>
-    <div class="card"><div class="chead"><span class="muted">Δv mit Fracht</span><button type="button" id="autofill" class="tchip" aria-pressed="false" title="An jeder Tankstelle automatisch volltanken">Immer voll</button></div><b class="stat" id="dv"></b><div class="gauge"><i id="gauge"></i></div></div>
-    <button type="button" class="card cardbtn" id="cargotile" aria-label="Laderaum öffnen"><div class="chead"><span class="muted">Laderaum</span><span class="muted small" id="slotinfo"></span></div><div class="mslots" id="mslots"></div></button>
-    <div class="card"><div class="muted">Schiff</div><b class="stat" id="shipname"></b><div class="muted small" id="shipinfo"></div></div>
+    <div class="card"><div class="muted">Balance</div><b class="stat" id="credits"></b></div>
+    <div class="card"><div class="chead"><span class="muted">Δv with cargo</span><button type="button" id="autofill" class="tchip" aria-pressed="false" title="Automatically fill up at every fuel depot">Always full</button></div><b class="stat" id="dv"></b><div class="gauge"><i id="gauge"></i></div></div>
+    <button type="button" class="card cardbtn" id="cargotile" aria-label="Open the cargo hold"><div class="chead"><span class="muted">Cargo hold</span><span class="muted small" id="slotinfo"></span></div><div class="mslots" id="mslots"></div></button>
+    <div class="card"><div class="muted">Ship</div><b class="stat" id="shipname"></b><div class="muted small" id="shipinfo"></div></div>
   </div>
 
   <div class="col-map">
   <div id="autobar" class="autobar" hidden></div>
   <div class="maptabs">
-    <nav id="crumbs" class="crumbs" aria-label="Kartenebene"></nav>
+    <nav id="crumbs" class="crumbs" aria-label="Map level"></nav>
     <span class="auto" id="mapauto"></span>
     <div class="date"><b id="date"></b><span id="mday"></span></div>
-    <button type="button" id="fs" class="iconbtn" hidden aria-label="Vollbild"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button type="button" id="fs" class="iconbtn" hidden aria-label="Fullscreen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <div class="menuwrap">
-      <button type="button" id="menubtn" class="iconbtn" aria-label="Menü" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button type="button" id="menubtn" class="iconbtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <div id="menu" class="menu" hidden>
-        <button type="button" data-menu="fs" id="menufs" hidden>Vollbild</button>
-        <button type="button" data-menu="save">Speichern</button>
-        <button type="button" data-menu="load">Laden</button>
+        <button type="button" data-menu="fs" id="menufs" hidden>Fullscreen</button>
+        <button type="button" data-menu="save">Save</button>
+        <button type="button" data-menu="load">Load</button>
         <div class="msep"></div>
-        <div class="mlabel">Zeit vergehen lassen</div>
+        <div class="mlabel">Let time pass</div>
         <div class="mwait">
-          <button type="button" data-wait="10">+10 T</button><button type="button" data-wait="30">+30 T</button><button type="button" data-wait="100">+100 T</button><button type="button" data-wait="365">+1 J</button>
+          <button type="button" data-wait="10">+10 d</button><button type="button" data-wait="30">+30 d</button><button type="button" data-wait="100">+100 d</button><button type="button" data-wait="365">+1 y</button>
         </div>
         <div class="msep"></div>
-        <button type="button" data-menu="reset" class="mdanger">Neu starten</button>
+        <button type="button" data-menu="reset" class="mdanger">Start over</button>
         <div class="mfoot" id="used"></div>
         <div class="mfoot" id="ver"></div>
       </div>
@@ -371,10 +373,10 @@ label.order{display:block;cursor:pointer}
     <div class="cwrap">
       <canvas id="cvb" aria-hidden="true" hidden></canvas>
       <canvas id="glc" aria-hidden="true" hidden></canvas>
-      <canvas id="cv" aria-label="Sonnensystem, Draufsicht"></canvas>
-      <canvas id="sys" aria-label="Planet mit seinen Monden" hidden></canvas>
+      <canvas id="cv" aria-label="Solar system, seen from above"></canvas>
+      <canvas id="sys" aria-label="Planet with its moons" hidden></canvas>
     </div>
-    <button type="button" id="infobtn" class="infobtn" aria-label="Legende" aria-expanded="false">i</button>
+    <button type="button" id="infobtn" class="infobtn" aria-label="Legend" aria-expanded="false">i</button>
     <div id="legend" class="legendpop" hidden></div>
     <div id="toast" class="toast" role="status" hidden></div>
     <div id="speedhint" class="speedhint" hidden></div>
@@ -392,9 +394,9 @@ label.order{display:block;cursor:pointer}
   </div>
 </main>
 
-<!-- Das Spiel liegt in ES-Modulen unter js/. start.js baut alles zusammen;
-     jedes Modul beschreibt in seiner ersten Zeile, wofür es zuständig ist.
-     Kein Baukasten, kein Build: der Browser lädt die Dateien selbst. -->
+<!-- The game lives in ES modules under js/. start.js wires it all together;
+     every module says in its first line what it is responsible for.
+     No toolchain, no build step: the browser loads the files itself. -->
 <script type="module" src="./js/start.js"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
-// Der Wegegraph für die Preisbildung: idealisierte Kosten zwischen zwei Orten.
+// The route graph behind pricing: idealised cost between two places.
 
-import { B, GOODS, K_T, K_Z, K_ZT, LAUNCH_FEE, M, M_S, PLANETS, SITES, START_DAY, V_E, hasAtm, moonsOf, rotPenalty, siteOf } from './welt.js';
-import { captDv, hopCost, transfer } from './physik.js';
-import { S } from './zustand.js';
+import { B, GOODS, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, moonsOf, rotPenalty, siteOf } from './world.js';
+import { captDv, hopCost, transfer } from './physics.js';
+import { S } from './state.js';
 
 const idealCache = {};
 
@@ -61,13 +61,13 @@ export function route(from,to){
 }
 
 export function rewardFor(r,good,n){
-  const G=GOODS[good], mass=M_S+n*G.m;
-  let R = K_T*mass*(Math.exp(r.dv/V_E)-1) + K_Z*r.days + K_ZT*mass*r.days + 0.1*n*G.w;
-  if(r.launch) R += LAUNCH_FEE*(mass+20); // Anteil an der Erdstartgebühr
+  const G=GOODS[good], mass=SHIP_MASS_SHARE+n*G.m;
+  let R = RATE_MASS*mass*(Math.exp(r.dv/V_EXHAUST)-1) + RATE_DAY*r.days + RATE_MASS_DAY*mass*r.days + 0.1*n*G.w;
+  if(r.launch) R += LAUNCH_FEE*(mass+20); // share of the Earth launch fee
   return Math.round(R*rewardLuck()/10)*10;
 }
 
-// Zufallsfaktor: meist 0,9–1,2; selten (8 %) 1,4–1,9, hohe Werte seltener als niedrige
+// Luck factor: usually 0.9-1.2; rarely (8%) 1.4-1.9, with high values rarer than low ones
 const LUCK = {p:0.08, min:1.4, max:1.9};
 
 const rewardLuck = () => Math.random()<LUCK.p ? LUCK.min+(LUCK.max-LUCK.min)*Math.random()**2 : 0.9+Math.random()*0.3;
