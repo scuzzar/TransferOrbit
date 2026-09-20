@@ -69,6 +69,12 @@ def build():
     html = open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
     script = '<script>\n' + '\n\n'.join(parts) + '</script>'
     html = re.sub(r'<!-- The game lives in ES modules.*?</script>', script, html, flags=re.S)
+
+    # The single file travels on its own, so the short notice in index.html, which points at
+    # LICENSE, is replaced by the licence itself - that is what MIT asks for.
+    licence = open(os.path.join(ROOT, 'LICENSE'), encoding='utf-8').read().strip()
+    html = re.sub(r'<!-- TransferOrbit -.*?-->',
+                  '<!--\n' + licence.replace('--', '- -') + '\n-->', html, count=1, flags=re.S)
     return html
 
 if __name__ == '__main__':

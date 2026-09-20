@@ -2,6 +2,20 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-20 – MIT licence
+
+The game — `index.html`, `js/`, `tools/`, `tests/` — is now under the MIT licence, copyright
+scuzzar: use it, change it, build on it, sell it, as long as the copyright notice travels with it.
+`LICENSE` holds the text, `README.md` a short section.
+
+`art/` is carved out and keeps the terms it came with: the models from Hanseatic Galaxy, the planet
+textures from I, Voyager (Apache 2.0) and Solar System Scope (CC BY), all in `art/licences/`. The
+game loads none of them — the surfaces are drawn in the browser — so the MIT part stands on its own.
+
+`index.html` carries a two-line notice pointing at `LICENSE`. In the single file, which travels
+alone, `tools/singlefile.py` replaces that notice with the full licence text, which is what MIT
+asks for.
+
 ## 2026-09-20 – "Leave now" means it now (version 45)
 
 Closes the oldest half-open item from version 20: **Moon → Earth took 43 days**, and there was

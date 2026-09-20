@@ -64,3 +64,8 @@ npm run game-bot       # plays sensibly up to the Carrack and logs the balance
 
 ## Where the art comes from
 The 3D rocket in the game is the "SimpleRocket" model from Hanseatic Galaxy, simplified to 608 triangles. The planet textures come from I, Voyager (Apache 2.0) and Solar System Scope (CC BY). The licence texts are in `art/licences/`.
+
+## Licence
+The game — everything in `index.html`, `js/`, `tools/` and `tests/` — is under the [MIT licence](LICENSE): use it, change it, build on it, sell it, as long as the copyright notice travels with it.
+
+`art/` is not mine to license that way. The models come from [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), the planet textures from I, Voyager (Apache 2.0) and Solar System Scope (CC BY); their terms and the attributions are in `art/licences/`. The game itself loads none of them — the surfaces are drawn in the browser — so the MIT part runs on its own.
