@@ -17,6 +17,8 @@ Die Himmelskörper zeichnet [three.js](https://threejs.org/), als ES-Modul vom C
 
 Reihenfolge der Ebenen: `#cvb` (2D, hinten) – `#glc` (three.js) – `#cv` bzw. `#sys` (2D, vorne).
 
+In der 3D-Ebene liegen die Körper, der Saturnring, die Bahnringe, die Flugspuren und die Rakete — alles mit echter Tiefe, sie verdecken sich also gegenseitig pixelgenau. Im 2D-Canvas bleiben Beschriftungen, Markierungen, Flammen und die Klickziele.
+
 **Keine fremden Texturen.** Die Oberflächen entstehen beim ersten Bedarf im Browser: Kontinente aus denselben handgezeichneten Umrissen wie bisher, Polkappen, die Bänder der Gasriesen und der Saturnring. Das Spiel lädt damit außer three.js selbst keine einzige Datei nach und läuft auch in einem gesperrten iframe.
 
 **Kein Rückfall auf 2D.** Fehlt WebGL, geht der Kontext verloren oder lädt three.js nicht, bleibt das Kartenfeld leer und sagt das. Eine zweite, schlechtere Darstellung wäre irreführend: man sähe etwas und wüsste nicht, dass es nicht die eigentliche Ansicht ist. Aufträge, Routenplaner und Autopilot laufen in diesem Fall weiter, nur die Karte fehlt.

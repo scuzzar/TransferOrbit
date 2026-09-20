@@ -2,6 +2,26 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – Bahnen in 3D, echte Tiefe für die Rakete (Version 37)
+
+Drei Fehler mit derselben Wurzel: Bahnen und Rakete lagen in verschiedenen Ebenen und konnten sich
+deshalb nicht gegenseitig verdecken.
+
+- **Bahnringe und Flugspuren liegen jetzt in der 3D-Ebene.** Vorher wurden sie auf den vorderen
+  2D-Canvas gezeichnet, der über der 3D-Ebene liegt — die Bahn lief also quer über die Rakete.
+  WebGL kann Linien nicht verbreitern (immer 1 px), deshalb sind es schmale Bänder aus Dreiecken:
+  gleiche Breite und Strichelung wie bisher, gerechnet in Bildschirmkoordinaten plus Tiefe, also
+  mit derselben Projektion wie der 2D-Weg. Zwei Durchgänge halten die bisherige Optik: blass ohne
+  Tiefentest (die Rückseite scheint gedämpft durch den Körper), darüber voll mit Tiefentest.
+- **Die Rakete steht auf ihrer echten Tiefe** statt pauschal vor allem. Vorher war sie entweder
+  ganz vorn oder ganz weg, je nachdem, ob ihr Mittelpunkt hinter dem Körper lag; am Rand sprang
+  sie deshalb. Jetzt verdeckt der Körper sie pixelgenau.
+- **Auf der Oberfläche stehend kommt sie vor die ganze Kugel.** Die Tiefe der Oberfläche am
+  Fußpunkt zu nehmen genügt nicht: die Kugel wölbt sich über die 22 px Breite der Rakete hinweg
+  und verdeckte ihre innere Hälfte — nach der Landung steckte sie halb im Planeten.
+- Die Deckkraft beim Verlassen eines Mondorbits (`fade`) wirkt wieder auf die Rakete; sie hing
+  vorher am 2D-Kontext und lief damit an der 3D-Rakete vorbei.
+
 ## 2026-09-20 – Kein Rückfall auf 2D mehr (Version 36)
 
 Die Körperansicht und die Systemansicht gibt es nur noch in 3D. Läuft three.js nicht, bleibt das

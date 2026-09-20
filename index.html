@@ -1478,12 +1478,13 @@ const cargoTo = test => cargoOrders().filter(o=>test(KBY[o.to]));
 
 // ---------- Rakete: Lage folgt der Schubrichtung, dreht sich sichtbar vor dem Brennen ----------
 const HEAD = {};
-// 'gl' = three.js-Modell, 'flach' = der 2D-Handrenderer (Sonnenansicht und blasse Rückseite),
-// 'keine' = nur Flamme und Steuerdüsen, der Körper verdeckt die Rakete ohnehin.
+// 'gl' = three.js-Modell mit echter Tiefe, 'flach' = der 2D-Handrenderer
+// (Sonnenansicht und die blasse Rückseite eines Landeplatzes).
 let rocketMode = 'gl';
 const angNorm = a => ((a+Math.PI)%TAU+TAU)%TAU-Math.PI;
 // velAng: Flugrichtung (Bildschirmwinkel), burn: brennt gerade ('pro'|'retro'), soon: brennt gleich, att: gewünschte Lage ohne Brennen
-function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
+// z: echte Tiefe in Pixeln (0 = Mittelebene des Körpers), alpha: Deckkraft der Rakete
+function drawRocket(g,key,x,y,velAng,burn,soon,att,col,z,alpha){
   const want = s => s==='retro' ? velAng+Math.PI : s==='up' ? att.up : velAng;
   const mode = burn || soon || (att && att.mode) || 'pro';
   const target = mode==='up' ? att.up : want(mode);
@@ -1502,7 +1503,7 @@ function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
     g.fillStyle=gr; g.beginPath(); g.moveTo(-9,-w*0.7); g.quadraticCurveTo(-9.5-L*0.45,-w,-9.5-L,0); g.quadraticCurveTo(-9.5-L*0.45,w,-9,w*0.7); g.closePath(); g.fill();
   }
   g.restore();
-  if(rocketMode==='gl') glRocket(x,y,a,key); else if(rocketMode==='flach') rocketMesh(g,x,y,a,key);
+  if(rocketMode==='gl') glRocket(x,y,z||0,a,key,alpha); else if(rocketMode==='flach') rocketMesh(g,x,y,a,key);
   // Steuerdüsen-Stöße an der Spitze beim Drehen
   if(turning){ g.save(); g.translate(x,y); g.rotate(-a); g.fillStyle='rgba(235,240,255,0.8)'; const sy=turning>0?6.5:-6.5; for(let i=0;i<2;i++){ g.beginPath(); g.arc(5-i*2.5, sy*(1+i*0.4)+(Math.random()-0.5), 1.2+Math.random()*0.8,0,TAU); g.fill(); } g.restore(); }
 }
@@ -1567,7 +1568,7 @@ const cssv = () => { const css=getComputedStyle(document.documentElement); retur
 // Keine fremden Texturen: die Oberflächen entstehen im Browser aus den Daten, die das Spiel
 // ohnehin hat — Kontinente von Hand, Polkappen, Bänder der Gasriesen, Saturnring. Damit lädt
 // die 3D-Ebene kein einziges Bild und läuft auch im gesperrten iframe ohne Herkunftsprobleme.
-const GL = {on:false, state:'laden', why:'', T:null, r:null, mat:{}, mesh:{}, ring:null, rocket:null};
+const GL = {on:false, state:'laden', why:'', T:null, r:null, mat:{}, mesh:{}, path:{}, ring:null, rocket:null};
 
 function glOff(why){
   if(GL.state==='aus') return;
@@ -1705,8 +1706,9 @@ function glInit(T){
   // die Blickmitte je Körper kommt dann aus einer Drehung um Y.
   GL.sphere=new T.SphereGeometry(1, 64, 32, -Math.PI/2);
   GL.plane=new T.PlaneGeometry(2,2);
-  GL.rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide}));
+  GL.rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide, transparent:true}));
   GL.rocket.scale.setScalar(RKT_LEN/1.25);
+  GL.rocket.renderOrder=3; // nach den Bahnbändern, damit die blasse Rückseite nicht darüber liegt
   GL.rocket.visible=false; GL.flat.add(GL.rocket);
   GL.qa=new T.Quaternion(); GL.qb=new T.Quaternion();
   GL.AX=new T.Vector3(1,0,0); GL.AY=new T.Vector3(0,1,0); GL.AZ=new T.Vector3(0,0,1);
@@ -1748,6 +1750,7 @@ function glBegin(front,W,H,cx,cy,scale,el){
   GL.root.scale.setScalar(scale);
   GL.flat.position.set(-W/2, H/2, 0);
   for(const k in GL.mesh) GL.mesh[k].visible=false;
+  for(const k in GL.path){ GL.path[k].ghost.visible=false; GL.path[k].solid.visible=false; }
   if(GL.ring) GL.ring.visible=false;
   GL.rocket.visible=false;
   return true;
@@ -1758,11 +1761,59 @@ function glPut(key,p,r){
   m.position.set(p?p[0]:0, p?p[1]:0, p?p[2]:0);
   return m;
 }
-// Rakete in Bildschirmkoordinaten: x,y wie im 2D-Canvas, a der Bildschirmwinkel der Nase.
-// z=900 hält sie vor allen Körpern, genau wie der 2D-Weg sie zuletzt zeichnet.
-function glRocket(x,y,a,key){
+// Bahnen und Flugspuren als schmale Bänder aus Dreiecken. WebGL kann Linien nicht verbreitern
+// (immer 1 px), ein Band dagegen hat genau die Breite und Strichelung des bisherigen 2D-Wegs.
+// Gerechnet wird in Bildschirmkoordinaten plus Tiefe, also mit derselben Projektion wie in 2D.
+function glPathGeo(pts,w,dash){
+  const out=[], hw=w/2;
+  let on=true, rem=dash?dash[0]:Infinity;
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i], b=pts[i+1];
+    const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy);
+    if(!(L>1e-6)) continue;
+    const ux=dx/L, uy=dy/L, nx=-uy*hw, ny=ux*hw;
+    let t=0;
+    while(t<L-1e-9){
+      const step=Math.min(L-t, rem);
+      if(on){
+        const s0=t/L, s1=(t+step)/L;
+        const ax=a.x+dx*s0, ay=a.y+dy*s0, az=a.z+(b.z-a.z)*s0;
+        const bx=a.x+dx*s1, by=a.y+dy*s1, bz=a.z+(b.z-a.z)*s1;
+        out.push(ax-nx,-(ay-ny),az,  ax+nx,-(ay+ny),az,  bx+nx,-(by+ny),bz,
+                 ax-nx,-(ay-ny),az,  bx+nx,-(by+ny),bz,  bx-nx,-(by-ny),bz);
+      }
+      t+=step; rem-=step;
+      if(dash && rem<=1e-9){ on=!on; rem=on?dash[0]:dash[1]; }
+    }
+  }
+  return out;
+}
+// Zwei Durchgänge: blass ohne Tiefentest (die Rückseite scheint gedämpft durch den Körper,
+// wie bisher), darüber voll mit Tiefentest. So verdeckt die Rakete die Bahn und umgekehrt.
+function glPath(key,pts,style){
+  const T=GL.T, tri=glPathGeo(pts, style.w||1, style.dash||null), n=tri.length/3;
+  let o=GL.path[key];
+  if(!o){
+    const gm=new T.BufferGeometry();
+    const mk=(test,order)=>{ const m=new T.Mesh(gm,new T.MeshBasicMaterial({transparent:true,depthTest:test,depthWrite:test,side:T.DoubleSide}));
+      m.renderOrder=order; m.frustumCulled=false; GL.flat.add(m); return m; };
+    o=GL.path[key]={gm, ghost:mk(false,1), solid:mk(true,2), cap:0};
+  }
+  if(o.cap<n){ o.cap=Math.max(n,512); o.gm.setAttribute('position', new T.BufferAttribute(new Float32Array(o.cap*3),3)); }
+  const at=o.gm.getAttribute('position');
+  at.array.set(tri); at.needsUpdate=true; o.gm.setDrawRange(0,n);
+  const a=style.a==null?1:style.a;
+  o.ghost.material.color.set(style.col); o.ghost.material.opacity=a*(style.ghost==null?0.35:style.ghost);
+  o.solid.material.color.set(style.col); o.solid.material.opacity=a;
+  o.ghost.visible=o.solid.visible=n>0;
+}
+
+// Rakete in Bildschirmkoordinaten: x,y wie im 2D-Canvas, z die echte Tiefe in Pixeln, damit der
+// Körper sie stückweise verdeckt. a ist der Bildschirmwinkel der Nase.
+function glRocket(x,y,z,a,key,alpha){
   const m=GL.rocket, r=rollOf(key);
-  m.visible=true; m.position.set(x,-y,900);
+  m.visible=true; m.position.set(x,-y,z);
+  m.material.opacity=alpha==null?1:alpha;
   GL.qa.setFromAxisAngle(GL.AY, r);
   GL.qb.setFromAxisAngle(GL.AX, RKT_TILT); GL.qa.premultiply(GL.qb);
   GL.qb.setFromAxisAngle(GL.AZ, a-Math.PI/2); GL.qa.premultiply(GL.qb);
@@ -2001,12 +2052,12 @@ function drawSys(p){
   const [k,l]=here(), mine=homePlanet()===p && !S.transit, st=sysState(p);
   const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back=[], front=[];
-  const poly=(pts,style)=>{ const q=pts.map(P);
-    const seg=hid=>{ const w=hid?gb:g; return ()=>{ w.strokeStyle=style.col; w.lineWidth=style.w||1; w.setLineDash(style.dash||[]); w.globalAlpha=(style.a||1)*(hid?0.35:1); w.beginPath(); let on=false;
-      q.forEach(c=>{ if((c.z<0)===hid){ on?w.lineTo(c.x,c.y):w.moveTo(c.x,c.y); on=true; } else on=false; }); w.stroke(); w.setLineDash([]); w.globalAlpha=1; }; };
-    back.push(seg(true)); front.push(seg(false)); };
+  // Bahnen in der 3D-Ebene, in Pixeln samt Tiefe: Planet und Rakete verdecken sie richtig
+  const poly=(key,pts,style)=>glPath(key,pts.map(P),style);
   const circle=r=>{ const a=[]; for(let j=0;j<=120;j++) a.push(ringPt(r,j/120*TAU)); return a; };
-  poly(circle(rH),{col:v('--line'),w:1.5,dash:[6,5]}); ms.forEach(m=>poly(circle(rOf(m)),{col:v('--orbit'),w:1})); poly(circle(rLow),{col:v('--line'),w:1.5});
+  poly('hoch',circle(rH),{col:v('--line'),w:1.5,dash:[6,5]});
+  ms.forEach(m=>poly('mond:'+m,circle(rOf(m)),{col:v('--orbit'),w:1}));
+  poly('niedrig',circle(rLow),{col:v('--line'),w:1.5});
 
   // Schiffsposition für einen Zustand
   const shipW=(node)=>{ const [b,ll]=node.split('.');
@@ -2034,7 +2085,7 @@ function drawSys(p){
   let ship=null;
   if(mine && S.node){
     if(path){ const t=moveProg(), c=path(t), a=P(path(Math.max(0,t-0.01)).q), b=P(path(Math.min(1,t+0.01)).q);
-      const tr=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly(tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6});
+      const tr=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly('spur',tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
       ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn, glow:c.glow, soon:path(Math.min(1,t+0.06)).burn}; }
     else { const w=shipW(S.move?S.move.from.node:S.node); if(w){ const nd=S.node.split('.')[1]; let dir=[1,0];
         if(!S.move && nd!=='surf'){ const [b]=S.node.split('.'); const base=M[b]?moonW(b,S.day):[0,0,0], rr=M[b]?rMo:(nd==='capt'?rH:rLow), uu=M[b]?st.moonU:(nd==='capt'?st.capU:st.lowU);
@@ -2044,9 +2095,10 @@ function drawSys(p){
   }
   if(ship){ const s=ship, hid=s.pt.hidden, c=hid?gb:g; (hid?back:front).push(()=>{ const dl=Math.hypot(...s.dir)||1, ux=s.dir[0]/dl, uy=s.dir[1]/dl;
       if(s.glow){ const gr=c.createRadialGradient(s.pt.x,s.pt.y,0,s.pt.x,s.pt.y,12); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(s.pt.x,s.pt.y,12,0,TAU); c.fill(); }
-      const va=Math.atan2(-uy,ux); rocketMode = hid ? 'keine' : 'gl'; // hinter dem Planeten nur Flamme, der Rest ist verdeckt
-      if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent')); else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent'));
-      rocketMode='gl'; }); }
+      // echte Tiefe: der Planet verdeckt die Rakete selbst. Auf einem Mond stehend muss sie davor liegen.
+      const va=Math.atan2(-uy,ux), z=s.pt.z+(s.up?RKT_LEN*0.6:0);
+      if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent'),z);
+      else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent'),z); }); }
 
   // Monde als kleine Kugeln, hinten oder vorne
   const drawMoon=(m,w)=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
@@ -2095,25 +2147,26 @@ function drawBody(b){
   const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back=[], front=[]; // Zeichenaufträge hinter bzw. vor dem Körper
   const P=p=>cam.proj(p);
+  // Eine Rakete, die auf der sichtbaren Seite steht, darf die Kugel nirgends anschneiden. Sie kommt
+  // deshalb vor die ganze Kugel. Die Tiefe der Oberfläche am Fußpunkt zu nehmen genügt nicht: die
+  // Kugel wölbt sich über die Breite der Rakete hinweg und verdeckt dann ihre innere Hälfte.
+  const zPad = R + RKT_LEN;
   // Bahnring als Polylinie, getrennt in verdeckte und sichtbare Stücke
-  const ring=(fn,style)=>{ const pts=[]; for(let j=0;j<=96;j++) pts.push(P(fn(j/96*TAU)));
-    const seg=(hid)=>{ const c=hid?gb:g; return ()=>{ c.strokeStyle=style.col; c.lineWidth=style.w; c.setLineDash(style.dash||[]); c.globalAlpha=hid?0.35:1; c.beginPath(); let on=false;
-      pts.forEach(q=>{ const h=q.z<0; if(h===hid){ on?c.lineTo(q.x,q.y):c.moveTo(q.x,q.y); on=true; } else on=false; }); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }; };
-    back.push(seg(true)); front.push(seg(false)); };
+  // Bahnring in der 3D-Ebene: Tiefe in Pixeln, damit Körper und Rakete ihn richtig verdecken
+  const ring=(key,fn,style)=>{ const pts=[]; for(let j=0;j<=96;j++){ const q=P(fn(j/96*TAU)); pts.push({x:q.x,y:q.y,z:q.z*R}); }
+    glPath(key,pts,style); };
   // Hoher Orbit nur bei Planeten ohne Monde (sonst in der Systemansicht)
   const showHigh = B[b] && !moonsOf(b).length;
-  if(showHigh) ring(u=>orbitPos(b,defaultOrb(b),u,R_HIGH),{col:v('--line'),w:1.2,dash:[6,6]});
+  if(showHigh) ring('hoch',u=>orbitPos(b,defaultOrb(b),u,R_HIGH),{col:v('--line'),w:1.2,dash:[6,6]});
   const orb=shipOrb(b);
-  ring(u=>orbitPos(b,orb,u,R_ORB),{col:v('--line'),w:1.5,dash:[6,5]});
+  ring('niedrig',u=>orbitPos(b,orb,u,R_ORB),{col:v('--line'),w:1.5,dash:[6,5]});
 
   // Flugbahn und Schiff
   let shipAt=null, shipDir=null, burn=null, glow=false, fade=1, soon=null, att=null;
   if(mine && S.move && S.move.path && S.move.path.b===b){
     const pa=S.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
-    const trail=[]; for(let j=0;j<=80;j++) trail.push(P(pa.at(j/80).p));
-    const tseg=(hid)=>{ const c=hid?gb:g; return ()=>{ c.strokeStyle=v('--accent'); c.lineWidth=1.4; c.setLineDash([3,4]); c.globalAlpha=hid?0.25:0.6; c.beginPath(); let on=false;
-      trail.forEach(p=>{ if(p.hidden===hid){ on?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y); on=true; } else on=false; }); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }; };
-    back.push(tseg(true)); front.push(tseg(false));
+    const trail=[]; for(let j=0;j<=80;j++){ const q=P(pa.at(j/80).p); trail.push({x:q.x,y:q.y,z:q.z*R}); }
+    glPath('spur',trail,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
     shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
     soon=pa.at(Math.min(1,t+0.06)).burn; att=q.att?{mode:q.att}:null;
   } else if(mine && l==='orbit'){
@@ -2123,15 +2176,17 @@ function drawBody(b){
   if(shipAt){
     const sp=P(shipAt);
     // nah an der Oberfläche steht die Rakete auf dem Platz (wie im gelandeten Zustand), nicht mitten in der Markierung
-    { const rr=Math.hypot(...shipAt), k=Math.max(0,Math.min(1,1-(rr-1)/0.07)); if(k>0){ const dx=sp.x-cx, dy=sp.y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1; sp.x+=ux*17*k; sp.y+=uy*17*k; } }
+    let shipZ=sp.z*R;
+    { const rr=Math.hypot(...shipAt), k=Math.max(0,Math.min(1,1-(rr-1)/0.07)); if(k>0){ const dx=sp.x-cx, dy=sp.y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
+      sp.x+=ux*17*k; sp.y+=uy*17*k; shipZ=shipZ+k*(zPad-shipZ); } } // beim Aufsetzen weich nach vorn
     // Verdeckt zeichnet nur die hintere Ebene (und three.js lässt die Rakete weg), sonst vorne.
-    const drawShip=(c,hid)=>{ const ang=Math.atan2(-shipDir[1],shipDir[0]);
+    const drawShip=(c)=>{ const ang=Math.atan2(-shipDir[1],shipDir[0]);
       c.globalAlpha=fade;
       if(glow){ const gr=c.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(sp.x,sp.y,14,0,TAU); c.fill(); }
-      rocketMode = hid ? 'keine' : 'gl';
-      drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent'));
-      rocketMode='gl'; c.globalAlpha=1; };
-    if(sp.hidden) back.push(()=>drawShip(gb,true)); else shipLast=()=>drawShip(g,false);
+      drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent'),shipZ,fade);
+      c.globalAlpha=1; };
+    // Die Flamme bleibt 2D: verdeckt liegt sie auf der hinteren Ebene, sonst vorne.
+    if(sp.hidden) back.push(()=>drawShip(gb)); else shipLast=()=>drawShip(g);
   }
 
   // --- Hinteres, dann Körper, dann Vorderes
@@ -2186,7 +2241,7 @@ function drawBody(b){
     if(mine && !S.move && l==='surf' && S.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
       rocketMode = hid ? 'flach' : 'gl'; // auf der Rückseite blass, aber sichtbar, wie die Marke selbst
-      drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent'));
+      drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent'),zPad);
       rocketMode='gl'; g.globalAlpha=1; }
   });
   if(shipLast) shipLast();
