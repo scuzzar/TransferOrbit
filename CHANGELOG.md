@@ -2,6 +2,25 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – Kein Rückfall auf 2D mehr (Version 36)
+
+Die Körperansicht und die Systemansicht gibt es nur noch in 3D. Läuft three.js nicht, bleibt das
+Kartenfeld leer und nennt den Grund, statt heimlich eine zweite, schlechtere Darstellung zu zeigen.
+
+- **Entfernt:** `shadeSphere`, die 2D-Kugel mit Grundfarbe, die Kontinente als Polygone auf der
+  Kugel (`surfPoly`), die gemalten Polkappen, der Terminator als Halbellipse, die Randverdunklung,
+  der 2D-Saturnring und die 2D-Bänder der Gasriesen. Die Daten dahinter (`LAND`, `WATER`, `DESERT`,
+  `CAPS`) bleiben, denn aus ihnen entstehen jetzt die Karten für three.js.
+- **Statt des Rückfalls ein Hinweis** auf dem Kartenfeld: „Diese Karte braucht WebGL", dazu der
+  Grund und der Hinweis, dass Aufträge, Routenplaner und Autopilot weiterlaufen. Während three.js
+  lädt, steht dort „3D-Ansicht wird geladen …". Kommt das Modul gar nicht an, schaltet eine
+  Zeitschranke nach 10 Sekunden auf die Fehlermeldung um, damit es nicht ewig beim Laden bleibt.
+- Der Schalter `use3D` ist einem klaren Raketenmodus gewichen: `gl` für das three.js-Modell,
+  `flach` für den 2D-Handrenderer (Sonnenansicht und die blasse Rückseite eines Landeplatzes),
+  `keine` für die Rakete hinter dem Körper, wo nur Flamme und Steuerdüsen zählen.
+- Flach bleiben weiterhin die Draufsicht aufs Sonnensystem und die Rakete darin; `rocketMesh` wird
+  dafür gebraucht und bleibt.
+
 ## 2026-09-20 – Oberflächen ohne fremde Texturen (Version 35)
 
 Version 34 lud Planetentexturen aus `art/texturen/`. Die bleiben liegen, werden aber nicht mehr

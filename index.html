@@ -1478,7 +1478,9 @@ const cargoTo = test => cargoOrders().filter(o=>test(KBY[o.to]));
 
 // ---------- Rakete: Lage folgt der Schubrichtung, dreht sich sichtbar vor dem Brennen ----------
 const HEAD = {};
-let use3D = false; // in der Körper- und Systemansicht zeichnet three.js die Rakete, in der Sonnenansicht nicht
+// 'gl' = three.js-Modell, 'flach' = der 2D-Handrenderer (Sonnenansicht und blasse Rückseite),
+// 'keine' = nur Flamme und Steuerdüsen, der Körper verdeckt die Rakete ohnehin.
+let rocketMode = 'gl';
 const angNorm = a => ((a+Math.PI)%TAU+TAU)%TAU-Math.PI;
 // velAng: Flugrichtung (Bildschirmwinkel), burn: brennt gerade ('pro'|'retro'), soon: brennt gleich, att: gewünschte Lage ohne Brennen
 function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
@@ -1500,7 +1502,7 @@ function drawRocket(g,key,x,y,velAng,burn,soon,att,col){
     g.fillStyle=gr; g.beginPath(); g.moveTo(-9,-w*0.7); g.quadraticCurveTo(-9.5-L*0.45,-w,-9.5-L,0); g.quadraticCurveTo(-9.5-L*0.45,w,-9,w*0.7); g.closePath(); g.fill();
   }
   g.restore();
-  if(use3D && GL.on) glRocket(x,y,a,key); else rocketMesh(g,x,y,a,key);
+  if(rocketMode==='gl') glRocket(x,y,a,key); else if(rocketMode==='flach') rocketMesh(g,x,y,a,key);
   // Steuerdüsen-Stöße an der Spitze beim Drehen
   if(turning){ g.save(); g.translate(x,y); g.rotate(-a); g.fillStyle='rgba(235,240,255,0.8)'; const sy=turning>0?6.5:-6.5; for(let i=0;i<2;i++){ g.beginPath(); g.arc(5-i*2.5, sy*(1+i*0.4)+(Math.random()-0.5), 1.2+Math.random()*0.8,0,TAU); g.fill(); } g.restore(); }
 }
@@ -1551,7 +1553,7 @@ function prep(canvas,g,W,H){ const dpr=window.devicePixelRatio||1;
 // front ist der vordere Canvas (#cv oder #sys); die Bühne zentriert ihn, also die Lage übernehmen.
 function layFor(layer,front,W,H){ layer.style.left=front.offsetLeft+'px'; layer.style.top=front.offsetTop+'px';
   layer.style.width=W+'px'; layer.style.height=H+'px'; }
-function prepBack(front,W,H){ if(!GL.on) return; layFor(cvb,front,W,H); prep(cvb,bctx,W,H); }
+function prepBack(front,W,H){ layFor(cvb,front,W,H); prep(cvb,bctx,W,H); }
 const cssv = () => { const css=getComputedStyle(document.documentElement); return n=>css.getPropertyValue(n).trim(); };
 
 // ---------- 3D-Ebene mit three.js ----------
@@ -1560,18 +1562,32 @@ const cssv = () => { const css=getComputedStyle(document.documentElement); retur
 // Der Stapel ist #cvb (2D hinten) – #glc (three.js) – #cv bzw. #sys (2D vorne).
 // Die Kamera ist orthografisch und rechnet in Bildschirmpixeln, mit denselben Werten wie makeCam
 // bzw. drawSys. Damit liegen 2D und 3D genau übereinander.
-// Ohne WebGL oder ohne Texturen bleibt GL.on falsch und alles läuft wie bisher rein in 2D.
+// Ohne three.js bleibt die Karte leer. Eine zweite, schlechtere Darstellung daneben zu pflegen
+// wäre irreführend: man sähe etwas und wüsste nicht, dass es nicht die eigentliche Ansicht ist.
 // Keine fremden Texturen: die Oberflächen entstehen im Browser aus den Daten, die das Spiel
 // ohnehin hat — Kontinente von Hand, Polkappen, Bänder der Gasriesen, Saturnring. Damit lädt
 // die 3D-Ebene kein einziges Bild und läuft auch im gesperrten iframe ohne Herkunftsprobleme.
-const GL = {on:false, T:null, r:null, mat:{}, mesh:{}, ring:null, rocket:null, warned:false};
+const GL = {on:false, state:'laden', why:'', T:null, r:null, mat:{}, mesh:{}, ring:null, rocket:null};
 
 function glOff(why){
-  if(!GL.on && !GL.T) return;
-  GL.on=false; GL.T=null;
-  if(!GL.warned){ GL.warned=true; console.warn('3D-Ansicht aus, es bleibt bei 2D:', why); }
+  if(GL.state==='aus') return;
+  GL.state='aus'; GL.on=false; GL.T=null; GL.why=why||'';
+  console.warn('3D-Ansicht aus:', why);
   glc.hidden=true; cvb.hidden=true;
   try{ draw(); }catch(e){}
+}
+// Hinweis auf dem sonst leeren Kartenfeld, solange three.js lädt oder wenn es ausfällt.
+function glNote(canvas,g,W,H){
+  prep(canvas,g,W,H); glHide();
+  const v=cssv(), laden=GL.state==='laden';
+  g.textAlign='center'; g.textBaseline='middle'; g.fillStyle=v('--muted');
+  g.font=`600 15px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
+  g.fillText(laden?'3D-Ansicht wird geladen …':'Diese Karte braucht WebGL.', W/2, H/2-8);
+  if(!laden){
+    g.font=`400 12.5px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
+    g.fillText(GL.why||'Der Browser stellt keine 3D-Grafik bereit.', W/2, H/2+14);
+    g.fillText('Aufträge, Routenplaner und Autopilot funktionieren weiter.', W/2, H/2+32);
+  }
 }
 
 // Rakete: dieselben Daten wie der 2D-Handrenderer, nur als Dreiecksnetz mit Vertexfarben.
@@ -1694,7 +1710,7 @@ function glInit(T){
   GL.rocket.visible=false; GL.flat.add(GL.rocket);
   GL.qa=new T.Quaternion(); GL.qb=new T.Quaternion();
   GL.AX=new T.Vector3(1,0,0); GL.AY=new T.Vector3(0,1,0); GL.AZ=new T.Vector3(0,0,1);
-  GL.on=true;
+  GL.on=true; GL.state='an';
   draw();
 }
 
@@ -1782,7 +1798,7 @@ function transferConic(r1,r2,dth){
 }
 function drawSol(){
   const [W]=fitCanvas(cv,1); if(W<60) return; prep(cv,ctx,W,W);
-  use3D=false; glHide(); // die Draufsicht aufs Sonnensystem bleibt flach
+  rocketMode='flach'; glHide(); // die Draufsicht aufs Sonnensystem bleibt flach
   const v=cssv(), c=W/2, maxR=W/2-20;
   const rOf=a=>16+(maxR-16)*Math.sqrt(a/9.537);
   const pos=(k,day)=>{const th=theta(k,day), r=rOf(B[k].a); return [c+r*Math.cos(th), c-r*Math.sin(th)];};
@@ -1969,21 +1985,14 @@ function sysPlan(mv){
   if(fb===p && fl==='capt' && tl==='orbit'){ const aero=!!mv.aero, th=aero?4*TAU+Math.PI:Math.PI; return {kind:'lower', u0:st.capU, aero, th, final:{lowU:st.capU+th}}; }
   return null;
 }
-function shadeSphere(g,x,y,R,col,opt={}){
-  g.fillStyle=col; g.beginPath(); g.arc(x,y,R,0,TAU); g.fill();
-  if(opt.bands){ g.save(); g.beginPath(); g.arc(x,y,R,0,TAU); g.clip(); opt.bands(g); g.restore(); }
-  const lz=LIGHT[2], al=Math.atan2(-LIGHT[1],LIGHT[0]);
-  g.save(); g.translate(x,y); g.rotate(al); g.beginPath(); g.ellipse(0,0,Math.abs(lz)*R,R,0,Math.PI/2,Math.PI*1.5); g.arc(0,0,R,-Math.PI/2,Math.PI/2,true); g.closePath();
-  g.fillStyle='rgba(6,9,22,0.55)'; g.fill(); g.restore();
-  const gr=g.createRadialGradient(x-R*0.35,y-R*0.3,R*0.1,x,y,R*1.02); gr.addColorStop(0,'rgba(255,255,255,0.12)'); gr.addColorStop(0.7,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,0.4)');
-  g.fillStyle=gr; g.beginPath(); g.arc(x,y,R,0,TAU); g.fill();
-}
 function drawSys(p){
-  const ms=moonsOf(p), [W,H]=fitCanvas(sc,1.6); if(W<60||H<30) return; prep(sc,sctx,W,H);
+  const ms=moonsOf(p), [W,H]=fitCanvas(sc,1.6); if(W<60||H<30) return;
+  if(!GL.on) return glNote(sc,sctx,W,H);
+  prep(sc,sctx,W,H);
   const g=sctx, v=cssv(), cx=W/2, cy=H/2+6, ce=Math.cos(SYS_EL), se=Math.sin(SYS_EL);
   // three.js zeichnet Planet, Monde und den Saturnring; hier wird in Pixeln gerechnet (Maßstab 1).
-  use3D=glBegin(sc,W,H,cx,cy,1,SYS_EL); prepBack(sc,W,H);
-  const gb = use3D ? bctx : g;
+  glBegin(sc,W,H,cx,cy,1,SYS_EL); prepBack(sc,W,H);
+  const gb = bctx; // verdeckte Teile gehören hinter die Kugel
   const rH=Math.min(W/2-34, (H/2-26)/se), rMax=rH*0.82, Rp=Math.max(13,Math.min(22,W*0.028)), rLow=Rp+11, rMin=rLow+22, rMo=10;
   const lo=Math.log(Math.min(...ms.map(m=>M[m].rv))), hi=Math.log(Math.max(...ms.map(m=>M[m].rv)));
   const rOf=m=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(M[m].rv)-lo)/(hi-lo);
@@ -2035,13 +2044,13 @@ function drawSys(p){
   }
   if(ship){ const s=ship, hid=s.pt.hidden, c=hid?gb:g; (hid?back:front).push(()=>{ const dl=Math.hypot(...s.dir)||1, ux=s.dir[0]/dl, uy=s.dir[1]/dl;
       if(s.glow){ const gr=c.createRadialGradient(s.pt.x,s.pt.y,0,s.pt.x,s.pt.y,12); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(s.pt.x,s.pt.y,12,0,TAU); c.fill(); }
-      const va=Math.atan2(-uy,ux), keep=use3D; if(hid) use3D=false; // hinter dem Planeten bleibt die Rakete flach und verdeckt
+      const va=Math.atan2(-uy,ux); rocketMode = hid ? 'keine' : 'gl'; // hinter dem Planeten nur Flamme, der Rest ist verdeckt
       if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent')); else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent'));
-      use3D=keep; }); }
+      rocketMode='gl'; }); }
 
   // Monde als kleine Kugeln, hinten oder vorne
   const drawMoon=(m,w)=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
-    if(use3D) glPut(m, moonW(m,S.day), 5.5); else shadeSphere(w,x,y,5.5,bodyColor(m));
+    glPut(m, moonW(m,S.day), 5.5);
     if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
     if(cargoTo(kk=>bodyOf(kk)===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
     if(sel){ w.strokeStyle=v('--accent'); w.lineWidth=2; w.beginPath(); w.arc(x,y,15,0,TAU); w.stroke(); }
@@ -2050,20 +2059,10 @@ function drawSys(p){
   ms.forEach(m=>{ const c=P(moonW(m,S.day)); const hid=c.z<0; (hid?back:front).push(()=>drawMoon(m,hid?gb:g)); });
   // Reihenfolge: hinten, Ringe hinten (Saturn), Planet, vorne
   back.forEach(f=>f());
-  if(use3D){
-    glPut(p,null,Rp);
-    // Der Ring liegt in der Äquatorebene. Die Textur reicht bis an den Bildrand, deshalb ist die
-    // halbe Kantenlänge der äußere Ringradius; innen bleibt sie durchsichtig.
-    if(p==='saturn'){ const rg=glSaturnRing(); rg.visible=true; rg.scale.set(Rp*2.24,Rp*2.24,1); }
-  } else {
-    const saturnRing=(frontOnly)=>{ if(p!=='saturn') return; g.save(); if(frontOnly){ g.beginPath(); g.rect(0,cy,W,H); g.clip(); }
-      g.fillStyle='rgba(222,205,160,0.45)'; g.beginPath(); g.ellipse(cx,cy,Rp*2.2,Rp*2.2*se,0,0,TAU); g.ellipse(cx,cy,Rp*1.35,Rp*1.35*se,0,0,TAU,true); g.fill('evenodd'); g.restore(); };
-    saturnRing(false);
-    const bands = p==='jupiter'||p==='saturn' ? (gg)=>{ [-0.45,-0.2,0.15,0.4].forEach((f,i)=>{ const y=cy-Rp*f*ce; gg.strokeStyle=i%2?'rgba(120,80,50,0.35)':'rgba(255,240,220,0.25)'; gg.lineWidth=Rp*0.16;
-        gg.beginPath(); gg.ellipse(cx,y+Rp*0.04,Rp*Math.sqrt(1-f*f),Rp*Math.sqrt(1-f*f)*se,0,0,Math.PI); gg.stroke(); }); } : null;
-    shadeSphere(g,cx,cy,Rp,bodyColor(p),{bands});
-    saturnRing(true);
-  }
+  glPut(p,null,Rp);
+  // Der Ring liegt in der Äquatorebene. Die Zeichnung reicht bis an den Bildrand, deshalb ist die
+  // halbe Kantenlänge der äußere Ringradius; innen bleibt sie durchsichtig.
+  if(p==='saturn'){ const rg=glSaturnRing(); rg.visible=true; rg.scale.set(Rp*2.24,Rp*2.24,1); }
   const pp={type:'body',body:p};
   if(cargoTo(kk=>bodyOf(kk)===p && kk.node!==p+'.capt' && kk.node!==p+'.orbit').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
   if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }
@@ -2078,18 +2077,20 @@ function drawSys(p){
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
   nodeMark(ringPt(rLow,3.7),p+'.orbit','Niedriger Orbit','right');
   nodeMark(ringPt(rH,-0.75),p+'.capt','Hoher Orbit','left');
-  if(use3D) glEnd();
+  glEnd();
 }
 
 // Polkappen je Körper: [Breite, Deckkraft]
 const CAPS = {earth:[[-68,0.9],[80,0.85]], mars:[[80,0.85]], mercury:[], ceres:[], europa:[], enceladus:[[-70,0.5]]};
 function drawBody(b){
-  const [W]=fitCanvas(cv,1); if(W<60) return; prep(cv,ctx,W,W);
-  const g=ctx, v=cssv(), cx=W/2, cy=W/2+4, R=W*0.3, cam=makeCam(cx,cy,R,bodyView(b).el), col=bodyColor(b);
+  const [W]=fitCanvas(cv,1); if(W<60) return;
+  if(!GL.on) return glNote(cv,ctx,W,W);
+  prep(cv,ctx,W,W);
+  const g=ctx, v=cssv(), cx=W/2, cy=W/2+4, R=W*0.3, cam=makeCam(cx,cy,R,bodyView(b).el);
   // three.js übernimmt die Kugel; dieselbe Kamera, R Pixel je Körperradius
-  use3D=glBegin(cv,W,W,cx,cy,R,bodyView(b).el); prepBack(cv,W,W);
-  const gb = use3D ? bctx : g; // verdeckte Teile gehören hinter die Kugel, sonst auf denselben Canvas
-  if(use3D) glPut(b,null,1);
+  glBegin(cv,W,W,cx,cy,R,bodyView(b).el); prepBack(cv,W,W);
+  const gb = bctx; // verdeckte Teile gehören hinter die Kugel
+  glPut(b,null,1);
   const [k,l]=here(), mine=k===b && !S.transit;
   const font=(w,sz)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back=[], front=[]; // Zeichenaufträge hinter bzw. vor dem Körper
@@ -2127,39 +2128,23 @@ function drawBody(b){
     const drawShip=(c,hid)=>{ const ang=Math.atan2(-shipDir[1],shipDir[0]);
       c.globalAlpha=fade;
       if(glow){ const gr=c.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(sp.x,sp.y,14,0,TAU); c.fill(); }
-      const keep=use3D; if(hid) use3D=false;
+      rocketMode = hid ? 'keine' : 'gl';
       drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent'));
-      use3D=keep; c.globalAlpha=1; };
+      rocketMode='gl'; c.globalAlpha=1; };
     if(sp.hidden) back.push(()=>drawShip(gb,true)); else shipLast=()=>drawShip(g,false);
   }
 
   // --- Hinteres, dann Körper, dann Vorderes
   back.forEach(f=>f());
-  // Körper: Grundfarbe, Oberfläche, Gitter, Nachtseite, Randverdunklung.
-  // Mit three.js kommen Kugel, Textur und Tag-Nacht-Grenze aus der 3D-Ebene; das Gitter bleibt 2D.
-  if(!use3D){ g.fillStyle=col; g.beginPath(); g.arc(cx,cy,R,0,TAU); g.fill(); }
+  // Kugel, Oberfläche, Tag-Nacht-Grenze und Randverdunklung kommen aus der 3D-Ebene.
+  // Hier bleibt nur das Gitter, auf die Kugel zugeschnitten.
   g.save(); g.beginPath(); g.arc(cx,cy,R,0,TAU); g.clip();
-  const surfPoly=(pts,fill)=>{ const q=pts.map(([lon,lat])=>{ const p=cam.proj(bvec(b,lat,lon)); if(p.z>=0) return [p.x,p.y,true];
-      const dx=p.x-cx, dy=p.y-cy, n=Math.hypot(dx,dy)||1; return [cx+dx/n*R, cy+dy/n*R, false]; });
-    if(!q.some(p=>p[2])) return; g.beginPath(); q.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath(); g.fillStyle=fill; g.fill(); };
-  if(b==='earth' && !use3D){
-    LAND.forEach((pts,i)=>surfPoly(pts, EARTH_LAND(i)));
-    DESERT.forEach(([pts,fill])=>surfPoly(pts,fill));
-    WATER.forEach(pts=>surfPoly(pts,col));
-  }
-  if(!use3D) (CAPS[b]||[]).forEach(([lat,a])=>{ const pts=[]; for(let lon=-180;lon<180;lon+=6) pts.push([lon,lat]); surfPoly(pts,`rgba(240,242,246,${a})`); });
   // Gitter: Breitenkreise und Meridiane (nur Vorderseite)
   const line=(fn,n,style)=>{ g.strokeStyle=style.col; g.lineWidth=style.w||1; g.setLineDash(style.dash||[]); g.beginPath(); let on=false;
     for(let j=0;j<=n;j++){ const p=cam.proj(fn(j/n)); if(p.z>=0){ on?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y); on=true; } else on=false; } g.stroke(); g.setLineDash([]); };
   [-60,-30,30,60].forEach(lat=>line(s=>bvec(b,lat,s*360),90,{col:'rgba(255,240,230,0.22)'}));
   line(s=>bvec(b,0,s*360),120,{col:'rgba(255,240,230,0.6)',w:1.2,dash:[5,4]});
   for(let lon=-180;lon<180;lon+=30) line(s=>bvec(b,-90+180*s,lon),40,{col:'rgba(255,240,230,0.12)'});
-  // Nachtseite: Terminator als Halbellipse
-  if(!use3D){ const lz=LIGHT[2], al=Math.atan2(-LIGHT[1],LIGHT[0]);
-    g.save(); g.translate(cx,cy); g.rotate(al); g.beginPath(); g.ellipse(0,0,Math.abs(lz)*R,R,0,Math.PI/2,Math.PI*1.5); g.arc(0,0,R,-Math.PI/2,Math.PI/2,true); g.closePath();
-    g.fillStyle='rgba(6,9,22,0.55)'; g.fill(); g.restore();
-    const grd=g.createRadialGradient(cx-R*0.35,cy-R*0.3,R*0.15,cx,cy,R*1.02); grd.addColorStop(0,'rgba(255,255,255,0.08)'); grd.addColorStop(0.7,'rgba(0,0,0,0)'); grd.addColorStop(1,'rgba(0,0,0,0.45)');
-    g.fillStyle=grd; g.beginPath(); g.arc(cx,cy,R,0,TAU); g.fill(); }
   g.restore();
   // Breitenbeschriftung am sichtbaren rechten Rand
   font(500,11); g.fillStyle=v('--muted'); g.textAlign='left'; g.textBaseline='middle';
@@ -2200,12 +2185,12 @@ function drawBody(b){
     // gelandetes Schiff: aufrecht, zeigt vom Körper weg
     if(mine && !S.move && l==='surf' && S.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
-      const keep=use3D; if(hid) use3D=false; // auf der Rückseite bleibt die Rakete flach und blass, wie die Marke
+      rocketMode = hid ? 'flach' : 'gl'; // auf der Rückseite blass, aber sichtbar, wie die Marke selbst
       drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent'));
-      use3D=keep; g.globalAlpha=1; }
+      rocketMode='gl'; g.globalAlpha=1; }
   });
   if(shipLast) shipLast();
-  if(use3D) glEnd();
+  glEnd();
 }
 // Schiff im Orbit kreist langsam weiter (nur Anzeige)
 let idleT=0;
@@ -2579,6 +2564,8 @@ function toggleFs(){
 if(!load()) newGame();
 render();
 requestAnimationFrame(idleLoop);
+// Kommt das Modul nicht an (kein Netz, blockiertes CDN), bleibt die Karte sonst ewig bei "wird geladen".
+setTimeout(()=>{ if(GL.state==='laden') glOff('three.js ließ sich nicht laden.'); }, 10000);
 </script>
 <!-- three.js für die 3D-Ebene. Kein Baukasten, nur ein ES-Modul vom CDN.
      Das Modul läuft nach dem Hauptskript. Fehlt das Netz oder WebGL, bleibt es bei 2D. -->

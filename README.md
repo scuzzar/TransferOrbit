@@ -19,7 +19,9 @@ Reihenfolge der Ebenen: `#cvb` (2D, hinten) – `#glc` (three.js) – `#cv` bzw.
 
 **Keine fremden Texturen.** Die Oberflächen entstehen beim ersten Bedarf im Browser: Kontinente aus denselben handgezeichneten Umrissen wie bisher, Polkappen, die Bänder der Gasriesen und der Saturnring. Das Spiel lädt damit außer three.js selbst keine einzige Datei nach und läuft auch in einem gesperrten iframe.
 
-Fehlt WebGL, geht der Kontext verloren oder lädt three.js nicht, zeichnet der alte 2D-Weg weiter. Der Code dafür bleibt vollständig erhalten.
+**Kein Rückfall auf 2D.** Fehlt WebGL, geht der Kontext verloren oder lädt three.js nicht, bleibt das Kartenfeld leer und sagt das. Eine zweite, schlechtere Darstellung wäre irreführend: man sähe etwas und wüsste nicht, dass es nicht die eigentliche Ansicht ist. Aufträge, Routenplaner und Autopilot laufen in diesem Fall weiter, nur die Karte fehlt.
+
+Flach bleiben nur die Draufsicht aufs Sonnensystem (`drawSol`) und, darin, die Rakete.
 
 ## Physik und Wirtschaft
 - Delta-v nach Ziolkowski mit Leergewicht, Fracht und Treibstoff. Jedes Schiff hat einen eigenen Isp.
