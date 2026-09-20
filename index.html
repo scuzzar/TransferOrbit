@@ -43,9 +43,12 @@ canvas{display:block;width:100%;aspect-ratio:1/1;touch-action:manipulation}
 #sys{aspect-ratio:1.6/1}
 canvas[hidden]{display:none!important}
 /* Stapel: 2D hinten (#cvb), three.js in der Mitte (#glc), 2D vorne (#cv/#sys).
-   Die vorderen Canvas bleiben im Fluss und geben der Bühne ihre Höhe. */
+   Alle vier stecken in .cwrap. Der Kasten ist das Element, das die Bühne zentriert, und der
+   vordere Canvas gibt ihm seine Größe. Die hinteren Ebenen liegen absolut in seiner linken
+   oberen Ecke und sitzen damit von selbst deckungsgleich — auch wenn sich das Layout ändert,
+   ohne dass neu gezeichnet wird (etwa wenn die Autopilotleiste erscheint). */
+.cwrap{position:relative;min-width:0}
 #cvb,#glc{position:absolute;top:0;left:0;width:auto;aspect-ratio:auto;pointer-events:none}
-/* Die Bühne zentriert ihr Kind, deshalb setzt der Zeichencode top/left auf die Lage von #cv bzw. #sys. */
 #cv,#sys{position:relative}
 .maptabs{display:flex;align-items:center;gap:6px;margin:12px 0 6px}
 .maptabs button{min-height:36px;padding:4px 12px;font-size:.9rem;font-weight:600;color:var(--muted)}
@@ -365,10 +368,12 @@ label.order{display:block;cursor:pointer}
     </div>
   </div>
   <div class="stage" id="stage">
-    <canvas id="cvb" aria-hidden="true" hidden></canvas>
-    <canvas id="glc" aria-hidden="true" hidden></canvas>
-    <canvas id="cv" aria-label="Sonnensystem, Draufsicht"></canvas>
-    <canvas id="sys" aria-label="Planet mit seinen Monden" hidden></canvas>
+    <div class="cwrap">
+      <canvas id="cvb" aria-hidden="true" hidden></canvas>
+      <canvas id="glc" aria-hidden="true" hidden></canvas>
+      <canvas id="cv" aria-label="Sonnensystem, Draufsicht"></canvas>
+      <canvas id="sys" aria-label="Planet mit seinen Monden" hidden></canvas>
+    </div>
     <button type="button" id="infobtn" class="infobtn" aria-label="Legende" aria-expanded="false">i</button>
     <div id="legend" class="legendpop" hidden></div>
     <div id="toast" class="toast" role="status" hidden></div>
@@ -391,7 +396,7 @@ label.order{display:block;cursor:pointer}
 // ---------- Konstanten ----------
 const AU = 1.495978707e8, MU_SUN = 1.32712440018e11, G0 = 9.80665;
 const START_DAY = 10957.5; // Tage seit J2000 → 1. Jan 2030
-const VERSION = '38'; // steht im Menü, damit man eine veraltete Fassung aus dem Cache erkennt
+const VERSION = '39'; // steht im Menü, damit man eine veraltete Fassung aus dem Cache erkennt
 // Kreisbahnen mit echten mittleren Längen (J2000) und Umlaufzeiten
 const B = {
   mercury:{name:'Merkur', a:0.387, T:87.97,  L0:252.25, mu:22032,     R:2440,  alt:50,    atm:false, surf:{up:3100, down:3100}, color:'#a39e98'},
@@ -1552,11 +1557,9 @@ function shipGlyph(g,x,y,ang,col){ g.save(); g.translate(x,y); g.rotate(-ang); g
 function prep(canvas,g,W,H){ const dpr=window.devicePixelRatio||1;
   if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); }
-// Hintere 2D-Ebene: nur nötig, wenn three.js zeichnet. Sonst bleibt alles auf einem Canvas.
-// front ist der vordere Canvas (#cv oder #sys); die Bühne zentriert ihn, also die Lage übernehmen.
-function layFor(layer,front,W,H){ layer.style.left=front.offsetLeft+'px'; layer.style.top=front.offsetTop+'px';
-  layer.style.width=W+'px'; layer.style.height=H+'px'; }
-function prepBack(front,W,H){ layFor(cvb,front,W,H); prep(cvb,bctx,W,H); }
+// Die Lage der hinteren Ebenen ergibt sich aus .cwrap, hier ist nur die Größe zu setzen.
+function layFor(layer,W,H){ layer.style.width=W+'px'; layer.style.height=H+'px'; }
+function prepBack(W,H){ layFor(cvb,W,H); prep(cvb,bctx,W,H); }
 const cssv = () => { const css=getComputedStyle(document.documentElement); return n=>css.getPropertyValue(n).trim(); };
 
 // ---------- 3D-Ebene mit three.js ----------
@@ -1741,10 +1744,10 @@ function glSaturnRing(){
 // Eine Ansicht beginnen: Canvas auf die Größe des vorderen 2D-Canvas bringen,
 // Kamera in Pixeln aufspannen und die Gruppe wie makeCam bzw. drawSys drehen.
 // scale ist die Zahl der Pixel je Einheit in der Gruppe (drawBody: R, drawSys: 1).
-function glBegin(front,W,H,cx,cy,scale,el){
+function glBegin(W,H,cx,cy,scale,el){
   if(!GL.on) return false;
   glc.hidden=false; cvb.hidden=false;
-  layFor(glc,front,W,H);
+  layFor(glc,W,H);
   GL.r.setSize(W,H,false);
   const c=GL.cam; c.left=-W/2; c.right=W/2; c.top=H/2; c.bottom=-H/2; c.updateProjectionMatrix();
   GL.root.position.set(cx-W/2, H/2-cy, 0);
@@ -2044,7 +2047,7 @@ function drawSys(p){
   prep(sc,sctx,W,H);
   const g=sctx, v=cssv(), cx=W/2, cy=H/2+6, ce=Math.cos(SYS_EL), se=Math.sin(SYS_EL);
   // three.js zeichnet Planet, Monde und den Saturnring; hier wird in Pixeln gerechnet (Maßstab 1).
-  glBegin(sc,W,H,cx,cy,1,SYS_EL); prepBack(sc,W,H);
+  glBegin(W,H,cx,cy,1,SYS_EL); prepBack(W,H);
   const gb = bctx; // verdeckte Teile gehören hinter die Kugel
   const rH=Math.min(W/2-34, (H/2-26)/se), rMax=rH*0.82, Rp=Math.max(13,Math.min(22,W*0.028)), rLow=Rp+11, rMin=rLow+22, rMo=10;
   const lo=Math.log(Math.min(...ms.map(m=>M[m].rv))), hi=Math.log(Math.max(...ms.map(m=>M[m].rv)));
@@ -2142,7 +2145,7 @@ function drawBody(b){
   prep(cv,ctx,W,W);
   const g=ctx, v=cssv(), cx=W/2, cy=W/2+4, R=W*0.3, cam=makeCam(cx,cy,R,bodyView(b).el);
   // three.js übernimmt die Kugel; dieselbe Kamera, R Pixel je Körperradius
-  glBegin(cv,W,W,cx,cy,R,bodyView(b).el); prepBack(cv,W,W);
+  glBegin(W,W,cx,cy,R,bodyView(b).el); prepBack(W,W);
   const gb = bctx; // verdeckte Teile gehören hinter die Kugel
   glPut(b,null,1);
   const [k,l]=here(), mine=k===b && !S.transit;

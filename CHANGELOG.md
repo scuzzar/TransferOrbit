@@ -2,6 +2,21 @@
 
 Spielbare Version im Repo: `index.html`. Tests liegen in `tests/`, die Art in `art/`.
 
+## 2026-09-20 – 2D- und 3D-Ebene fest aneinander gekoppelt (Version 39)
+
+Die 3D-Kugel saß gegenüber Gitter und Beschriftung versetzt, sobald die Autopilotleiste über der
+Karte erschien. Gemessen waren es 38 px senkrecht.
+
+- **Ursache:** `#cv` ist ein Flex-Kind der Bühne und wird zentriert, wandert also, wenn sich die
+  Bühne ändert. Die Ebenen `#cvb` und `#glc` lagen dagegen absolut auf Koordinaten, die beim
+  letzten Zeichnen gemessen wurden. `render()` ruft `draw()` **vor** `renderAutobar()`; erscheint
+  die Leiste, ändert sich das Layout also nach dem Zeichnen, und niemand misst nach.
+- **Behoben nicht durch Nachmessen, sondern baulich:** alle vier Canvas stecken jetzt in einem
+  gemeinsamen Kasten `.cwrap`. Der Kasten ist das Element, das die Bühne zentriert, der vordere
+  Canvas gibt ihm seine Größe, und die hinteren Ebenen liegen in seiner linken oberen Ecke. Damit
+  sind sie von selbst deckungsgleich, unabhängig davon, wann gezeichnet wird.
+- `layFor` setzt nur noch die Größe; die Lage kommt aus dem Kasten.
+
 ## 2026-09-20 – Versionsnummer im Menü (Version 38)
 
 - Unten im Menü steht jetzt „Version NN · Stand TT.MM.JJJJ, hh:mm". Das Datum kommt aus
