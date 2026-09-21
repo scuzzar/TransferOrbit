@@ -119,7 +119,7 @@ export const SYS_EL = 35*D2R;
 
 export const ringPt=(r,a)=>[r*Math.cos(a),0,-r*Math.sin(a)];
 
-export const sysState = p => { if(!S.sys || S.sys.p!==p) S.sys={p, capU:-0.75, lowU:3.7, moonU:0}; return S.sys; };
+export const sysState = p => { if(!S.sys || S.sys.p!==p) S.sys={p, capU:-0.75, lowU:0, moonU:0}; return S.sys; };
 
 // Plan of a manoeuvre in the system view (angles only, independent of scale)
 export function sysPlan(mv){

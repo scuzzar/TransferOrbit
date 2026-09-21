@@ -156,7 +156,7 @@ function drawSys(p){
     if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+6,y-7,3,0,TAU); g.fill(); }
     font(here_||sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign=align; g.textBaseline='middle'; g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=3; g.fillText(label,x+(align==='left'?11:-11),y); g.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
-  nodeMark(ringPt(rLow,3.7),p+'.orbit','Low orbit','right');
+  nodeMark(ringPt(rLow,0),p+'.orbit','Low orbit','left');
   nodeMark(ringPt(rH,-0.75),p+'.capt','High orbit','left');
   glEnd();
 }
@@ -243,8 +243,8 @@ function drawBody(b){
     font(sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign=al; g.textBaseline='middle';
     g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=4; g.fillText(label,p.x+(al==='left'?11:-11),p.y); g.shadowBlur=0;
     HITS.push({canvas:cv,x:p.x,y:p.y,r:22,pick:pk}); };
-// frontmost point of the orbit, for the marker
-  const frontOf=(o,r)=>{ let best=null; for(let j=0;j<72;j++){ const p=P(orbitPos(b,o,j/72*TAU,r)); if(!best||p.y>best.y) best=p; } return best; };
+// rightmost visible point of the orbit, for the marker
+  const frontOf=(o,r)=>{ let best=null; for(let j=0;j<72;j++){ const p=P(orbitPos(b,o,j/72*TAU,r)); if(p.z<0) continue; if(!best||p.x>best.x) best=p; } return best; };
   marker(frontOf(orb,R_ORB),b+'.orbit','Low orbit','left');
   if(showHigh){ const hp=P(orbitPos(b,defaultOrb(b),40*D2R,R_HIGH)); marker(hp,b+'.capt','High orbit','left'); }
 
