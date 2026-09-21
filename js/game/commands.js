@@ -275,7 +275,7 @@ function migrate(o){
 
 export function save(){
   if(S.busy||!S.node) return;
-  try{ const o={...S, visited:[...S.visited]}; delete o.transit; delete o.ui; delete o.move; delete o.anim; localStorage.setItem(SAVE_KEY, JSON.stringify(o)); }catch(e){}
+  try{ const o={...S, visited:[...S.visited]}; delete o.transit; delete o.ui; delete o.move; delete o.anim; delete o.msg; localStorage.setItem(SAVE_KEY, JSON.stringify(o)); }catch(e){}
 }
 
 let memSlot=null; // fallback for when the browser blocks localStorage
