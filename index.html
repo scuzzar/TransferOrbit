@@ -367,9 +367,9 @@ label.order{display:block;cursor:pointer}
   </div>
 </main>
 
-<!-- The game lives in ES modules under js/. start.js wires it all together;
+<!-- The game lives in ES modules under js/. start.ts wires it all together;
      every module says in its first line what it is responsible for.
-     No toolchain, no build step: the browser loads the files itself. -->
-<script type="module" src="./js/start.js"></script>
+     Vite serves it in dev and bundles it into a single file in build. -->
+<script type="module" src="./js/start.ts"></script>
 </body>
 </html>

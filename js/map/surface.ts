@@ -1,9 +1,9 @@
-// The surfaces of the bodies as plain numbers: coastlines, water, deserts, polar
+﻿// The surfaces of the bodies as plain numbers: coastlines, water, deserts, polar
 // caps, the two Earth colours and the direction the light comes from. No maths and
 // no state - map/gl.js paints its textures from this, and nothing else reads it.
 // It sits next to map/rocketdata.js for the same reason: data, not code.
 
-export const LAND = [
+export const LAND: number[][][] = [
   // North America
   [[-165,65],[-160,70],[-140,70],[-120,70],[-95,72],[-80,70],[-75,63],[-65,60],[-55,52],[-60,47],[-66,45],[-70,42],[-76,38],[-76,35],[-81,31],[-80.2,28.5],[-80,25],[-81.5,25.5],[-82.6,28],[-85,30],[-90,29],[-97,27],[-97,21],[-94,18],[-90,21],[-87,21],[-88,16],[-83,11],[-78,8],[-80,7],[-86,12],[-92,14],[-105,20],[-110,24],[-112,29],[-115,30],[-117,33],[-121,35],[-124,40],[-124,47],[-128,51],[-135,57],[-145,60],[-155,58],[-165,55],[-160,60]],
 // Greenland (ice)
@@ -26,7 +26,7 @@ export const LAND = [
   [[114,-22],[114,-34],[118,-35],[123,-34],[129,-32],[135,-35],[138,-35],[140,-38],[147,-39],[150,-37],[153,-32],[153,-25],[146,-19],[142,-11],[136,-12],[130,-12],[125,-15],[122,-18]],
 ];
 
-export const WATER = [
+export const WATER: number[][][] = [
 // Hudson Bay, Baltic, Black and Caspian Sea
   [[-95,59],[-92,57],[-85,55],[-80,52],[-78,55],[-78,60],[-85,64],[-93,62]],
   [[10,54.5],[20,54.5],[21,57],[23,59],[29,60],[22,60.5],[21,63],[25,65.5],[21,65],[17,62],[19,60],[16,57],[12,56]],
@@ -35,15 +35,16 @@ export const WATER = [
 ];
 
 // Desert belts (Sahara/Arabia, Iran, Australia) and the two Earth colours, used by both 2D and 3D
-export const DESERT = [
+export const DESERT: [number[][], string][] = [
   [[[-12,20],[0,28],[20,30],[32,24],[34,16],[15,14],[-5,15]],'rgba(196,170,112,0.75)'],
   [[[40,16],[55,22],[56,27],[48,29],[40,26]],'rgba(196,170,112,0.7)'],
   [[[125,-22],[140,-24],[140,-30],[125,-30]],'rgba(196,170,112,0.6)'],
 ];
 
-export const EARTH_LAND = i => i===1 ? 'rgba(236,240,244,0.92)' : 'rgba(104,146,86,0.95)'; // 1 = Greenland (ice)
+export const EARTH_LAND = (i:number) => i===1 ? 'rgba(236,240,244,0.92)' : 'rgba(104,146,86,0.95)'; // 1 = Greenland (ice)
 
-export const LIGHT = (()=>{ const v=[-0.5,0.3,0.78], n=Math.hypot(...v); return v.map(x=>x/n); })(); // light from the upper left, towards the viewer
+export const LIGHT = (() => { const v = [-0.5,0.3,0.78] as number[], n=Math.hypot(...v); return v.map((x:number)=>x/n); })(); // light from the upper left, towards the viewer
 
 // Polar caps per body: [latitude, opacity]
-export const CAPS = {earth:[[-68,0.9],[80,0.85]], mars:[[80,0.85]], mercury:[], ceres:[], europa:[], enceladus:[[-70,0.5]]};
+export const CAPS: Record<string, [number,number][]> = {earth:[[-68,0.9],[80,0.85]], mars:[[80,0.85]], mercury:[], ceres:[], europa:[], enceladus:[[-70,0.5]]};
+

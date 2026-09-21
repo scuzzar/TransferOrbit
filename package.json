@@ -3,11 +3,19 @@
   "private": true,
   "description": "Space trading game prototype with real orbital mechanics (delta-v, Hohmann, Kepler)",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "serve": "python3 tools/serve.py 8765",
+    "pretest": "npm run build",
     "test": "node tests/regress.js && node tests/test-bot.js",
     "game-bot": "node tests/game-bot.js"
   },
   "devDependencies": {
-    "playwright": "^1.47.0"
+    "playwright": "^1.47.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vite-plugin-singlefile": "^2.3.3"
   }
 }

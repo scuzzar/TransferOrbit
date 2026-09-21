@@ -42,17 +42,17 @@ requestAnimationFrame(Draw.idleLoop);
 // three.js arrives only after the first frame, and only if the network plays along.
 // A dynamic import() keeps the rest of the game alive when the CDN is blocked.
 import('https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js')
-  .then(THREE => Gl.glInit(THREE))
-  .catch(e => Gl.glOff(e && e.message || String(e)));
+  .then((THREE: unknown) => Gl.glInit(THREE as any))
+  .catch((e: unknown) => Gl.glOff(e instanceof Error ? e.message : String(e)));
 setTimeout(()=>{ if(Gl.GL.state==='loading') Gl.glOff('three.js could not be loaded.'); }, 10000);
 
 // A single outside edge for tests and the console: TO.<name> always shows the current
 // value, TO.module['<path>'] the whole module.
-const MODULES = {
-  'events':Events, 'basics':Basics, 'game/world':World, 'game/physics':Physics, 'game/state':State, 'game/graph':Graph, 'game/economy':Economy, 'game/actions':Actions, 'map/geometry':Geometry, 'game/planner':Planner, 'game/commands':Commands, 'map/canvas':Canvas, 'map/rocketdata':Rocketdata, 'map/surface':Surface, 'map/gl':Gl, 'map/rocket':Rocket, 'map/view':View, 'map/draw':Draw, 'ui/widgets':Widgets, 'ui/pickcard':Pickcard, 'ui/panels':Panels, 'ui/display':Display, 'ui/menu':Menu,
+const MODULES: Record<string, Record<string, unknown>> = {
+  'events':Events as any, 'basics':Basics as any, 'game/world':World as any, 'game/physics':Physics as any, 'game/state':State as any, 'game/graph':Graph as any, 'game/economy':Economy as any, 'game/actions':Actions as any, 'map/geometry':Geometry as any, 'game/planner':Planner as any, 'game/commands':Commands as any, 'map/canvas':Canvas as any, 'map/rocketdata':Rocketdata as any, 'map/surface':Surface as any, 'map/gl':Gl as any, 'map/rocket':Rocket as any, 'map/view':View as any, 'map/draw':Draw as any, 'ui/widgets':Widgets as any, 'ui/pickcard':Pickcard as any, 'ui/panels':Panels as any, 'ui/display':Display as any, 'ui/menu':Menu as any,
 };
-const TO = { module: MODULES };
+const TO: { module: Record<string, Record<string, unknown>> } = { module: MODULES };
 for(const space of Object.values(MODULES))
   for(const name of Object.keys(space))
     if(!(name in TO)) Object.defineProperty(TO, name, { get:()=>space[name], enumerable:true });
-window.TO = TO;
+(window as any).TO = TO;

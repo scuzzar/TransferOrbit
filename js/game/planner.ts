@@ -1,44 +1,59 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
 import { km } from '../basics.js';
-import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, bodyName, fmtCr, fuelHere, siteOf } from './world.js';
+import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, bodyName, fmtCr, fuelHere, siteOf, FUEL_PRICE } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
-import { S, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, locKey, targetName } from './state.js';
-import { edgesFrom, idealTransfer, route } from './graph.js';
-import { feeBlocked, localActions } from './actions.js';
+import { S, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, locKey, targetName, Target } from './state.js';
+import { edgesFrom, idealTransfer, route, Edge, RouteResult } from './graph.js';
+import { feeBlocked, localActions, LocalAction } from './actions.js';
+
+export interface FuelSpot { node:string; site:string|null }
 
 // What a day is worth to the search, in m/s. "Economical" all but ignores time, so it
 // takes every cheap detour there is. "Leave now" means it literally: it does not wait for
 // a window, and it does not dawdle on the way either. Above 75 m/s per day the aerobraking
 // step into low Earth orbit (40 days for 60 m/s) loses to the direct burn (1 day, 3006 m/s),
 // which is the slowest choice the old, purely delta-v driven search used to make.
-const DAY_COST = {eco:0.01, now:100};
+const DAY_COST: Record<string, number> = {eco:0.01, now:100};
 
 // Markers for manoeuvres: delivery targets, the way towards the cargo, posts with orders
 export function cargoHints(){
-  const H={step:[], transfer:{}};
+  const H={step:[] as {node:string;site:string|null;dv:number;name:string;n:number;final:boolean}[], transfer:{} as Record<string,string[]>};
   if(!S.node) return H;
-  const me={id:'@'+locKey(), node:S.node, site:S.site}, hereK=postAt();
-  const byDest={};
+  const me={id:'@'+locKey()!, node:S.node, site:S.site}, hereK=postAt();
+  const byDest: Record<string, number> = {};
   cargoOrders().forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
   Object.keys(byDest).forEach(id=>{
     const r=route(me,POST_BY_ID[id]); if(!r.first) return;
     const name=POST_BY_ID[id].name;
-    if(r.first.leg){ const p=r.first.leg[1]; (H.transfer[p]=H.transfer[p]||[]).includes(name)||H.transfer[p].push(name); }
+    if(r.first.leg){ const p=r.first.leg[1] as string; (H.transfer[p]=H.transfer[p]||[]).includes(name)||H.transfer[p].push(name); }
     else H.step.push({node:r.first.node, site:r.first.site, dv:r.first.dv, name, n:byDest[id], final: POST_BY_ID[id].node===r.first.node && (!POST_BY_ID[id].site||POST_BY_ID[id].site===r.first.site)});
   });
   return H;
 }
 
-export function planRoute(target, mode, start){
+export interface PlanStep {
+  kind: string; node?: string; site?: string|null; leg?: [string,string];
+  dv:number; days:number; label:string; until?:number; [k:string]:any;
+}
+export interface PlanResult {
+  steps: PlanStep[]; dv:number; days:number; arrive:number; fee:number;
+}
+interface Start { node:string; site:string|null; day:number }
+interface RNode { n:string; s:string|null; c:number; dv:number; days:number }
+
+export function planRoute(target:Target, mode:string, start?:Start|null): PlanResult|null{
   start = start || (S.node ? {node:S.node, site:S.site, day:S.day} : null);
   if(!start) return null;
   const dayCost = DAY_COST[mode] ?? DAY_COST.eco;
-  const key=(n,s)=>n+'|'+(s||''), best={}, prev={}, done=new Set();
-  const q=[{n:start.node,s:start.site,c:0,dv:0,days:0}]; best[key(start.node,start.site)]=q[0];
-  let goal=null;
+  const key=(n:string,s:string|null)=>n+'|'+(s||'');
+  const best: Record<string, RNode> = {};
+  const prev: Record<string, {k:string; from:RNode; ed:Edge}> = {};
+  const done=new Set<string>();
+  const q:RNode[]=[{n:start.node,s:start.site,c:0,dv:0,days:0}]; best[key(start.node,start.site)]=q[0];
+  let goal:RNode|null=null;
   while(q.length){
-    q.sort((a,b)=>a.c-b.c); const cur=q.shift(), ck=key(cur.n,cur.s);
+    q.sort((a,b)=>a.c-b.c); const cur=q.shift()!, ck=key(cur.n,cur.s);
     if(done.has(ck)) continue; done.add(ck);
     if(cur.n===target.node && (!target.site || cur.s===target.site)){ goal=cur; break; }
     for(const ed0 of edgesFrom(cur.n,cur.s)){
@@ -51,11 +66,11 @@ export function planRoute(target, mode, start){
     }
   }
   if(!goal) return null;
-  const path=[]; let k=key(goal.n,goal.s);
+  const path: {from:RNode; ed:Edge}[] = []; let k=key(goal.n,goal.s);
   while(prev[k]){ path.unshift({from:prev[k].from, ed:prev[k].ed}); k=prev[k].k; }
-  const steps=[]; let day=start.day, fee=0;
+  const steps:PlanStep[]=[]; let day=start.day, fee=0;
   path.forEach(({from,ed})=>{
-    if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1])}`, until:day+ed.wait}); day+=ed.wait; }
+    if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1] as string)}`, until:day+ed.wait}); day+=ed.wait; }
     const days=ed.days-(ed.wait||0);
     if(ed.launch) fee+=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel)*(ed.hop?HOP_FEE_SHARE:1));
     steps.push({kind:ed.leg?'leg':'move', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label:stepLabel(from,ed)}); day+=days;
@@ -63,10 +78,10 @@ export function planRoute(target, mode, start){
   return {steps, dv:goal.dv, days:goal.days, arrive:start.day+goal.days, fee};
 }
 
-const toName = p => B[p].name;
+const toName = (p:string) => B[p].name;
 
-function stepLabel(from,e){
-  if(e.leg) return `Transfer to ${toName(e.leg[1])}`;
+function stepLabel(from:RNode, e:Edge){
+  if(e.leg) return `Transfer to ${toName(e.leg[1] as string)}`;
   const [fk,fl]=from.n.split('.'), [tk,tl]=e.node.split('.');
   if(tl==='surf'){ const st=siteOf(tk,e.site); if(fl==='surf') return `${e.launch?'Suborbital flight':'Hop'} to ${st?st.name:bodyName(tk)}`; return `Land at ${st?st.name:bodyName(tk)}`; }
   if(fl==='surf') return e.launch?'Ride a launcher to orbit':`Ascend to orbit${M[fk]?' around '+M[fk].name:''}`;
@@ -77,19 +92,19 @@ function stepLabel(from,e){
   return targetName({node:e.node});
 }
 
-export function nearestFuel(start){
-  if(fuelHere(start.node,start.site)) return {dv:0, spot:null};
-  let best={dv:Infinity, spot:null};
+export function nearestFuel(start:Start){
+  if(fuelHere(start.node,start.site)) return {dv:0, spot:null as FuelSpot|null};
+  let best={dv:Infinity, spot:null as FuelSpot|null};
   FUEL_SPOTS.forEach(t=>{ const pl=planRoute(t,'eco',start); if(pl && pl.dv<best.dv) best={dv:pl.dv, spot:t}; });
   return best;
 }
 
-export function stepBlocker(st){
+export function stepBlocker(st:PlanStep){
   if(st.kind==='leg'){ const hp=homePlanet(); if(S.node!==hp+'.capt') return 'Transfers start from high orbit.';
-    return `The transfer currently costs ${km(transfer(hp,st.leg[1],S.day).total)} km/s, you have ${km(dvAvail())}.`; }
-  const a=localActions().find(a=>a.to===st.node && (a.site||null)===(st.site||null));
+    return `The transfer currently costs ${km(transfer(hp,st.leg![1] as string,S.day).total)} km/s, you have ${km(dvAvail())}.`; }
+  const a=localActions().find(a2=>a2.to===st.node && (a2.site||null)===(st.site||null));
   if(!a) return 'That manoeuvre is not possible from here.';
   if(a.dv>dvAvail()+0.5) return `It needs ${km(a.dv)} km/s, you have ${km(dvAvail())}.`;
-  if(feeBlocked(a)) return `The launch fee of ${fmtCr(a.fee)} would bankrupt you.`;
+  if(feeBlocked(a)) return `The launch fee of ${fmtCr(a.fee!)} would bankrupt you.`;
   return 'Unknown reason.';
 }

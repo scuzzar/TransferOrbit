@@ -4,11 +4,17 @@ import { B, BANKRUPT, LAUNCH_FEE, M, ROT, SITES, fmtCr, hasAtm, hasDepot, latStr
 import { HOP_FEE_SHARE, bodyDown, bodyUp, captDv, hopCost } from './physics.js';
 import { S, cargoMass, eng, here } from './state.js';
 
-export function localActions(){
-  const [k,l]=here(); const A=[];
-  const add=(label,dv,days,to,x={})=>A.push({label,dv,days,to,...x});
+export interface LocalAction {
+  label:string; dv:number; days:number; to:string;
+  site?:string|null; lat?:number; note?:string; fee?:number; hop?:boolean;
+  [k:string]:any;
+}
+
+export function localActions(): LocalAction[]{
+  const [k,l]=here(); const A:LocalAction[]=[];
+  const add=(label:string,dv:number,days:number,to:string,x:Record<string,any>={})=>A.push({label,dv,days,to,...x});
   if(!k) return A;
-  const landings=(body,down,baseNote)=>{
+  const landings=(body:string,down:number,baseNote?:string)=>{
     (SITES[body]||[]).forEach(st=>{
       const pen=hasAtm(body)?0:rotPenalty(body,st.lat);
       const bits=[latStr(st.lat)];
@@ -17,7 +23,7 @@ export function localActions(){
       add(`Land at ${st.name}`,down+pen,0.2,body+'.surf',{site:st.id,lat:st.lat,note:bits.join(', ')+(st.note?`. ${st.note}`:'')});
     });
   };
-  const launch=(body,up,label)=>{
+  const launch=(body:string)=>{
     const st=siteOf(body,S.site), lat=st?st.lat:0, pen=rotPenalty(body,lat);
     const rotNote=(ROT[body]||0)>=20 ? `Launching at ${latStr(lat)}: ${Math.round((ROT[body]||0)-pen)} of ${ROT[body]} m/s rotation bonus` : '';
     return {lat,pen,rotNote};
@@ -40,9 +46,9 @@ export function localActions(){
     const b=B[k];
     if(l==='surf'){
       const L=launch(k);
-      if(b.surf.launcher){ const fee=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel));
+      if(b.surf!.launcher){ const fee=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel));
         add('Ride a launcher to orbit',L.pen,1,k+'.orbit',{lat:L.lat,fee,note:`Launch fee ${fmtCr(fee)}${fee>S.credits?', deferred':''}. The missing rotation bonus comes out of your tank. ${L.rotNote}`}); }
-      else add('Ascend to orbit',b.surf.up+L.pen,0.2,k+'.orbit',{lat:L.lat,note:L.rotNote});
+      else add('Ascend to orbit',b.surf!.up+L.pen,0.2,k+'.orbit',{lat:L.lat,note:L.rotNote});
     }
     if(l==='orbit'){
       if(b.surf) landings(k,b.surf.down);
@@ -58,4 +64,4 @@ export function localActions(){
 }
 
 // The launch fee can be deferred: the account may go negative for it, but not into bankruptcy.
-export const feeBlocked = a => !!a.fee && S.credits-a.fee < BANKRUPT;
+export const feeBlocked = (a:LocalAction) => !!a.fee && S.credits-a.fee < BANKRUPT;
