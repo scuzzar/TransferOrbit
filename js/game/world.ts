@@ -5,8 +5,16 @@ export const AU = 1.495978707e8, MU_SUN = 1.32712440018e11, G0 = 9.80665;
 
 export const START_DAY = 10957.5; // days since J2000 -> 1 Jan 2030
 
+export interface BodySurf { up:number; down:number; launcher?:boolean; note?:string }
+export interface Body { name:string; a:number; T:number; L0:number; mu:number; R:number; alt:number; atm:boolean; surf:BodySurf|null; color:string }
+export interface Moon { name:string; parent:string; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
+export interface Site { id:string; name:string; lat:number; lon:number; port?:boolean; depot?:number; note?:string }
+export interface ShipDef { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
+export interface GoodDef { name:string; sh:string; m:number; w:number; lot:number[]; rate:number; color:string }
+export interface Post { id:string; name:string; node:string; site:string|null; makes:string[]; needs:string[]; hub?:string }
+
 // Circular orbits with real mean longitudes (J2000) and periods
-export const B = {
+export const B: Record<string, Body> = {
   mercury:{name:'Mercury', a:0.387, T:87.97,  L0:252.25, mu:22032,     R:2440,  alt:50,    atm:false, surf:{up:3100, down:3100}, color:'#a39e98'},
   venus:  {name:'Venus',  a:0.723, T:224.70, L0:181.98, mu:324859,    R:6052,  alt:250,   atm:true,  surf:{up:27000,down:100, note:'Getting back up costs 27 km/s'}, color:'#d9b36c'},
   earth:  {name:'Earth',   a:1.000, T:365.256,L0:100.46, mu:398600,    R:6371,  alt:200,   atm:true,  surf:{up:9400, down:100, launcher:true, note:'Heat shield and parachutes'}, color:'#4f8fd8'},
@@ -20,7 +28,7 @@ export const PLANETS = Object.keys(B);
 
 // Moons: nodes "orbit" and "surf", joined to the high orbit of the parent planet.
 // xfer = delta-v from the planet's high orbit down to low moon orbit (approximate), P = period in days, rv = orbital radius in km
-export const M = {
+export const M: Record<string, Moon> = {
   moon:     {name:'Moon',      parent:'earth',  xfer:800,  days:3,  up:1870, down:1870, P:27.32, rv:384400, orbitName:'lunar orbit', surfName:'the lunar surface'},
   phobos:   {name:'Phobos',    parent:'mars',   xfer:550,  days:1,  up:10,   down:10,   P:0.319, rv:9376,   downNote:'Barely any gravity, more docking than landing'},
   deimos:   {name:'Deimos',    parent:'mars',   xfer:350,  days:2,  up:6,    down:6,    P:1.263, rv:23460,  downNote:'Barely any gravity, more docking than landing'},
@@ -34,17 +42,17 @@ export const M = {
 
 export const MOONS = Object.keys(M);
 
-export const moonsOf = p => MOONS.filter(m=>M[m].parent===p);
+export const moonsOf = (p: string): string[] => MOONS.filter(m=>M[m].parent===p);
 
 // Orbital fuel depots; depots on the ground belong to the landing sites
-export const DEPOTS = {'earth.orbit':5, 'mars.orbit':10};
+export const DEPOTS: Record<string, number> = {'earth.orbit':5, 'mars.orbit':10};
 
 // Equatorial rotation speed in m/s. Launching further from the equator is given less of a head start.
-export const ROT = {mercury:3, venus:2, earth:465, mars:241, ceres:92, moon:5, phobos:3, deimos:1,
+export const ROT: Record<string, number> = {mercury:3, venus:2, earth:465, mars:241, ceres:92, moon:5, phobos:3, deimos:1,
   io:75, europa:32, ganymede:27, callisto:11, enceladus:13, titan:12};
 
 // Landing sites: lat in degrees, port = spaceport, depot = days to fill the tank
-export const SITES = {
+export const SITES: Record<string, Site[]> = {
   earth:[
     {id:'kourou', name:'Kourou', lat:5.2, lon:-52.8, port:true, depot:3, note:'Almost on the equator, full rotation bonus'},
     {id:'canaveral', name:'Cape Canaveral', lat:28.5, lon:-80.6, port:true, depot:3},
@@ -90,26 +98,26 @@ export const SITES = {
   ],
 };
 
-export const siteOf = (body,id) => (SITES[body]||[]).find(x=>x.id===id);
+export const siteOf = (body: string, id: string|null): Site | undefined => (SITES[body]||[]).find(x=>x.id===id);
 
-export const hasDepot = body => (SITES[body]||[]).some(x=>x.depot);
+export const hasDepot = (body: string): boolean => (SITES[body]||[]).some(x=>!!x.depot);
 
-export const rotPenalty = (body,lat) => (ROT[body]||0)*(1-Math.cos(lat*Math.PI/180)); // m/s
+export const rotPenalty = (body: string, lat: number): number => (ROT[body]||0)*(1-Math.cos(lat*Math.PI/180)); // m/s
 
-export const hasAtm = body => B[body] ? B[body].atm : body==='titan';
+export const hasAtm = (body: string): boolean => B[body] ? B[body].atm : body==='titan';
 
-export const latStr = lat => `${Math.abs(lat).toLocaleString('en-GB',{maximumFractionDigits:1})}° ${lat>=0?'N':'S'}`;
+export const latStr = (lat: number): string => `${Math.abs(lat).toLocaleString('en-GB',{maximumFractionDigits:1})}° ${lat>=0?'N':'S'}`;
 
 export const LVL = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
 
-export const SHIPS = {
+export const SHIPS: Record<string, ShipDef> = {
   cog:    {name:'Cog',     drive:'chemical', isp:450, dry:12, cap:80,  slots:6,  price:150000},
   hulk:   {name:'Hulk',    drive:'hybrid',   isp:600, dry:20, cap:160, slots:12, price:400000},
   galleon:{name:'Galleon', drive:'hybrid',   isp:650, dry:45, cap:280, slots:20, price:900000},
   carrack:{name:'Carrack', drive:'nuclear',  isp:900, dry:30, cap:150, slots:8,  price:1200000},
 };
 
-export const GOODS = {
+export const GOODS: Record<string, GoodDef> = {
   he3:  {name:'Helium-3', sh:'He-3',        m:1,  w:8000, lot:[1,2], rate:45, color:'#b78cf0'},
   elec: {name:'Electronics', sh:'Electronics',   m:1,  w:5000, lot:[1,2], rate:30, color:'#5cc9e0'},
   hab:  {name:'Habitat modules', sh:'Habitat',  m:10, w:4000, lot:[1,1], rate:30, color:'#e0a15c'},
@@ -120,9 +128,9 @@ export const GOODS = {
   water:{name:'Water', sh:'Water',              m:8,  w:200,  lot:[1,3], rate:10, color:'#4f8fd8'},
 };
 
-export const post = (id,name,node,site,makes,needs,hub) => ({id,name,node,site,makes,needs,hub});
+export const post = (id:string, name:string, node:string, site:string|null, makes:string[], needs:string[], hub?:string): Post => ({id,name,node,site,makes,needs,hub});
 
-export const POSTS = [
+export const POSTS: Post[] = [
   post('earth','Earth','earth.surf',null,['food','mach','elec','hab'],['he3','rare']),
   post('shipyard','Orbital Shipyard','earth.orbit',null,['elec'],['water','food','metal','rare'],'shipyard'),
   post('shackleton','Shackleton','moon.surf','shackleton',['water'],['food','mach','hab']),
@@ -146,11 +154,11 @@ export const POSTS = [
   post('kraken','Kraken Mare','titan.surf','kraken',[],['mach','hab','elec']),
 ];
 
-export const POST_BY_ID = Object.fromEntries(POSTS.map(k=>[k.id,k]));
+export const POST_BY_ID: Record<string, Post> = Object.fromEntries(POSTS.map(k=>[k.id,k]));
 
 export const HUBS = {shipyard:POST_BY_ID.shipyard, pavonis:POST_BY_ID.pavonis, valhalla:POST_BY_ID.valhalla};
 
-export const REGION = {earth:'shipyard',moon:'shipyard',mercury:'shipyard',venus:'shipyard',
+export const REGION: Record<string, string> = {earth:'shipyard',moon:'shipyard',mercury:'shipyard',venus:'shipyard',
   mars:'pavonis',phobos:'pavonis',deimos:'pavonis',ceres:'pavonis',
   jupiter:'valhalla',io:'valhalla',europa:'valhalla',ganymede:'valhalla',callisto:'valhalla',
   saturn:'valhalla',enceladus:'valhalla',titan:'valhalla'};
@@ -158,7 +166,7 @@ export const REGION = {earth:'shipyard',moon:'shipyard',mercury:'shipyard',venus
 export const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 12000; // no ship manages a longer route
 
 // Fuel prices in credits per tonne, keyed by node or node@site
-export const FUEL_PRICE = {'earth.orbit':300,'mars.orbit':220,'earth.surf':250,'mercury.surf@prokofiev':200,'moon.surf@shackleton':150,
+export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit':220,'earth.surf':250,'mercury.surf@prokofiev':200,'moon.surf@shackleton':150,
   'mars.surf@utopia':150,'mars.surf@pavonis':180,'mars.surf@northpole':120,'ceres.surf@occator':120,'titan.surf@kraken':110,'ceres.surf@northpole':100,
   'ganymede.surf@uruk':100,'europa.surf@conamara':90,'callisto.surf@valhalla':90,'enceladus.surf@tigerstripes':80};
 
@@ -170,26 +178,26 @@ export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + sh
 
 export const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Bulk orders: size, restock slower than single goods, premium, lifetime
 
-export const bodyOf = k => k.node.split('.')[0];
+export const bodyOf = (k: Post): string => k.node.split('.')[0];
 
-export const planetOfBody = b => M[b] ? M[b].parent : b;
+export const planetOfBody = (b: string): string => M[b] ? M[b].parent : b;
 
-export const bodyName = b => M[b] ? M[b].name : B[b].name;
+export const bodyName = (b: string): string => M[b] ? M[b].name : B[b].name;
 
-export const postPlace = k => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${B[bodyOf(k)].name}` : bodyName(bodyOf(k));
+export const postPlace = (k: Post): string => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${B[bodyOf(k)].name}` : bodyName(bodyOf(k));
 
-export const postLabel = k => k.id==='earth' ? 'Earth' : `${k.name}, ${postPlace(k)}`;
+export const postLabel = (k: Post): string => k.id==='earth' ? 'Earth' : `${k.name}, ${postPlace(k)}`;
 
-export const fmtCr = n => `${Math.round(n).toLocaleString('en-GB')} Cr`;
+export const fmtCr = (n: number): string => `${Math.round(n).toLocaleString('en-GB')} Cr`;
 
 
-export const SYSNAME = {earth:'Earth system', mars:'Mars system', jupiter:'Jupiter system', saturn:'Saturn system'};
+export const SYSNAME: Record<string, string> = {earth:'Earth system', mars:'Mars system', jupiter:'Jupiter system', saturn:'Saturn system'};
 
-const BODYCOL = {moon:'#a8a49c', phobos:'#8e8378', deimos:'#9a9086', io:'#d8c35a', europa:'#cfc6b2', ganymede:'#a89f92', callisto:'#7f776d', enceladus:'#e6ecf0', titan:'#d9a441'};
+const BODYCOL: Record<string, string> = {moon:'#a8a49c', phobos:'#8e8378', deimos:'#9a9086', io:'#d8c35a', europa:'#cfc6b2', ganymede:'#a89f92', callisto:'#7f776d', enceladus:'#e6ecf0', titan:'#d9a441'};
 
-export const bodyColor = b => B[b] ? B[b].color : (BODYCOL[b]||'#9a958d');
+export const bodyColor = (b: string): string => B[b] ? B[b].color : (BODYCOL[b]||'#9a958d');
 
 // How much delta-v from a place to the nearest fuel depot? 0 if there is one right there.
-export const FUEL_SPOTS = Object.keys(FUEL_PRICE).map(k=>{ const [node,site]=k.split('@'); return {node, site:site||(node==='earth.surf'?'kourou':null)}; });
+export const FUEL_SPOTS: {node:string; site:string|null}[] = Object.keys(FUEL_PRICE).map(k=>{ const [node,site]=k.split('@'); return {node, site:site||(node==='earth.surf'?'kourou':null)}; });
 
-export function fuelHere(node,site){ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }
+export function fuelHere(node: string, site: string|null): boolean{ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }
