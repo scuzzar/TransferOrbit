@@ -9,3 +9,4 @@ play_log*.json
 
 # Einzeldatei-Bau aus tools/einzeldatei.py
 transferorbit-einzeldatei.html
+.aider*
