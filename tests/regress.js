@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
   const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('dialog',d=>{errs.push('dialog');d.dismiss();});
   await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
   const f=p.frames().find(x=>x.url().includes('index.html'));
+  await f.evaluate(()=>{ TO.ANIM.instant=true; });
   // closing a panel must give the map its size back (mobile)
   await f.click('#cargotile'); await f.click('.phead .back'); await p.waitForTimeout(100);
   console.log('Map after going back (width x height):', await f.evaluate(()=>{ const c=[...document.querySelectorAll('canvas')].find(c=>!c.hidden); return c.clientWidth+'x'+c.clientHeight; }));

@@ -10,6 +10,7 @@ const STEPS = +process.env.STEPS || 120;
     p.on('dialog',d=>{ errs.push('DIALOG '+d.type()+': '+d.message()); d.dismiss(); });
     await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
     const f=p.frames().find(x=>x.url().includes('index.html'));
+    await f.evaluate(()=>{ TO.ANIM.instant=true; });
     const st=()=>f.evaluate(()=>({node:TO.S.node,site:TO.S.site,busy:TO.S.busy,auto:!!TO.S.ui.auto,view:TO.S.ui.view,fuel:TO.S.fuel,cr:TO.S.credits,day:TO.S.day,over:TO.S.over,
       cargo:TO.cargoOrders().length,msg:TO.S.msg,dv:document.getElementById('dv').textContent}));
     const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(100);} return false; };
