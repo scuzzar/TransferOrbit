@@ -3,7 +3,7 @@
 
 import { changed, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, isDesk, km, reduce, tons } from '../basics.js';
-import { B, BANKRUPT, DEPOTS, G0, GOODS, POST_BY_ID, POSTS, Post, M, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, START_DAY, fmtCr, planetOfBody, siteOf } from './world.js';
+import { B, BANKRUPT, DEPOTS, G0, GOODS, POST_BY_ID, POSTS, M, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, START_DAY, fmtCr, planetOfBody, siteOf } from './world.js';
 import { theta, transfer } from './physics.js';
 import { S, DomainState, Eco, Flags, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName, Order } from './state.js';
 import { payout, route } from './graph.js';

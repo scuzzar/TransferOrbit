@@ -12,10 +12,10 @@ Diese Datei löschen, sobald alles erledigt ist.
 | 2 | `[k:string]:any` aus `LocalAction`, `Edge`, `PlanStep` entfernt; `PlanStep` als Union über `kind`; `RouteResult.legs` typisiert | erledigt (`c88f54d`), getestet |
 | 3 | Spielstand validieren, `eco:null as any`, `flags` | erledigt |
 | 4 | three.js typisieren | **offen** |
-| 5 | `noUnusedLocals` / `noUnusedParameters` | **offen** |
+| 5 | `noUnusedLocals` / `noUnusedParameters` | erledigt |
 | 6 | ID-Typen + `noUncheckedIndexedAccess` | **offen** |
 
-Etappen 1–3 sind mit `npm test` gegen einen frischen Build geprüft (`errors: none`, `invariants: ok`). Etappe 3 zusätzlich mit einem alten Spielstand (deutsche IDs, fehlende Felder) und kaputten Spielständen, die abgelehnt werden müssen.
+Etappen 1–3 und 5 sind mit `npm test` gegen einen frischen Build geprüft (`errors: none`, `invariants: ok`). Etappe 3 zusätzlich mit einem alten Spielstand (deutsche IDs, fehlende Felder) und kaputten Spielständen, die abgelehnt werden müssen.
 
 ## Regeln und Stolpersteine
 
@@ -54,21 +54,9 @@ Vorgehen:
 - [ ] Achtung: `glRocketGeo`, `glSurface` und `glRingTexture` werden in `glInit` aufgerufen, bevor `GL.r` bzw. `GL.aniso` gesetzt sind. Die Reihenfolge prüfen.
 - [ ] `start.ts:45`: `.then((THREE) => Gl.glInit(THREE))` ohne Cast.
 
-## Etappe 5: Ungenutzter Code
+## Etappe 5: Ungenutzter Code – erledigt
 
-Danach `"noUnusedLocals": true, "noUnusedParameters": true` in `tsconfig.json` setzen. Aktuelle Fundstellen (`npx tsc --noEmit --noUnusedLocals --noUnusedParameters`):
-
-- `js/game/commands.ts:6` – Import `Post`
-- `js/game/planner.ts:4` – Import `FUEL_PRICE`
-- `js/game/planner.ts:7` – Import `RouteResult`
-- `js/game/planner.ts:8` – Import `LocalAction`
-- `js/map/rocket.ts:2-4` – Importe `B`, `burn`, `sc`
-- `js/map/rocket.ts:25` – Parameter `col` von `drawRocket` wird nie gelesen. Aus der Signatur entfernen und alle Aufrufe in `draw.ts` anpassen (dort steht jeweils `v('--accent')` an dieser Stelle).
-- `js/ui/panels.ts:5` – Import `Post`
-- `js/ui/panels.ts:6` – Import `Target`
-- `js/ui/panels.ts:9` – Import `FuelSpot`
-
-Weitere Kandidaten ohne Compiler-Hinweis: `tsconfig.json` hat `allowJs: true`, aber `include` erfasst nur `.ts`. Die Option entweder entfernen oder `tests/` bewusst mit prüfen.
+`noUnusedLocals` und `noUnusedParameters` sind in `tsconfig.json` an. Die ungenutzten Importe sind entfernt, ebenso der Parameter `col` von `drawRocket` (und `v('--accent')` in den sechs Aufrufen in `draw.ts`). `allowJs` ist raus, denn `include` erfasst nur `.ts`.
 
 ## Etappe 6: ID-Typen und `noUncheckedIndexedAccess`
 
@@ -111,5 +99,7 @@ Optional, ebenfalls in dieser Etappe: `string`-Felder, die eigentlich Unions sin
 - `drawRocket(burn, soon)` → `'pro'|'retro'|null`
 
 ## Nebenbei gefunden (nicht TypeScript)
+
+- `tests/test-bot.js`: In etwa 1 von 5 Läufen bleibt der Bot für ein Gerät am Start hängen („0 flights, 0 deliveries … ended on day 30“). Das passiert schon vor Etappe 3 (`d7eb623`: 2 von 10 Läufen) und ist kein Testfehler im Sinne von `errors`/`invariants`, verdeckt aber einen Teil der Prüfung.
 
 - `js/ui/display.ts:53` enthielt „Gesamt verbraucht“. Das ist in Etappe 0 übersetzt, weitere deutsche Reste mit `grep -rnE '[äöüß]|verbraucht|Jetzt' js` suchen. Deutsche Kommentare gibt es noch in `physics.ts` (Zeilen 49, 57–59) und `economy.ts:1`, außerdem Pfadnamen wie `'hoch'`, `'niedrig'`, `'mond:'` in `draw.ts`. Letztere sind nur interne Schlüssel.

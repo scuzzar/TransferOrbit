@@ -1,7 +1,4 @@
 import { ANIM, FAST, TAU } from '../basics.js';
-import { B } from '../game/world.js';
-import { burn } from '../game/state.js';
-import { sc } from './canvas.js';
 import { RKT, RKT_LEN, RKT_PAL, RKT_TILT, rollOf } from './rocketdata.js';
 import { glRocket } from './gl.js';
 
@@ -22,7 +19,6 @@ export function drawRocket(
   burn: string | null,
   soon: string | null,
   att: {mode:string; up:number} | null,
-  col: string,
   z?: number | null,
   alpha?: number | null
 ) {

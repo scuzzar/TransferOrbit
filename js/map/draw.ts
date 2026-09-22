@@ -58,10 +58,10 @@ function drawSol(){
     const p=Math.min(1,Math.max(0,(S.domain.day-T.dep)/(T.arr-T.dep))), [x,y]=pt(p), [x2,y2]=pt(Math.min(1,p+0.01));
 // burning at departure (prograde) and on arrival (braking), with the rocket turning beforehand
     const bAt=(q:number)=>q<0.04?'pro':q>0.955?'retro':null;
-    drawRocket(ctx,'sol',x,y,Math.atan2(-(y2-y),x2-x),bAt(p),bAt(Math.min(1,p+0.05)),null,v('--accent'));
+    drawRocket(ctx,'sol',x,y,Math.atan2(-(y2-y),x2-x),bAt(p),bAt(Math.min(1,p+0.05)),null);
   } else if(S.domain.node){
     const k=homePlanet(), [x,y]=pos(k,S.domain.day), th=theta(k,S.domain.day), off=k==='jupiter'||k==='saturn'?18:13;
-    drawRocket(ctx,'solpark',x-Math.sin(th)*off, y-Math.cos(th)*off, th+Math.PI/2, null,null,null, v('--accent'));
+    drawRocket(ctx,'solpark',x-Math.sin(th)*off, y-Math.cos(th)*off, th+Math.PI/2, null,null,null);
   }
 }
 
@@ -126,8 +126,8 @@ function drawSys(p:string){
       if(s.glow){ const gr=c.createRadialGradient(s.pt.x,s.pt.y,0,s.pt.x,s.pt.y,12); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(s.pt.x,s.pt.y,12,0,TAU); c.fill(); }
 // real depth: the planet hides the rocket by itself. Standing on a moon it has to be in front.
       const va=Math.atan2(-uy,ux), z=s.pt.z+(s.up?RKT_LEN*0.6:0);
-      if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent'),z);
-      else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn??null,s.soon??null,null,v('--accent'),z); }); }
+      if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},z);
+      else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn??null,s.soon??null,null,z); }); }
 
 // moons as small spheres, behind or in front
   const drawMoon=(m:string,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.domain.day)), x=c.x, y=c.y, pk:Pick={type:'body',body:m}, sel=isPick(pk);
@@ -210,7 +210,7 @@ function drawBody(b:string){
     const drawShip=(c:CanvasRenderingContext2D)=>{ const ang=Math.atan2(-shipDir![1],shipDir![0]);
       c.globalAlpha=fade;
       if(glow){ const gr=c.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(sp.x,sp.y,14,0,TAU); c.fill(); }
-      drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,v('--accent'),shipZ,fade);
+      drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,shipZ,fade);
       c.globalAlpha=1; };
 // The flame stays 2D: on the rear layer when hidden, otherwise on the front one.
     if(sp.hidden) back.push(()=>drawShip(gb)); else shipLast=()=>drawShip(g);
@@ -268,7 +268,7 @@ function drawBody(b:string){
     if(mine && !S.render.move && l==='surf' && S.domain.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
       setRocketMode(hid ? 'flat' : 'gl'); // faded on the far side but still visible, like the marker itself
-      drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent'),zPad);
+      drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},zPad);
       setRocketMode('gl'); g.globalAlpha=1; }
   });
   if(shipLast) shipLast();

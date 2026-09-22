@@ -1,11 +1,11 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
 import { km } from '../basics.js';
-import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, bodyName, fmtCr, fuelHere, siteOf, FUEL_PRICE } from './world.js';
+import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, bodyName, fmtCr, fuelHere, siteOf } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
 import { S, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, locKey, targetName, Target } from './state.js';
-import { edgesFrom, idealTransfer, route, Edge, RouteResult } from './graph.js';
-import { feeBlocked, localActions, LocalAction } from './actions.js';
+import { edgesFrom, idealTransfer, route, Edge } from './graph.js';
+import { feeBlocked, localActions } from './actions.js';
 
 export interface FuelSpot { node:string; site:string|null }
 

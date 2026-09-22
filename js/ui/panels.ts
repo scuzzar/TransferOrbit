@@ -2,11 +2,11 @@
 
 import { changed } from '../events.js';
 import { $, dateStr, esc, fmtDays, km, tons } from '../basics.js';
-import { B, FUEL_PRICE, G0, GOODS, HUB_CAP, Post, POST_BY_ID, REGION, SHIPS, bodyName, fmtCr, postLabel, postPlace, siteOf } from '../game/world.js';
-import { Order, S, atTarget, cargoMass, cargoOrders, dvAvail, dvWith, eng, here, postAt, locKey, nodeName, slotsUsed, Target, targetName } from '../game/state.js';
+import { B, FUEL_PRICE, G0, GOODS, HUB_CAP, POST_BY_ID, REGION, SHIPS, bodyName, fmtCr, postLabel, postPlace, siteOf } from '../game/world.js';
+import { Order, S, atTarget, cargoMass, cargoOrders, dvAvail, dvWith, eng, here, postAt, locKey, nodeName, slotsUsed, targetName } from '../game/state.js';
 import { lateFactor, payout } from '../game/graph.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
-import { FuelSpot, nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
+import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
 import { abortOrder, acceptSelected, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, fuelFor, openView, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { btn, dots, gchip, ibtn, openRoute, phead, routeLink } from './widgets.js';
 
