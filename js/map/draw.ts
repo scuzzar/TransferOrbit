@@ -4,7 +4,7 @@ import { $, TAU, reduce } from '../basics.js';
 import { B, POST_BY_ID, POSTS, M, PLANETS, SITES, bodyColor, bodyOf, fuelHere, hasAtm, hasDepot, moonsOf, planetOfBody } from '../game/world.js';
 import { keplerNu, theta, transfer, transferConic } from '../game/physics.js';
 import { S, burn, cargoOrders, here, homePlanet } from '../game/state.js';
-import { D2R, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
+import { D2R, Plane, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
 import { HITS, bctx, cargoTo, cssVar, ctx, cv, fitCanvas, clearHits, isPick, moveProg, prep, prepBack, sc, sctx } from './canvas.js';
 import { RKT_LEN } from './rocketdata.js';
 import { GL, glBegin, glEnd, glHide, glNote, glPath, glPut, glSaturnRing } from './gl.js';
@@ -194,8 +194,8 @@ function drawBody(b:string){
     const pa=S.render.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
     const trail=[]; for(let j=0;j<=80;j++){ const q=P(pa.at(j/80).p); trail.push({x:q.x,y:q.y,z:q.z*R}); }
     glPath('spur',trail,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
-    shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
-    soon=pa.at(Math.min(1,t+0.06)).burn; att=q.att?{mode:q.att as string,up:0}:null;
+    shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn??null; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
+    soon=pa.at(Math.min(1,t+0.06)).burn??null; att=q.att?{mode:q.att as string,up:0}:null;
   } else if(mine && l==='orbit'){
     shipAt=orbitPos(b,orb,orb.u,R_ORB); const a=P(orbitPos(b,orb,orb.u-0.02,R_ORB)), c=P(orbitPos(b,orb,orb.u+0.02,R_ORB)); shipDir=[c.x-a.x,c.y-a.y];
   }
@@ -244,7 +244,7 @@ function drawBody(b:string){
     g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=4; g.fillText(label,p.x+(al==='left'?11:-11),p.y); g.shadowBlur=0;
     HITS.push({canvas:cv,x:p.x,y:p.y,r:22,pick:pk}); };
 // rightmost visible point of the orbit, for the marker
-  const frontOf=(o:Record<string,any>,r:number)=>{ let best:Record<string,any>|null=null; for(let j=0;j<72;j++){ const p=P(orbitPos(b,o,j/72*TAU,r)); if(p.z<0) continue; if(!best||p.x>best.x) best=p; } return best; };
+  const frontOf=(o:Plane,r:number)=>{ let best:ReturnType<typeof P>|null=null; for(let j=0;j<72;j++){ const p=P(orbitPos(b,o,j/72*TAU,r)); if(p.z<0) continue; if(!best||p.x>best.x) best=p; } return best; };
   marker(frontOf(orb,R_ORB)!,b+'.orbit','Low orbit','left');
   if(showHigh){ const hp=P(orbitPos(b,defaultOrb(b),40*D2R,R_HIGH)); if(hp) marker(hp,b+'.capt','High orbit','left'); }
 
@@ -290,8 +290,8 @@ export function idleLoop(ts:number){
     clearHits(sc); drawSys(vw.planet); return; }
   if(nd!=='orbit' || cv.hidden) return;
   if(vw.level!=='body' || vw.body!==b) return;
-  if(!S.render.orb || S.render.orb.body!==b) S.render.orb=defaultOrb(b) as unknown as {body:string;u:number;[k:string]:any};
-  S.render.orb!.u=(S.render.orb!.u+dt*0.35)%TAU; clearHits(cv); drawBody(b);
+  if(!S.render.orb || S.render.orb.body!==b) S.render.orb=defaultOrb(b);
+  S.render.orb.u=(S.render.orb.u+dt*0.35)%TAU; clearHits(cv); drawBody(b);
 }
 
 export function wireDraw(){

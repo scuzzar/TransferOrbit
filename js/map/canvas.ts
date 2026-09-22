@@ -31,7 +31,7 @@ export function fitCanvas(canvas:HTMLCanvasElement, aspect:number){
   return [W,H];
 }
 
-export const moveProg = () => { const m=S.render.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.domain.day-(m.d0 as number))/((m.d1 as number)-(m.d0 as number)))) : 1; };
+export const moveProg = () => { const m=S.render.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.domain.day-m.d0)/(m.d1-m.d0))) : 1; };
 
 export const isPick = (p:Record<string,any>) => { const q=S.ui.pick; if(!q||!p||q.type!==p.type) return false;
   return q.type==='planet'?q.planet===p.planet : q.type==='body'?q.body===p.body : q.node===p.node && (q.site||null)===(p.site||null); };

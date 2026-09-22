@@ -55,12 +55,33 @@ export interface UIState {
   msg:string|null;
 }
 
+// The shapes the map animation works with. They live here because RenderState holds
+// them; map/geometry.ts builds them and re-exports the types.
+export type Vec3 = [number,number,number];
+// An orbital plane: inclination i and ascending node Om, both in degrees
+export interface Plane { i:number; Om:number }
+// The ship's orbit around a body; u is its position along the orbit in radians
+export interface Orbit extends Plane { body:string; u:number }
+export interface PathAt { p:Vec3; burn?:'pro'|'retro'|null; glow?:boolean; att?:string }
+// Path of a manoeuvre in the body frame, t runs from 0 to 1
+export interface BodyPath { b:string; finalOrb:Orbit|null; at:(t:number)=>PathAt; fade?:boolean }
+export interface SysState { p:string; capU:number; lowU:number; moonU:number }
+// Plan of a manoeuvre in the system view (angles only, independent of scale)
+export type SysPlan =
+  | { kind:'toMoon'; m:string; p0:number; aArr:number; final:{moonU:number} }
+  | { kind:'fromMoon'; m:string; m0:number; aDep:number; final:{capU:number} }
+  | { kind:'raise'; u0:number; final:{capU:number} }
+  | { kind:'lower'; u0:number; aero:boolean; th:number; final:{lowU:number} };
+// A manoeuvre: from where to where over which days, plus the pictures it is drawn with
+export interface MoveSpec { from:Target; to:Target; d0:number; d1:number; aero:boolean; orb:Orbit|null }
+export interface Move extends MoveSpec { path:BodyPath|null; sys:SysPlan|null }
+
 // Per-frame interpolation caches the map animation reads and writes. Rebuilt from
 // DomainState on demand, so there is nothing here worth saving.
 export interface RenderState {
-  move:{ body:string; u:number; [k:string]:any }|null;
-  orb:{ body:string; u:number; [k:string]:any }|null;
-  sys:{ p:string; capU:number; lowU:number; moonU:number }|null;
+  move:Move|null;
+  orb:Orbit|null;
+  sys:SysState|null;
   anim:{ d0:number; d1:number }|null;
 }
 

@@ -3,10 +3,9 @@
 import { TAU } from '../basics.js';
 import { M, MOONS, SITES, Site, hasAtm, moonsOf, planetOfBody, siteOf } from '../game/world.js';
 import { keplerNu } from '../game/physics.js';
-import { S, Target } from '../game/state.js';
+import { S, BodyPath, MoveSpec, Orbit, Plane, SysPlan, SysState, Vec3 } from '../game/state.js';
 
-export type Orbit = { [k:string]: any };
-export interface Move { from:Target; to:Target; d0:number; d1:number; orb:Orbit|null; aero?:boolean; [k:string]:any; }
+export type { BodyPath, Move, MoveSpec, Orbit, PathAt, Plane, SysPlan, Vec3 } from '../game/state.js';
 
 // During a time-lapse animation fast moons would otherwise spin round many times (a wild blur).
 // So in an animation they advance at most one lap and end up exactly at their real position.
@@ -27,7 +26,6 @@ const CAM_EL = 22*D2R;                 // camera 22° above (or below) the equat
 
 export const R_ORB = 1.3, R_HIGH = 1.62;      // orbit radii in body radii (exaggerated so they are visible)
 
-export type Vec3 = [number,number,number];
 export const vadd=(a:Vec3,b:Vec3):Vec3=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], vmul=(a:Vec3,s:number):Vec3=>[a[0]*s,a[1]*s,a[2]*s];
 
 const vdot=(a:Vec3,b:Vec3)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2], vnorm=(a:Vec3):Vec3=>vmul(a,1/(Math.hypot(...a)||1));
@@ -65,22 +63,19 @@ export function makeCam(cx:number,cy:number,R:number,el:number):Cam{
 }
 
 // Orbit: inclination i, ascending node Om (longitude), position from the argument u
-export function orbitPos(b:string,o:Orbit,u:number,r:number):Vec3{ const N=bvec(b,0,o.Om), Mv=bvec(b,o.i,o.Om+90); return vmul(vadd(vmul(N,Math.cos(u)),vmul(Mv,Math.sin(u))),r); }
+export function orbitPos(b:string,o:Plane,u:number,r:number):Vec3{ const N=bvec(b,0,o.Om), Mv=bvec(b,o.i,o.Om+90); return vmul(vadd(vmul(N,Math.cos(u)),vmul(Mv,Math.sin(u))),r); }
 
 // An orbit passing eastwards over a landing site (launch due east)
-function siteOrbit(st:{lat:number;lon:number}){ const i=Math.abs(st.lat); return st.lat>=0 ? {i, Om:st.lon-90, uSite:90*D2R} : {i, Om:st.lon+90, uSite:270*D2R}; }
+function siteOrbit(st:{lat:number;lon:number}):Plane&{uSite:number}{ const i=Math.abs(st.lat); return st.lat>=0 ? {i, Om:st.lon-90, uSite:90*D2R} : {i, Om:st.lon+90, uSite:270*D2R}; }
 
 export const defaultOrb = (b:string):Orbit => ({body:b, i:0, Om:bodyLon0(b)-90, u:90*D2R});
 
-export const shipOrb = (b:string):Orbit => (S.render.orb && S.render.orb.body===b) ? S.render.orb : defaultOrb(b);
+export const shipOrb = (b:string):Orbit => S.render.orb?.body===b ? S.render.orb : defaultOrb(b);
 
 const easeIn = (t:number)=>t*t, easeOut = (t:number)=>1-(1-t)*(1-t);
 
 // Path of a manoeuvre in the body frame: at(t) -> {p, burn:'pro'|'retro'|null, glow}
-export interface PathAt { p:Vec3; burn?:'pro'|'retro'|null; glow?:boolean; att?:string; }
-export interface BodyPath { b:string; finalOrb:Orbit|null; at:(t:number)=>PathAt; fade?:boolean; }
-
-export function bodyPath(mv:Move):BodyPath|null{
+export function bodyPath(mv:MoveSpec):BodyPath|null{
   const [fb,fl]=mv.from.node.split('.'), [tb,tl]=mv.to.node.split('.'), b=fb;
   const atm=hasAtm(b);
 // launch: straight up, then east into the circular orbit
@@ -95,7 +90,7 @@ export function bodyPath(mv:Move):BodyPath|null{
     const uDe=o.uSite-arc; let du=((uDe-c.u)%TAU+TAU)%TAU; if(du<0.6) du+=TAU;
     const dOm=((o.Om-c.Om+540)%360)-180;
     return {b, finalOrb:null, at:t=>{
-      if(t<0.38){ const s=t/0.38; const oo:Orbit={body:b, i:c.i+(o.i-c.i)*s, Om:c.Om+dOm*s}; return {p:orbitPos(b,oo,c.u+du*s,R_ORB), burn:s>0.92?'retro':null}; }
+      if(t<0.38){ const s=t/0.38; const oo:Plane={i:c.i+(o.i-c.i)*s, Om:c.Om+dOm*s}; return {p:orbitPos(b,oo,c.u+du*s,R_ORB), burn:s>0.92?'retro':null}; }
       const s=(t-0.38)/0.62;
       return {p:orbitPos(b,o,uDe+arc*easeOut(s),R_ORB-(R_ORB-1)*easeIn(s)), burn:(s<0.07||s>0.7)?'retro':null, glow:atm&&s>0.25&&s<0.68, att:'retro'};
     }};
@@ -129,16 +124,16 @@ export const SYS_EL = 35*D2R;
 
 export const ringPt=(r:number,a:number):Vec3=>[r*Math.cos(a),0,-r*Math.sin(a)];
 
-export const sysState = (p:string) => { if(!S.render.sys || S.render.sys.p!==p) S.render.sys={p, capU:-0.75, lowU:0, moonU:0}; return S.render.sys; };
+export const sysState = (p:string):SysState => { if(!S.render.sys || S.render.sys.p!==p) S.render.sys={p, capU:-0.75, lowU:0, moonU:0}; return S.render.sys; };
 
 // Plan of a manoeuvre in the system view (angles only, independent of scale)
-export function sysPlan(mv:Move):any{
+export function sysPlan(mv:MoveSpec):SysPlan|null{
   const [fb,fl]=mv.from.node.split('.'), [tb,tl]=mv.to.node.split('.'), p=planetOfBody(fb);
   if(planetOfBody(tb)!==p || !moonsOf(p).length) return null;
   const st=sysState(p);
   if(fl==='capt' && M[tb] && tl==='orbit'){ const aArr=moonAngle(tb,mv.d1); return {kind:'toMoon', m:tb, p0:st.capU, aArr, final:{moonU:aArr+Math.PI/2}}; }
   if(M[fb] && fl==='orbit' && tl==='capt'){ const aDep=moonAngle(fb,mv.d0); return {kind:'fromMoon', m:fb, m0:st.moonU, aDep, final:{capU:aDep+Math.PI}}; }
   if(fb===p && fl==='orbit' && tl==='capt') return {kind:'raise', u0:st.lowU, final:{capU:st.lowU+Math.PI}};
-  if(fb===p && fl==='capt' && tl==='orbit'){ const aero=!!mv.aero, th=aero?4*TAU+Math.PI:Math.PI; return {kind:'lower', u0:st.capU, aero, th, final:{lowU:st.capU+th}}; }
+  if(fb===p && fl==='capt' && tl==='orbit'){ const aero=mv.aero, th=aero?4*TAU+Math.PI:Math.PI; return {kind:'lower', u0:st.capU, aero, th, final:{lowU:st.capU+th}}; }
   return null;
 }

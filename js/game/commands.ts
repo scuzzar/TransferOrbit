@@ -9,7 +9,7 @@ import { S, DomainState, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith
 import { payout, route } from './graph.js';
 import { econAdvance, freshDeadline, newEconomy } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
-import { bodyPath, defaultOrb, sysPlan, sysState } from '../map/geometry.js';
+import { Move, MoveSpec, bodyPath, defaultOrb, sysPlan, sysState } from '../map/geometry.js';
 import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
 
 type SaveObj = Record<string,any>;
@@ -49,12 +49,11 @@ function showMap(el?:Element){
 
 // The move an action sets off: path around the body, system orbit, time window.
 // doAction then plays it out; anyone who only wants the picture sets it themselves.
-export function planMove(a:LocalAction){
-  const mv:any={from:{node:S.domain.node, site:S.domain.site}, to:{node:a.to, site:a.site||null}, d0:S.domain.day, d1:S.domain.day+a.days, hop:!!a.hop, aero:/Aerobrems/.test(a.label||'')};
-  mv.orb = S.render.orb && S.render.orb.body===S.domain.node!.split('.')[0] ? {...S.render.orb} : null;
-  mv.path = bodyPath(mv);
-  mv.sys = sysPlan(mv);
-  return mv;
+export function planMove(a:LocalAction):Move{
+  const node=S.domain.node!, orb=S.render.orb;
+  const spec:MoveSpec={from:{node, site:S.domain.site}, to:{node:a.to, site:a.site||null}, d0:S.domain.day, d1:S.domain.day+a.days, aero:!!a.aero,
+    orb: orb?.body===node.split('.')[0] ? {...orb} : null};
+  return {...spec, path:bodyPath(spec), sys:sysPlan(spec)};
 }
 
 export function doAction(a:LocalAction){
@@ -71,7 +70,7 @@ export function doAction(a:LocalAction){
     if(spl) Object.assign(sysState(planetOfBody(a.to.split('.')[0])), spl.final);
 // orbit state for the 3D view: the launch orbit after lift-off, otherwise equatorial and in front
     if(a.to.endsWith('.orbit')){ const tb=a.to.split('.')[0]; S.render.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); } else if(a.to.endsWith('.surf')) S.render.orb=null;
-    arrive(a.to,a.site as string); S.ui.msg=`${a.label}: ${km(a.dv)} km/s verbraucht. Jetzt: ${nodeName(a.to)}.`;
+    arrive(a.to,a.site as string); S.ui.msg=`${a.label}: ${km(a.dv)} km/s used. Now: ${nodeName(a.to)}.`;
     S.action.busy=false; changed(); autoFill();
   });
 }
@@ -92,7 +91,7 @@ export function doTransfer(b:string){
 
 export function waitDays(n:number){
   if(S.action.busy || S.domain.over) return; S.action.busy=true; changed(); showMap();
-  animateTo(S.domain.day+n, Math.min(2400,350+n*5)*1.3, ()=>{ S.action.busy=false; S.ui.msg=`${fmtDays(n)} vergangen.`; changed(); });
+  animateTo(S.domain.day+n, Math.min(2400,350+n*5)*1.3, ()=>{ S.action.busy=false; S.ui.msg=`${fmtDays(n)} passed.`; changed(); });
 }
 
 // "Always fill up": at every depot take on as much as the tank holds and the money allows

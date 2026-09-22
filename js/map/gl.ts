@@ -147,7 +147,7 @@ export function glInit(T:any){
   r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); // on mobile: at most 2
   r.autoClear=false;
   GL.aniso=Math.min(4, r.capabilities.getMaxAnisotropy());
-  glcEl.addEventListener('webglcontextlost', (e:Event)=>{ (e as any).preventDefault(); glOff('WebGL-Kontext verloren'); });
+  glcEl.addEventListener('webglcontextlost', (e:Event)=>{ e.preventDefault(); glOff('WebGL context lost'); });
 
   GL.scene=new T.Scene();
   GL.cam=new T.OrthographicCamera(-1,1,1,-1,1,4000);

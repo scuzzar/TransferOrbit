@@ -6,7 +6,7 @@ import { S, cargoMass, eng, here } from './state.js';
 
 export interface LocalAction {
   label:string; dv:number; days:number; to:string;
-  site?:string|null; lat?:number; note?:string; fee?:number; hop?:boolean;
+  site?:string|null; lat?:number; note?:string; fee?:number; hop?:boolean; aero?:boolean;
   [k:string]:any;
 }
 
@@ -56,7 +56,7 @@ export function localActions(): LocalAction[]{
     }
     if(l==='capt'){
       add('Down to low orbit',captDv(k),1,k+'.orbit');
-      if(b.atm) add('Aerobrake into low orbit',60,40,k+'.orbit',{note:'Many passes through the upper atmosphere'});
+      if(b.atm) add('Aerobrake into low orbit',60,40,k+'.orbit',{aero:true, note:'Many passes through the upper atmosphere'});
       moonsOf(k).forEach(m=>add(`To ${M[m].name==='Moon'?'the Moon':M[m].name}`,M[m].xfer,M[m].days,m+'.orbit',{note:`Insertion into orbit around ${M[m].name}`+(hasDepot(m)?', fuel depot on the surface':'')}));
     }
   }

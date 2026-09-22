@@ -50,7 +50,7 @@ export function render(){
   document.body.classList.toggle('panel-open',pv);
   header(); draw(); renderPick(); renderAutobar(); toast();
   ($('mainview') as HTMLElement).hidden=pv; ($('panel') as HTMLElement).hidden=!pv;
-  ($('used') as HTMLElement).textContent=`Gesamt verbraucht: ${km(S.domain.used)} km/s`;
+  ($('used') as HTMLElement).textContent=`Total used: ${km(S.domain.used)} km/s`;
   document.querySelectorAll<HTMLElement>('[data-wait]').forEach(b=>(b as HTMLButtonElement).disabled=S.action.busy||S.domain.over);
   if(pv){ renderPanel(); document.querySelectorAll<HTMLElement>('#panel button').forEach(b=>{ if(S.domain.over && !(b as HTMLButtonElement).classList.contains('back')) (b as HTMLButtonElement).disabled=true; }); return; }
   renderPlace();
