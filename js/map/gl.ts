@@ -255,7 +255,7 @@ function glPathGeo(pts:PathPt[],w:number,dash:[number,number]|null){
 
 // Two passes: faded without a depth test (the far side shows dimmed through the body, as before),
 // then the full one with a depth test. That way the rocket hides the orbit and the other way round.
-type PathStyle = { w?:number; dash?:[number,number]; a?:number; col:string; ghost?:number };
+export type PathStyle = { w?:number; dash?:[number,number]; a?:number; col:string; ghost?:number };
 export function glPath(key:string,pts:PathPt[],style:PathStyle){
   const T=GL.T, tri=glPathGeo(pts, style.w||1, style.dash||null), n=tri.length/3;
   let o=GL.path[key];

@@ -73,7 +73,7 @@ export function transferConic(r1:number, r2:number, dth:number){
   let e = out ? (r2-r1)/(r1-r2*Math.cos(dth)) : (r1-r2)/(r1-r2*Math.cos(dth));
   // a valid ellipse needs 0 <= e < 1 and dth clearly > 0; otherwise fall back to a soft blend
   const ok = isFinite(e) && e>=0 && e<0.97 && dth>0.2;
-  if(!ok){ const f=(s:number)=>({r:r1+(r2-r1)*(0.5-0.5*Math.cos(Math.PI*s)), th:dth*s}); return {at:f, geo:(s:number)=>{const q=f(s); return [q.r,q.th];}}; }
+  if(!ok){ const f=(s:number)=>({r:r1+(r2-r1)*(0.5-0.5*Math.cos(Math.PI*s)), th:dth*s}); return {at:f, geo:(s:number):[number,number]=>{const q=f(s); return [q.r,q.th];}}; }
   const p = out ? r1*(1+e) : r1*(1-e);
   const nu0 = out ? 0 : Math.PI, nu1 = nu0+dth;
   const rOfNu = (nu:number) => p/(1+e*Math.cos(nu));
@@ -82,7 +82,7 @@ export function transferConic(r1:number, r2:number, dth:number){
   const unwrap=(m:number, ref:number)=>{ while(m<ref-1e-9) m+=TAU; return m; };
   const M0=Mof(nu0), M1=unwrap(Mof(nu1),M0);
   const at=(s:number)=>{ const Mt=M0+(M1-M0)*s; const nu=keplerNu(Mt,e); let d=((nu-nu0)%TAU+TAU)%TAU; if(s>0.999) d=dth; return {r:rOfNu(nu0+d), th:d}; };
-  return {at, geo:(s:number)=>{ const nu=nu0+dth*s; return [rOfNu(nu), dth*s]; }};
+  return {at, geo:(s:number):[number,number]=>{ const nu=nu0+dth*s; return [rOfNu(nu), dth*s]; }};
 }
 
 // Kepler: eccentric anomaly from the mean one, then the true anomaly

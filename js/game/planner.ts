@@ -26,21 +26,24 @@ export function cargoHints(){
   Object.keys(byDest).forEach(id=>{
     const r=route(me,POST_BY_ID[id]); if(!r.first) return;
     const name=POST_BY_ID[id].name;
-    if(r.first.leg){ const p=r.first.leg[1] as string; (H.transfer[p]=H.transfer[p]||[]).includes(name)||H.transfer[p].push(name); }
+    if(r.first.leg){ const p=r.first.leg[1]; (H.transfer[p]=H.transfer[p]||[]).includes(name)||H.transfer[p].push(name); }
     else H.step.push({node:r.first.node, site:r.first.site, dv:r.first.dv, name, n:byDest[id], final: POST_BY_ID[id].node===r.first.node && (!POST_BY_ID[id].site||POST_BY_ID[id].site===r.first.site)});
   });
   return H;
 }
 
-export interface PlanStep {
-  kind: string; node?: string; site?: string|null; leg?: [string,string];
-  dv:number; days:number; label:string; until?:number; [k:string]:any;
-}
+// wait: for the window of the transfer that follows; leg: the transfer itself; move: anything else
+export type PlanStep = { dv:number; days:number; label:string } & (
+  | { kind:'wait'; leg:[string,string]; until:number }
+  | { kind:'leg'; node:string; site:string|null; leg:[string,string] }
+  | { kind:'move'; node:string; site:string|null });
 export interface PlanResult {
   steps: PlanStep[]; dv:number; days:number; arrive:number; fee:number;
 }
 interface Start { node:string; site:string|null; day:number }
 interface RNode { n:string; s:string|null; c:number; dv:number; days:number }
+// an edge as the search takes it: a transfer may start with a wait for its window
+interface PlanEdge extends Edge { wait?:number }
 
 export function planRoute(target:Target, mode:string, start?:Start|null): PlanResult|null{
   start = start || (S.domain.node ? {node:S.domain.node, site:S.domain.site, day:S.domain.day} : null);
@@ -48,7 +51,7 @@ export function planRoute(target:Target, mode:string, start?:Start|null): PlanRe
   const dayCost = DAY_COST[mode] ?? DAY_COST.eco;
   const key=(n:string,s:string|null)=>n+'|'+(s||'');
   const best: Record<string, RNode> = {};
-  const prev: Record<string, {k:string; from:RNode; ed:Edge}> = {};
+  const prev: Record<string, {k:string; from:RNode; ed:PlanEdge}> = {};
   const done=new Set<string>();
   const q:RNode[]=[{n:start.node,s:start.site,c:0,dv:0,days:0}]; best[key(start.node,start.site)]=q[0];
   let goal:RNode|null=null;
@@ -57,7 +60,7 @@ export function planRoute(target:Target, mode:string, start?:Start|null): PlanRe
     if(done.has(ck)) continue; done.add(ck);
     if(cur.n===target.node && (!target.site || cur.s===target.site)){ goal=cur; break; }
     for(const ed0 of edgesFrom(cur.n,cur.s)){
-      const ed={...ed0}, day=start.day+cur.days;
+      const ed:PlanEdge={...ed0}, day=start.day+cur.days;
       if(ed.leg){ const [a,b]=ed.leg, t=transfer(a,b,day);
         if(mode==='now'){ ed.dv=t.total; ed.days=t.tof; ed.wait=0; }
         else { const id=idealTransfer(a,b); ed.wait=t.d<0.04?0:t.wait; ed.dv=id.total; ed.days=ed.wait+id.tof; } }
@@ -66,14 +69,16 @@ export function planRoute(target:Target, mode:string, start?:Start|null): PlanRe
     }
   }
   if(!goal) return null;
-  const path: {from:RNode; ed:Edge}[] = []; let k=key(goal.n,goal.s);
+  const path: {from:RNode; ed:PlanEdge}[] = []; let k=key(goal.n,goal.s);
   while(prev[k]){ path.unshift({from:prev[k].from, ed:prev[k].ed}); k=prev[k].k; }
   const steps:PlanStep[]=[]; let day=start.day, fee=0;
   path.forEach(({from,ed})=>{
-    if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1] as string)}`, until:day+ed.wait}); day+=ed.wait; }
-    const days=ed.days-(ed.wait||0);
+    if(ed.leg && ed.wait){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1])}`, until:day+ed.wait}); day+=ed.wait; }
+    const days=ed.days-(ed.wait||0), label=stepLabel(from,ed);
     if(ed.launch) fee+=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.domain.fuel)*(ed.hop?HOP_FEE_SHARE:1));
-    steps.push({kind:ed.leg?'leg':'move', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label:stepLabel(from,ed)}); day+=days;
+    if(ed.leg) steps.push({kind:'leg', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label});
+    else steps.push({kind:'move', node:ed.node, site:ed.site, dv:ed.dv, days, label});
+    day+=days;
   });
   return {steps, dv:goal.dv, days:goal.days, arrive:start.day+goal.days, fee};
 }
@@ -81,7 +86,7 @@ export function planRoute(target:Target, mode:string, start?:Start|null): PlanRe
 const toName = (p:string) => B[p].name;
 
 function stepLabel(from:RNode, e:Edge){
-  if(e.leg) return `Transfer to ${toName(e.leg[1] as string)}`;
+  if(e.leg) return `Transfer to ${toName(e.leg[1])}`;
   const [fk,fl]=from.n.split('.'), [tk,tl]=e.node.split('.');
   if(tl==='surf'){ const st=siteOf(tk,e.site); if(fl==='surf') return `${e.launch?'Suborbital flight':'Hop'} to ${st?st.name:bodyName(tk)}`; return `Land at ${st?st.name:bodyName(tk)}`; }
   if(fl==='surf') return e.launch?'Ride a launcher to orbit':`Ascend to orbit${M[fk]?' around '+M[fk].name:''}`;
@@ -100,8 +105,9 @@ export function nearestFuel(start:Start){
 }
 
 export function stepBlocker(st:PlanStep){
+  if(st.kind==='wait') return 'Waiting for the transfer window.';
   if(st.kind==='leg'){ const hp=homePlanet(); if(S.domain.node!==hp+'.capt') return 'Transfers start from high orbit.';
-    return `The transfer currently costs ${km(transfer(hp,st.leg![1] as string,S.domain.day).total)} km/s, you have ${km(dvAvail())}.`; }
+    return `The transfer currently costs ${km(transfer(hp,st.leg[1],S.domain.day).total)} km/s, you have ${km(dvAvail())}.`; }
   const a=localActions().find(a2=>a2.to===st.node && (a2.site||null)===(st.site||null));
   if(!a) return 'That manoeuvre is not possible from here.';
   if(a.dv>dvAvail()+0.5) return `It needs ${km(a.dv)} km/s, you have ${km(dvAvail())}.`;

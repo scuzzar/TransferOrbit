@@ -7,14 +7,14 @@ import { S, cargoMass, eng, here } from './state.js';
 export interface LocalAction {
   label:string; dv:number; days:number; to:string;
   site?:string|null; lat?:number; note?:string; fee?:number; hop?:boolean; aero?:boolean;
-  [k:string]:any;
 }
+type ActionExtra = Omit<LocalAction,'label'|'dv'|'days'|'to'>;
 
 export function localActions(): LocalAction[]{
   const [k,l]=here(); const A:LocalAction[]=[];
-  const add=(label:string,dv:number,days:number,to:string,x:Record<string,any>={})=>A.push({label,dv,days,to,...x});
+  const add=(label:string,dv:number,days:number,to:string,x:ActionExtra={})=>A.push({label,dv,days,to,...x});
   if(!k) return A;
-  const landings=(body:string,down:number,baseNote?:string)=>{
+  const landings=(body:string,down:number)=>{
     (SITES[body]||[]).forEach(st=>{
       const pen=hasAtm(body)?0:rotPenalty(body,st.lat);
       const bits=[latStr(st.lat)];

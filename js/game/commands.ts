@@ -57,7 +57,7 @@ export function planMove(a:LocalAction):Move{
 }
 
 export function doAction(a:LocalAction){
-  if(S.action.busy || S.domain.over || a.disabled || a.dv>dvAvail()+0.5 || feeBlocked(a)) return;
+  if(S.action.busy || S.domain.over || a.dv>dvAvail()+0.5 || feeBlocked(a)) return;
   if(a.fee) S.domain.credits-=a.fee;
   burn(a.dv); S.action.busy=true;
 // remember the move so the system and body views can show the ship under way
@@ -308,8 +308,8 @@ export function load(key?: string|null){
 
 export function execStep(st:PlanStep){
   if(!st || S.action.busy || S.domain.over) return false;
-  if(st.kind==='wait'){ const [a,b]=st.leg!, t=transfer(a,b,S.domain.day); if(t.d<0.04) return true; waitDays(t.wait); return true; }
-  if(st.kind==='leg'){ const hp=homePlanet(); if(S.domain.node!==hp+'.capt' || transfer(hp,st.leg![1],S.domain.day).total>dvAvail()) return false; doTransfer(st.leg![1]); return true; }
+  if(st.kind==='wait'){ const [a,b]=st.leg, t=transfer(a,b,S.domain.day); if(t.d<0.04) return true; waitDays(t.wait); return true; }
+  if(st.kind==='leg'){ const hp=homePlanet(); if(S.domain.node!==hp+'.capt' || transfer(hp,st.leg[1],S.domain.day).total>dvAvail()) return false; doTransfer(st.leg[1]); return true; }
   const a=localActions().find(al=>al.to===st.node && (al.site||null)===(st.site||null) && Math.abs(al.dv-st.dv)<1);
   if(!a || a.dv>dvAvail()+0.5 || feeBlocked(a)) return false;
   doAction(a); return true;
@@ -328,7 +328,7 @@ export function stopAutopilot(msg?:string, arrived?:boolean){ S.ui.auto=null; if
   if(arrived && S.ui.view==='route'){ S.ui.view='main'; S.ui.back=null; } changed(); }
 
 function autoTick(){
-  const A=S.ui.auto as any; if(!A) return;
+  const A=S.ui.auto; if(!A) return;
   if(S.action.busy){ setTimeout(autoTick,250); return; }
   if(S.domain.over) return stopAutopilot();
   if(atTarget(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);

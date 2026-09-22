@@ -56,7 +56,7 @@ function makeOrder(k:Post, g:string, fwd:boolean, day:number){
 }
 
 // Wait until the window of a route's first interplanetary leg
-export function legWait(r:RouteResult, day:number){ if(!r.legs.length) return 0; const [a,b]=r.legs[0] as [string,string]; const t=transfer(a,b,day); return t.d<0.04?0:t.wait; }
+export function legWait(r:RouteResult, day:number){ if(!r.legs.length) return 0; const [a,b]=r.legs[0]; const t=transfer(a,b,day); return t.d<0.04?0:t.wait; }
 
 // Deadline if the order is accepted on day 'day'
 export function freshDeadline(o:Order, day:number){ const r=route(POST_BY_ID[o.from],POST_BY_ID[o.to]); return day+legWait(r,day)+1.5*o.days+30; }

@@ -19,3 +19,6 @@ declare module 'three' {
     RingGeometry, RingBufferGeometry, DoubleSide, FrontSide, BackSide, SRGBColorSpace, sRGBEncoding,
     LinearEncoding };
 }
+
+// The single outside edge for tests and the console, set up in js/start.ts
+interface Window { TO: unknown }

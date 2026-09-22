@@ -67,18 +67,18 @@ export function onMapClick(e:MouseEvent){
   const t=e.currentTarget as HTMLElement, r=t.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
   let best:Hit|null=null, bd=Infinity;
   for(const h of HITS){ if(h.canvas===t){ const d=Math.hypot(h.x-x,h.y-y); if(d<h.r && d<bd){ bd=d; best=h; } } }
-  const pk:Record<string,any>|null=best?best.pick:null, key=pk?JSON.stringify(pk):null, now=performance.now();
+  const pk=best?best.pick:null, key=pk?JSON.stringify(pk):null, now=performance.now();
   // Double click or double tap: look closer, or show the landing sites
   if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=pk?deeperView(pk):null; if(dv){ setView(dv); return; } }
   lastTap={key,t:now};
-  S.ui.pick=pk as Pick|null;
+  S.ui.pick=pk;
   if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.domain.target=best.pick.planet;
   changed();
 }
 
 let lastTap:{key:string|null;t:number}={key:null,t:0};
 
-function deeperView(pk:Record<string,any>):ViewLevel|null{
+function deeperView(pk:Pick):ViewLevel|null{
   if(pk.type==='planet'){ const k=pk.planet; return moonsOf(k).length?{level:'sys',planet:k}:SITES[k]?{level:'body',planet:k,body:k}:null; }
   if(pk.type==='body') return SITES[pk.body]?{level:'body',planet:planetOfBody(pk.body),body:pk.body}:null;
   if(pk.type==='node'){ const b=pk.node.split('.')[0]; if(pk.node.endsWith('.orbit') && SITES[b]) return {level:'body',planet:planetOfBody(b),body:b}; }
@@ -86,6 +86,6 @@ function deeperView(pk:Record<string,any>):ViewLevel|null{
 }
 
 export function wireMap(){
-  (cv as HTMLCanvasElement).addEventListener('click',onMapClick as any);
-  (sc as HTMLCanvasElement).addEventListener('click',onMapClick as any);
+  cv.addEventListener('click',onMapClick);
+  sc.addEventListener('click',onMapClick);
 }

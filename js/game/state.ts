@@ -3,7 +3,7 @@
 import { B, FUEL_PRICE, G0, GOODS, POSTS, LVL, M, SHIPS, SITES, bodyName, Post, siteOf } from './world.js';
 
 export type Target = { node:string; site?:string|null };
-export type Pick = { type:'planet'|'body'|'node'; planet?:string; body?:string; node?:string; site?:string|null };
+export type Pick = { type:'planet'; planet:string } | { type:'body'; body:string } | { type:'node'; node:string; site?:string|null };
 export type ViewLevel = { level:'sol' } | { level:'sys'; planet:string } | { level:'body'; planet:string; body:string };
 export type OrderState = 'open'|'aboard';
 export interface Order {
@@ -33,7 +33,7 @@ export interface DomainState {
   credits:number;
   visited:Set<string>;
   flags:Record<string,any>;
-  target:string|Target|null;
+  target:string|null;       // the planet the transfer window on the solar system map points at
   over:boolean;
   eco:Eco;
   autoFill:boolean;
@@ -49,7 +49,7 @@ export interface ActionState {
 // What the screen is showing: open panel, selection, dialogs, the toast message.
 export interface UIState {
   view:string; sel:Set<number>; tank:number|null; pick:Pick|null;
-  route:{ target:Target; mode:string }|null;
+  route:{ target:Target; mode:string; strand?:boolean }|null;
   auto:{ target:Target; mode:string; start:string|null }|null;
   mapView:ViewLevel|null; mapKey:string|null; rmsg:boolean; back:string|null;
   msg:string|null;
@@ -130,7 +130,7 @@ export const nodeName = (node:string) => { const [k,l]=node.split('.');
   if(M[k]) return l==='surf' ? (M[k].surfName||`the surface of ${M[k].name}`) : (M[k].orbitName||`orbit around ${M[k].name}`);
   return `${(LVL as Record<string,string>)[l]} of ${B[k].name}`; };
 
-export const pickTarget = (p:Pick):Target => p.type==='planet' ? {node:p.planet!+'.capt'} : p.type==='body' ? {node:p.body!+(B[p.body!]&&!SITES[p.body!]?'.capt':'.orbit')} : {node:p.node!, site:p.site||null};
+export const pickTarget = (p:Pick):Target => p.type==='planet' ? {node:p.planet+'.capt'} : p.type==='body' ? {node:p.body+(B[p.body]&&!SITES[p.body]?'.capt':'.orbit')} : {node:p.node, site:p.site||null};
 
 export const atTarget = (t:Target) => S.domain.node===t.node && (!t.site || S.domain.site===t.site);
 

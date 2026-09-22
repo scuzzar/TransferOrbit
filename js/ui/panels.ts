@@ -10,10 +10,8 @@ import { FuelSpot, nearestFuel, planRoute, stepBlocker } from '../game/planner.j
 import { abortOrder, acceptSelected, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, fuelFor, openView, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { btn, dots, gchip, ibtn, openRoute, phead, routeLink } from './widgets.js';
 
-type RouteUi = { target:Target; mode:string; strand?:boolean };
-
 function panelPost(p:HTMLElement){
-  const k=postAt(); if(!k) return openView('main') as unknown as void;
+  const k=postAt(); if(!k){ openView('main'); return; }
   const eco=S.domain.eco, locked=S.action.busy||S.domain.over, free=eng().slots-slotsUsed();
   p.appendChild(phead(`${k.name} Trading Post`, `${esc(postPlace(k))}. ${fmtCr(S.domain.credits)}, ${free} cargo ${free===1?'slot':'slots'} free.`, k.hub?'Hub':''));
   const del=deliverables();
@@ -128,7 +126,7 @@ function depotLabel(key:string){
 }
 
 function panelRefuel(p:HTMLElement){
-  const r=refuelInfo(); if(!r) return openView('main') as unknown as void;
+  const r=refuelInfo(); if(!r){ openView('main'); return; }
   const locked=S.action.busy||S.domain.over;
   p.appendChild(phead(`Refuel`, `${esc(nodeName(S.domain.node!))}. ${r.source}, ${r.price} Cr per t, takes ${fmtDays(r.days)}.`, ''));
   if(S.ui.tank===null) S.ui.tank=+r.max.toFixed(1);
@@ -163,7 +161,7 @@ function panelRefuel(p:HTMLElement){
 }
 
 function panelShipyard(p:HTMLElement){
-  const k=postAt(); if(!k||!k.hub) return openView('main') as unknown as void;
+  const k=postAt(); if(!k||!k.hub){ openView('main'); return; }
   const locked=S.action.busy||S.domain.over, cur=eng();
   p.appendChild(phead('Shipyard', `${esc(postLabel(k))}. Balance ${fmtCr(S.domain.credits)}.`, ''));
   const note=document.createElement('p'); note.className='kinfo';
@@ -225,7 +223,7 @@ export function renderPanel(){
 }
 
 function panelRoute(p:HTMLElement){
-  const R=(S.ui.route ?? null) as RouteUi|null; if(!R) return openView('main') as unknown as void;
+  const R=S.ui.route; if(!R){ openView('main'); return; }
   const locked=S.action.busy||S.domain.over;
   const autoBtn=()=>{ const g=document.createElement('div'); g.className='pfoot'; g.appendChild(btn('Stop the autopilot','wide',false,()=>stopAutopilot('Autopilot stopped.'))); return g; };
   if(!S.domain.node){
