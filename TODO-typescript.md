@@ -8,39 +8,31 @@ Diese Datei löschen, sobald alles erledigt ist.
 | Etappe | Inhalt | Status |
 |---|---|---|
 | 0 | Typen für `Move`, `Orbit`, `BodyPath`, `SysPlan`; Aerobrake-Bug behoben | erledigt, in `main` (`62f4d15`) |
-| 1 | `Pick` als Union, `Hit` mit echten Feldern, überflüssige Casts entfernt, Fullscreen-Präfixe typisiert, `window.TO` deklariert | erledigt (`c88f54d`) |
-| 2 | `[k:string]:any` aus `LocalAction`, `Edge`, `PlanStep` entfernt; `PlanStep` als Union über `kind`; `RouteResult.legs` typisiert | erledigt (`c88f54d`) |
-| 3 | Spielstand validieren, `eco:null as any`, `flags` | **offen** |
+| 1 | `Pick` als Union, `Hit` mit echten Feldern, überflüssige Casts entfernt, Fullscreen-Präfixe typisiert, `window.TO` deklariert | erledigt (`c88f54d`), getestet |
+| 2 | `[k:string]:any` aus `LocalAction`, `Edge`, `PlanStep` entfernt; `PlanStep` als Union über `kind`; `RouteResult.legs` typisiert | erledigt (`c88f54d`), getestet |
+| 3 | Spielstand validieren, `eco:null as any`, `flags` | erledigt |
 | 4 | three.js typisieren | **offen** |
 | 5 | `noUnusedLocals` / `noUnusedParameters` | **offen** |
 | 6 | ID-Typen + `noUncheckedIndexedAccess` | **offen** |
 
-**Wichtig:** Etappen 1 und 2 sind zwar typgeprüft (`npx tsc --noEmit` läuft ohne Fehler), aber noch **nicht getestet**. Als Erstes also `npm test` laufen lassen.
+Etappen 1–3 sind mit `npm test` gegen einen frischen Build geprüft (`errors: none`, `invariants: ok`). Etappe 3 zusätzlich mit einem alten Spielstand (deutsche IDs, fehlende Felder) und kaputten Spielständen, die abgelehnt werden müssen.
 
 ## Regeln und Stolpersteine
 
 - **Importe zeigen nur nach unten** (siehe `ARCHITECTURE.md`). `game/state.ts` darf nichts aus `map/` importieren, auch keine reinen Typen. Deshalb liegen die Render-Typen (`Move`, `Orbit`, `SysPlan` …) in `state.ts`, und `map/geometry.ts` exportiert sie weiter.
 - **Tests:** `npm test` baut zuerst (`pretest`) und startet dann `tests/regress.js` und `tests/test-bot.js` mit Playwright. Voraussetzung ist einmal `npx playwright install chromium`. Der Bot arbeitet mit Zufall; eine gemeldete Pleite („bankrupt at step N“) ist kein Testfehler. Entscheidend sind `errors: none` und `invariants: ok`.
-- **`dist/index.html` ist eingecheckt**, und jeder Build überschreibt die Datei. Nicht mitcommitten, sondern mit `git checkout -- dist/index.html` zurücksetzen. Der GitHub-Pages-Workflow baut selbst.
+- **`dist/index.html` ist eingecheckt**, und jeder Build überschreibt die Datei. Nicht mitcommitten, sondern mit `git checkout -- dist/index.html` zurücksetzen – aber erst **nach** den Tests, denn die laden genau diese Datei. Der GitHub-Pages-Workflow baut selbst.
 - **Commits** gehen unter dem Namen des Nutzers raus, **ohne** `Co-Authored-By: Claude`-Zeile.
 - **Stil:** Der Code ist sehr dicht geschrieben (viele Anweisungen pro Zeile, kurze Namen). Diesen Stil beibehalten und nicht umformatieren.
 - Die Tests prüfen die Aerobraking-Animation nicht; das lässt sich nur im Browser sehen.
 
-## Etappe 3: Spielstand und Zustand
+## Etappe 3: Spielstand und Zustand – erledigt
 
-Dateien: `js/game/commands.ts`, `js/game/state.ts`
-
-- [ ] `commands.ts:23` – `eco:null as any` in `newGame()`. `newEconomy()` greift nicht auf `S` zu, also direkt `eco:newEconomy()` in `setState(...)` setzen und danach `econAdvance(START_DAY)` aufrufen. Die Zeile `S.domain.eco=newEconomy();` fällt damit weg.
-- [ ] `state.ts:35` – `flags:Record<string,any>`. Geschrieben wird nur in `commands.ts`: `delivered` (Zahl), `marsLanded`, `marsReturn`, `hubDelivery`, `bought` (boolean) sowie `'refuel:<body>@<site>'` (boolean). Vorschlag:
-  ```ts
-  export interface Flags { delivered:number; marsLanded?:boolean; marsReturn?:boolean; hubDelivery?:boolean; bought?:boolean; [refuel:`refuel:${string}`]:boolean }
-  ```
-  Vorher prüfen, ob `tests/*.js` Flags lesen.
-- [ ] `commands.ts:15` – `type SaveObj = Record<string,any>`, außerdem `load()` mit `{...o, visited:new Set(o.visited)} as DomainState`: Ungeprüftes JSON aus `localStorage` wird direkt übernommen.
-  - `migrate()` soll auf `Record<string, unknown>` arbeiten und mit Narrowing auskommen.
-  - Eine Prüffunktion `parseSave(raw:unknown): DomainState|null` schreiben, die Typ und Pflichtfelder prüft (`day`, `node`, `ship` ∈ `SHIPS`, `fuel`, `credits`, `eco.orders` als Array, `visited` als Array …).
-  - `target` ist inzwischen `string|null`. Stand in einem alten Spielstand dort etwas anderes, auf `null` setzen.
-  - Die Migration alter deutscher IDs (`OLD_IDS`) muss weiterhin funktionieren.
+- `newGame()` setzt `eco:newEconomy()` direkt, kein `null as any` mehr.
+- `Flags` in `state.ts` statt `Record<string,any>`. Gelesen werden die Flags nirgends, auch nicht in `tests/`.
+- `parseSave(raw:unknown)` in `commands.ts` prüft den Spielstand aus `localStorage`: Pflichtfelder (`day`, `node`, `ship` ∈ `SHIPS`, `fuel`, `credits`), die Wirtschaft (`stock`/`fwd`/`demand` als Zahlentabellen, jeder Auftrag mit allen Feldern und bekannter Ware). Fehlende jüngere Felder (`used`, `autoFill`, `over`) bekommen Vorgaben, ein `target`, das kein String ist, wird `null`, unbekannte Flags fallen weg.
+- `migrate()` arbeitet auf `Record<string, unknown>` und übersetzt jetzt auch die Landeplätze in den `refuel:`-Flags.
+- Übrig bleibt ein Cast in `parseEco()`, nachdem alle Felder geprüft sind.
 
 ## Etappe 4: three.js
 

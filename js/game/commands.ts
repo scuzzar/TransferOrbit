@@ -5,14 +5,15 @@ import { changed, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, isDesk, km, reduce, tons } from '../basics.js';
 import { B, BANKRUPT, DEPOTS, G0, GOODS, POST_BY_ID, POSTS, Post, M, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, START_DAY, fmtCr, planetOfBody, siteOf } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, DomainState, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName, Order } from './state.js';
+import { S, DomainState, Eco, Flags, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName, Order } from './state.js';
 import { payout, route } from './graph.js';
 import { econAdvance, freshDeadline, newEconomy } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
 import { Move, MoveSpec, bodyPath, defaultOrb, sysPlan, sysState } from '../map/geometry.js';
 import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
 
-type SaveObj = Record<string,any>;
+// A save as written: the domain with visited as an array, since JSON has no Set
+type SaveObj = Omit<DomainState,'visited'> & { visited:string[] };
 
 // smallest ship that can carry n containers
 export const shipFor = (n:number):ShipDef => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
@@ -20,13 +21,13 @@ export const shipFor = (n:number):ShipDef => Object.values(SHIPS).filter(s=>s.sl
 export function newGame(){
   setState({
     domain:{day:START_DAY, node:'earth.orbit', site:null, ship:'cog', fuel:SHIPS.cog.cap, used:0, credits:20000,
-      visited:new Set(['earth.orbit']), flags:{delivered:0}, target:'mars', over:false, autoFill:false, eco:null as any},
+      visited:new Set(['earth.orbit']), flags:{delivered:0}, target:'mars', over:false, autoFill:false, eco:newEconomy()},
     action:{busy:false, transit:null},
     ui:{view:'main', sel:new Set<number>(), tank:null, pick:null, route:null, auto:null, mapView:null, mapKey:null, rmsg:false, back:null,
       msg:'A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.'},
     render:{move:null, orb:null, sys:null, anim:null},
   });
-  S.domain.eco=newEconomy(); econAdvance(START_DAY);
+  econAdvance(START_DAY);
 // orders from the run-up period start with a full deadline
   S.domain.eco.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
 }
@@ -224,7 +225,7 @@ export function doRefuel(amount:number, keepView?:boolean){
   const cost=Math.round(amount*r.price);
   S.action.busy=true; if(!keepView){ const back=S.ui.view==='refuel'?S.ui.back:null; S.ui.view=back||'main'; S.ui.back=null; } changed();
   animateTo(S.domain.day+r.days, Math.min(1200,300+r.days*15), ()=>{
-    S.domain.fuel=Math.min(eng().cap,S.domain.fuel+amount); S.domain.credits-=cost; S.domain.flags['refuel:'+here()[0]!+'@'+S.domain.site]=true;
+    S.domain.fuel=Math.min(eng().cap,S.domain.fuel+amount); S.domain.credits-=cost; S.domain.flags[`refuel:${here()[0]!}@${S.domain.site}`]=true;
     S.ui.msg=`Fuelled: ${tons(amount)} for ${fmtCr(cost)}. ${km(dvAvail())} km/s available.`; S.action.busy=false; changed();
   });
 }
@@ -265,17 +266,50 @@ const OLD_IDS: Record<string, Record<string,string>> = {
   post: {erde:'earth', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
 };
 
-function migrate(o:SaveObj){
+type Raw = Record<string, unknown>;
+const isObj = (x:unknown):x is Raw => typeof x==='object' && x!==null && !Array.isArray(x);
+const isNum = (x:unknown):x is number => typeof x==='number' && Number.isFinite(x);
+const isStr = (x:unknown):x is string => typeof x==='string';
+
+function migrate(o:Raw){
   const site = (s:string) => OLD_IDS.site[s] || s, post = (p:string) => OLD_IDS.post[p] || p;
-  o.ship = OLD_IDS.ship[o.ship] || o.ship;
-  if(o.site) o.site = site(o.site);
-  if(Array.isArray(o.visited)) o.visited = o.visited.map((v:string)=>{
+  if(isStr(o.ship)) o.ship = OLD_IDS.ship[o.ship] || o.ship;
+  if(isStr(o.site)) o.site = site(o.site);
+  if(Array.isArray(o.visited)) o.visited = o.visited.filter(isStr).map(v=>{
     const i = v.indexOf('@'); return i<0 ? v : v.slice(0,i+1) + site(v.slice(i+1)); });
-  const eco = o.eco; if(!eco) return o;
-  (eco.orders||[]).forEach((x:Order)=>{ x.from = post(x.from); x.to = post(x.to); });
-  for(const field of ['stock','demand','fwd']) if(eco[field])
-    eco[field] = Object.fromEntries(Object.entries(eco[field]).map(([k,v])=>[post(k),v]));
+  if(isObj(o.flags)) o.flags = Object.fromEntries(Object.entries(o.flags).map(([k,v])=>[k.startsWith('refuel:') ? k.replace(/@(.*)$/,(_,s:string)=>'@'+site(s)) : k, v]));
+  const eco = o.eco; if(!isObj(eco)) return o;
+  if(Array.isArray(eco.orders)) eco.orders.forEach(x=>{ if(isObj(x) && isStr(x.from) && isStr(x.to)){ x.from = post(x.from); x.to = post(x.to); } });
+  for(const field of ['stock','demand','fwd']){ const m=eco[field]; if(isObj(m))
+    eco[field] = Object.fromEntries(Object.entries(m).map(([k,v])=>[post(k),v])); }
   return o;
+}
+
+const isOrder = (x:unknown) => isObj(x) && [x.id,x.n,x.reward,x.dv,x.days,x.deadline,x.created,x.expires].every(isNum)
+  && isStr(x.good) && !!GOODS[x.good] && isStr(x.from) && isStr(x.to) && (x.state==='open'||x.state==='aboard');
+const isTable = (x:unknown) => isObj(x) && Object.values(x).every(r=>isObj(r) && Object.values(r).every(isNum));
+
+// The economy is checked field by field, then taken over as it is
+function parseEco(e:unknown):Eco|null{
+  if(!isObj(e) || !isNum(e.nextId) || !isNum(e.day) || !Array.isArray(e.orders) || !e.orders.every(isOrder)) return null;
+  if(![e.stock,e.fwd,e.demand].every(isTable) || [e.bulk,e.bulkN].some(t=>t!==undefined && !isTable(t))) return null;
+  return e as unknown as Eco;
+}
+
+// Unchecked JSON from localStorage -> a domain state, or null if it isn't a usable save.
+// Fields added after a save was written get their defaults; old German ids are mapped first.
+export function parseSave(raw:unknown):DomainState|null{
+  if(!isObj(raw)) return null;
+  const o=migrate(raw), eco=parseEco(o.eco);
+  if(!eco || !isStr(o.node) || !o.node || !isStr(o.ship) || !SHIPS[o.ship] || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
+  const f=isObj(o.flags)?o.flags:{}, flags:Flags={delivered:isNum(f.delivered)?f.delivered:0};
+  for(const [k,v] of Object.entries(f)) if(v===true){
+    if(k.startsWith('refuel:')) flags[k as `refuel:${string}`]=true;
+    else if(k==='marsLanded'||k==='marsReturn'||k==='hubDelivery'||k==='bought') flags[k]=true;
+  }
+  return {day:o.day, node:o.node, site:isStr(o.site)?o.site:null, ship:o.ship, fuel:o.fuel, used:isNum(o.used)?o.used:0, credits:o.credits,
+    visited:new Set(Array.isArray(o.visited)?o.visited.filter(isStr):[]), flags, target:isStr(o.target)?o.target:null,
+    over:o.over===true, autoFill:o.autoFill===true, eco};
 }
 
 // Only the domain is ever written: it's the whole save, no blacklist of UI/render/action
@@ -295,9 +329,9 @@ export function load(key?: string|null){
     let t: string|null=null; try{ t=localStorage.getItem(key||SAVE_KEY) ?? localStorage.getItem(slot?OLD_SLOT_KEY:OLD_SAVE_KEY); }catch(e){}
     if(!t && slot) t=memSlot;
     if(!t) return false;
-    const o=migrate(JSON.parse(t)); if(!o.eco || !SHIPS[o.ship] || !o.node) return false;
+    const domain=parseSave(JSON.parse(t)); if(!domain) return false;
     setState({
-      domain:{...o, visited:new Set(o.visited)} as DomainState,
+      domain,
       action:{busy:false, transit:null},
       ui:{view:'main', sel:new Set<number>(), tank:null, pick:null, route:null, auto:null, mapView:null, mapKey:null, rmsg:false, back:null, msg:'Game loaded.'},
       render:{move:null, orb:null, sys:null, anim:null},

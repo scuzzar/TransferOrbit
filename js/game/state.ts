@@ -22,6 +22,12 @@ export interface Eco {
   bulkN?:Record<string,Record<string,number>>;
 }
 
+// Milestones of the run; refuel:<body>@<site> marks each depot used once
+export interface Flags {
+  delivered:number; marsLanded?:boolean; marsReturn?:boolean; hubDelivery?:boolean; bought?:boolean;
+  [refuel:`refuel:${string}`]:boolean;
+}
+
 // The simulation itself: everything a save file needs to reproduce the game exactly.
 export interface DomainState {
   day:number;
@@ -32,7 +38,7 @@ export interface DomainState {
   used:number;
   credits:number;
   visited:Set<string>;
-  flags:Record<string,any>;
+  flags:Flags;
   target:string|null;       // the planet the transfer window on the solar system map points at
   over:boolean;
   eco:Eco;
