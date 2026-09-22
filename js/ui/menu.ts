@@ -25,8 +25,8 @@ export function toggleFs(){
   const el = document.documentElement;
   try{
     if(isFs()) (document.exitFullscreen || (document as any).webkitExitFullscreen).call(document);
-    else { const r = ((el as any).requestFullscreen || (el as any).webkitRequestFullscreen).call(el); if(r && (r as any).catch) (r as any).catch(()=>{ S.msg = 'Fullscreen is blocked here.'; changed(); }); }
-  }catch(e){ S.msg = 'Fullscreen is blocked here.'; changed(); }
+    else { const r = ((el as any).requestFullscreen || (el as any).webkitRequestFullscreen).call(el); if(r && (r as any).catch) (r as any).catch(()=>{ S.ui.msg = 'Fullscreen is blocked here.'; changed(); }); }
+  }catch(e){ S.ui.msg = 'Fullscreen is blocked here.'; changed(); }
 }
 
 export function wireMenu(){
@@ -45,7 +45,7 @@ export function wireMenu(){
   document.querySelectorAll('[data-wait]').forEach((b)=>(b as HTMLButtonElement).onclick = ()=>{ setMenu(false); if(S.ui.view!=='main' && !isDesk()) openView('main'); waitDays(+(((b as HTMLButtonElement).dataset.wait as string))); });
   infobtn.onclick = (e)=>{ (e as MouseEvent).stopPropagation(); setLegend(($('legend') as HTMLElement).hidden === true); };
   ($('legend') as HTMLElement).onclick = ()=>setLegend(false);
-  ($('autofill') as HTMLButtonElement).onclick = ()=>{ S.autoFill = !S.autoFill; S.msg = S.autoFill?'Always fill up: on. At every depot the tank is filled as far as the money goes.':'Always fill up: off.'; changed(); autoFill(); };
+  ($('autofill') as HTMLButtonElement).onclick = ()=>{ S.domain.autoFill = !S.domain.autoFill; S.ui.msg = S.domain.autoFill?'Always fill up: on. At every depot the tank is filled as far as the money goes.':'Always fill up: off.'; changed(); autoFill(); };
   ($('cargotile') as HTMLButtonElement).onclick = ()=>openView(S.ui.view==='cargo'?'main':'cargo');
   wireFullscreen();
   showVersion();

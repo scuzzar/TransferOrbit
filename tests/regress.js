@@ -9,9 +9,9 @@ const { chromium } = require('playwright');
   await f.click('#cargotile'); await f.click('.phead .back'); await p.waitForTimeout(100);
   console.log('Map after going back (width x height):', await f.evaluate(()=>{ const c=[...document.querySelectorAll('canvas')].find(c=>!c.hidden); return c.clientWidth+'x'+c.clientHeight; }));
   // restart from the menu
-  await f.evaluate(()=>{ TO.S.credits=5; TO.changed(); });
+  await f.evaluate(()=>{ TO.S.domain.credits=5; TO.changed(); });
   await f.click('#menubtn'); await f.click('[data-menu="reset"]'); await f.click('[data-menu="reset"]'); await p.waitForTimeout(100);
-  console.log('Balance after restart:', await f.evaluate(()=>TO.S.credits));
+  console.log('Balance after restart:', await f.evaluate(()=>TO.S.domain.credits));
   // closing the menu resets the confirmation
   await f.click('#menubtn'); await f.click('[data-menu="reset"]'); await f.click('#menubtn'); await f.click('#menubtn');
   console.log('Reset button after closing:', await f.textContent('[data-menu="reset"]'));
@@ -19,15 +19,15 @@ const { chromium } = require('playwright');
   await f.evaluate(()=>{ TO.openRoute({node:'moon.surf',site:'tranquillitatis'}); });
   console.log('Buttons on the stranding warning:', await f.evaluate(()=>[...document.querySelectorAll('#panel .two button')].map(b=>b.textContent).join(' | ')));
   // the credit trap: Pavonis with no money, half a tank, orders available
-  await f.evaluate(()=>{ TO.openView('main'); TO.S.node='mars.surf'; TO.S.site='pavonis'; TO.S.credits=0; TO.S.fuel=45; TO.strandCache.key=null; TO.changed(); });
+  await f.evaluate(()=>{ TO.openView('main'); TO.S.domain.node='mars.surf'; TO.S.domain.site='pavonis'; TO.S.domain.credits=0; TO.S.domain.fuel=45; TO.strandCache.key=null; TO.changed(); });
   console.log('Stranded at 0 Cr, 45 t on Pavonis:', await f.evaluate(()=>TO.stranded()));
-  await f.evaluate(()=>{ TO.S.fuel=1; TO.strandCache.key=null; TO.changed(); });
+  await f.evaluate(()=>{ TO.S.domain.fuel=1; TO.strandCache.key=null; TO.changed(); });
   console.log('Stranded at 0 Cr, 1 t on Pavonis:', await f.evaluate(()=>TO.stranded()), '| box:', (await f.textContent('#rescue')).slice(0,60));
   // the two route modes have to offer a real choice: "economical" takes the 40-day
   // aerobraking step into low Earth orbit, "leave now" pays for the direct burn instead
   const modes=await f.evaluate(()=>{
     TO.newGame();
-    TO.setState({...TO.S, node:'moon.surf', site:'shackleton', fuel:TO.eng().cap});
+    TO.setState({...TO.S, domain:{...TO.S.domain, node:'moon.surf', site:'shackleton', fuel:TO.eng().cap}});
     const tgt={node:'earth.surf', site:'kourou'}, r={};
     for(const m of ['eco','now']){ const pl=TO.planRoute(tgt,m);
       r[m]={dv:+(pl.dv/1000).toFixed(2), days:Math.round(pl.days), brake:pl.steps.map(s=>s.label).find(l=>/low orbit/.test(l))}; }

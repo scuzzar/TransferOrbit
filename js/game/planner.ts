@@ -19,8 +19,8 @@ const DAY_COST: Record<string, number> = {eco:0.01, now:100};
 // Markers for manoeuvres: delivery targets, the way towards the cargo, posts with orders
 export function cargoHints(){
   const H={step:[] as {node:string;site:string|null;dv:number;name:string;n:number;final:boolean}[], transfer:{} as Record<string,string[]>};
-  if(!S.node) return H;
-  const me={id:'@'+locKey()!, node:S.node, site:S.site}, hereK=postAt();
+  if(!S.domain.node) return H;
+  const me={id:'@'+locKey()!, node:S.domain.node, site:S.domain.site}, hereK=postAt();
   const byDest: Record<string, number> = {};
   cargoOrders().forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
   Object.keys(byDest).forEach(id=>{
@@ -43,7 +43,7 @@ interface Start { node:string; site:string|null; day:number }
 interface RNode { n:string; s:string|null; c:number; dv:number; days:number }
 
 export function planRoute(target:Target, mode:string, start?:Start|null): PlanResult|null{
-  start = start || (S.node ? {node:S.node, site:S.site, day:S.day} : null);
+  start = start || (S.domain.node ? {node:S.domain.node, site:S.domain.site, day:S.domain.day} : null);
   if(!start) return null;
   const dayCost = DAY_COST[mode] ?? DAY_COST.eco;
   const key=(n:string,s:string|null)=>n+'|'+(s||'');
@@ -72,7 +72,7 @@ export function planRoute(target:Target, mode:string, start?:Start|null): PlanRe
   path.forEach(({from,ed})=>{
     if(ed.wait>0){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1] as string)}`, until:day+ed.wait}); day+=ed.wait; }
     const days=ed.days-(ed.wait||0);
-    if(ed.launch) fee+=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.fuel)*(ed.hop?HOP_FEE_SHARE:1));
+    if(ed.launch) fee+=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.domain.fuel)*(ed.hop?HOP_FEE_SHARE:1));
     steps.push({kind:ed.leg?'leg':'move', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label:stepLabel(from,ed)}); day+=days;
   });
   return {steps, dv:goal.dv, days:goal.days, arrive:start.day+goal.days, fee};
@@ -100,8 +100,8 @@ export function nearestFuel(start:Start){
 }
 
 export function stepBlocker(st:PlanStep){
-  if(st.kind==='leg'){ const hp=homePlanet(); if(S.node!==hp+'.capt') return 'Transfers start from high orbit.';
-    return `The transfer currently costs ${km(transfer(hp,st.leg![1] as string,S.day).total)} km/s, you have ${km(dvAvail())}.`; }
+  if(st.kind==='leg'){ const hp=homePlanet(); if(S.domain.node!==hp+'.capt') return 'Transfers start from high orbit.';
+    return `The transfer currently costs ${km(transfer(hp,st.leg![1] as string,S.domain.day).total)} km/s, you have ${km(dvAvail())}.`; }
   const a=localActions().find(a2=>a2.to===st.node && (a2.site||null)===(st.site||null));
   if(!a) return 'That manoeuvre is not possible from here.';
   if(a.dv>dvAvail()+0.5) return `It needs ${km(a.dv)} km/s, you have ${km(dvAvail())}.`;

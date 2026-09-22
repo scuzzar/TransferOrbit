@@ -80,4 +80,4 @@ interface Order { deadline:number; reward:number }
 
 export const lateFactor = (o: Order, day: number): number => day<=o.deadline ? 1 : Math.max(0.25, 1-0.02*(day-o.deadline));
 
-export const payout = (o: Order): number => Math.round(o.reward*lateFactor(o,S.day));
+export const payout = (o: Order): number => Math.round(o.reward*lateFactor(o,S.domain.day));

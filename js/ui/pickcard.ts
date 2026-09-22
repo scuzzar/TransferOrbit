@@ -14,7 +14,7 @@ import { btn, openRoute } from './widgets.js';
 export function renderPick(){
   const w = $('pickcard') as HTMLElement; w.innerHTML='';
   const p = S.ui.pick; if(!p) return;
-  const locked = S.busy || S.over, c = document.createElement('div'); c.className='pick';
+  const locked = S.action.busy || S.domain.over, c = document.createElement('div'); c.className='pick';
   const tag = (cls:string, t:string) => `<span class="mtag ${cls}">${t}</span>`;
   let title='', tags:string[]=[], info='', stats:[string,string][]=[], btns:[string,string,()=>void][]=[];
   const close = `<button type="button" class="x" aria-label="Close the selection">×</button>`;
@@ -24,7 +24,7 @@ export function renderPick(){
     title = B[k]!.name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);
     info = `${ms.length?'With '+ms.map(m=>M[m]!.name).join(', ')+'. ':''}${posts.length?posts.length+(posts.length>1?' trading posts':' trading post')+(posts.some(x=>x.hub)?', one of them a hub.':'.'):'No trading post.'}`;
-    if(hp && hp!==k){ const t = transfer(hp,k,S.day), id = idealTransfer(hp,k);
+    if(hp && hp!==k){ const t = transfer(hp,k,S.domain.day), id = idealTransfer(hp,k);
       stats.push(['Transfer at a window',`${km(id.total)} km/s`]);
       stats.push(['Next window', t.d<0.04?'<span class="ok">open</span>':`<span class="wait">in ${fmtDays(t.wait)}</span>`]); }
     else if(hp===k) stats.push(['You are','in this system']);

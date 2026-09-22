@@ -26,41 +26,41 @@ function drawSol(){
   ctx.lineWidth=1; ctx.strokeStyle=v('--orbit');
   PLANETS.forEach(k=>{ctx.beginPath(); ctx.arc(c,c,rOf(B[k].a),0,TAU); ctx.stroke();});
   ctx.fillStyle=v('--sun'); ctx.beginPath(); ctx.arc(c,c,6,0,TAU); ctx.fill();
-  const from=homePlanet(), tgt=S.target;
+  const from=homePlanet(), tgt=S.domain.target;
   if(from && tgt && tgt!==from){
-    const t=transfer(from,tgt as string,S.day), thA=theta(from,S.day), thG=thA+t.phiStar, rT=rOf(B[tgt as string].a);
+    const t=transfer(from,tgt as string,S.domain.day), thA=theta(from,S.domain.day), thG=thA+t.phiStar, rT=rOf(B[tgt as string].a);
     ctx.strokeStyle=t.d<0.04?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.moveTo(c,c); ctx.lineTo(c+rT*Math.cos(thG), c-rT*Math.sin(thG)); ctx.stroke();
     ctx.beginPath(); ctx.arc(c+rT*Math.cos(thG), c-rT*Math.sin(thG), 10,0,TAU); ctx.stroke(); ctx.setLineDash([]);
-    ctx.globalAlpha=.5; ctx.beginPath(); ctx.moveTo(c,c); const [ax,ay]=pos(from,S.day); ctx.lineTo(ax,ay); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.globalAlpha=.5; ctx.beginPath(); ctx.moveTo(c,c); const [ax,ay]=pos(from,S.domain.day); ctx.lineTo(ax,ay); ctx.stroke(); ctx.globalAlpha=1;
     ctx.lineWidth=2; ctx.beginPath(); ctx.arc(c,c,26,-thA,-thG,t.phiStar>0); ctx.stroke();
   }
   ctx.font=`500 12px 'Saira Semi Condensed', 'Arial Narrow', sans-serif`; ctx.textBaseline='middle';
   const dests=new Set(cargoOrders().map(o=>planetOfBody(bodyOf(POST_BY_ID[o.to]))));
   PLANETS.forEach(k=>{
-    const [x,y]=pos(k,S.day), big=k==='jupiter'||k==='saturn'?6:k==='ceres'?3.5:4.5;
+    const [x,y]=pos(k,S.domain.day), big=k==='jupiter'||k==='saturn'?6:k==='ceres'?3.5:4.5;
     ctx.fillStyle=bodyColor(k); ctx.beginPath(); ctx.arc(x,y,big,0,TAU); ctx.fill();
     if(dests.has(k)){ ctx.strokeStyle=v('--good'); ctx.lineWidth=1.5; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.arc(x,y,big+8,0,TAU); ctx.stroke(); ctx.setLineDash([]); }
     if(isPick({type:'planet',planet:k})){ ctx.strokeStyle=v('--accent'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,big+13,0,TAU); ctx.stroke(); }
-    const th=theta(k,S.day), lx=x+Math.cos(th)*16, ly=y-Math.sin(th)*16;
+    const th=theta(k,S.domain.day), lx=x+Math.cos(th)*16, ly=y-Math.sin(th)*16;
     ctx.fillStyle=isPick({type:'planet',planet:k})?v('--text'):v('--muted'); ctx.textAlign=Math.cos(th)>0.3?'left':Math.cos(th)<-0.3?'right':'center';
     ctx.fillText(B[k].name,lx,ly);
     HITS.push({canvas:cv,x,y,r:24,pick:{type:'planet',planet:k}});
     const ms=moonsOf(k); ctx.fillStyle=v('--muted');
-    ms.forEach((m,i)=>{ const a=moonAngle(m,S.day), r=big+4+i*2.5; ctx.beginPath(); ctx.arc(x+r*Math.cos(a), y-r*Math.sin(a), 1.3,0,TAU); ctx.fill(); });
+    ms.forEach((m,i)=>{ const a=moonAngle(m,S.domain.day), r=big+4+i*2.5; ctx.beginPath(); ctx.arc(x+r*Math.cos(a), y-r*Math.sin(a), 1.3,0,TAU); ctx.fill(); });
   });
-  if(S.transit){
-    const T=S.transit, rA=rOf(B[T.a].a), rB=rOf(B[T.b].a), dth=((T.th1-T.th0)%TAU+TAU)%TAU;
+  if(S.action.transit){
+    const T=S.action.transit, rA=rOf(B[T.a].a), rB=rOf(B[T.b].a), dth=((T.th1-T.th0)%TAU+TAU)%TAU;
     const conic=transferConic(rA,rB,dth);
     const pt=(s:number)=>{ const q=conic.at(s), th=T.th0+q.th; return [c+q.r*Math.cos(th), c-q.r*Math.sin(th)]; };
     ctx.strokeStyle=v('--accent'); ctx.setLineDash([3,4]); ctx.lineWidth=1.5; ctx.beginPath();
     for(let i=0;i<=96;i++){const [x,y]=conic.geo(i/96).map((z:number,j:number)=>z); const th=T.th0+y; const X=c+x*Math.cos(th), Y=c-x*Math.sin(th); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.stroke(); ctx.setLineDash([]);
-    const p=Math.min(1,Math.max(0,(S.day-T.dep)/(T.arr-T.dep))), [x,y]=pt(p), [x2,y2]=pt(Math.min(1,p+0.01));
+    const p=Math.min(1,Math.max(0,(S.domain.day-T.dep)/(T.arr-T.dep))), [x,y]=pt(p), [x2,y2]=pt(Math.min(1,p+0.01));
 // burning at departure (prograde) and on arrival (braking), with the rocket turning beforehand
     const bAt=(q:number)=>q<0.04?'pro':q>0.955?'retro':null;
     drawRocket(ctx,'sol',x,y,Math.atan2(-(y2-y),x2-x),bAt(p),bAt(Math.min(1,p+0.05)),null,v('--accent'));
-  } else if(S.node){
-    const k=homePlanet(), [x,y]=pos(k,S.day), th=theta(k,S.day), off=k==='jupiter'||k==='saturn'?18:13;
+  } else if(S.domain.node){
+    const k=homePlanet(), [x,y]=pos(k,S.domain.day), th=theta(k,S.domain.day), off=k==='jupiter'||k==='saturn'?18:13;
     drawRocket(ctx,'solpark',x-Math.sin(th)*off, y-Math.cos(th)*off, th+Math.PI/2, null,null,null, v('--accent'));
   }
 }
@@ -78,7 +78,7 @@ function drawSys(p:string){
   const rOf=(m:string)=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(M[m].rv)-lo)/(hi-lo);
   const P=(q:Vec3)=>{ const y2=q[1]*ce-q[2]*se, z2=q[1]*se+q[2]*ce; return {x:cx+q[0], y:cy-y2, z:z2, hidden:z2<0 && Math.hypot(q[0],y2)<Rp}; };
   const moonW=(m:string,day:number)=>ringPt(rOf(m),moonAngle(m,day));
-  const [k,l]=here(), mine=homePlanet()===p && !S.transit, st=sysState(p);
+  const [k,l]=here(), mine=homePlanet()===p && !S.action.transit, st=sysState(p);
   const font=(w:number, sz:number)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back:Function[]=[], front:Function[]=[];
 // orbits in the 3D layer, in pixels including depth: planet and rocket hide them correctly
@@ -90,13 +90,13 @@ function drawSys(p:string){
 
 // position of the ship for a given state
   const shipW=(node:string):Vec3|null=>{ const [b,ll]=node.split('.');
-    if(M[b]){ const c=moonW(b,S.day); return ll==='surf' ? ([c[0],c[1]+7,c[2]] as Vec3) : vadd(c,ringPt(rMo,st.moonU)); }
+    if(M[b]){ const c=moonW(b,S.domain.day); return ll==='surf' ? ([c[0],c[1]+7,c[2]] as Vec3) : vadd(c,ringPt(rMo,st.moonU)); }
     if(b!==p) return null;
     return ll==='capt'?ringPt(rH,st.capU):ll==='orbit'?ringPt(rLow,st.lowU):([0,Rp+5,0] as Vec3); };
 // path of a manoeuvre: position at fraction t
   let path:((t:number)=>{q:Vec3; burn?:string|null; glow?:boolean})|null=null;
-  if(mine && S.move && S.move.sys){
-    const pl=S.move.sys, move=S.move;
+  if(mine && S.render.move && S.render.move.sys){
+    const pl=S.render.move.sys, move=S.render.move;
     const hoh=(rp:number,ra:number)=>{ const a=(rp+ra)/2, e=(ra-rp)/(ra+rp); return {a,e,r:(nu:number)=>a*(1-e*e)/(1+e*Math.cos(nu))}; };
     if(pl.kind==='toMoon'){ const E=hoh(rOf(pl.m),rH), aDep=pl.aArr-Math.PI, da=((aDep-pl.p0)%TAU+TAU)%TAU;
       path=(t)=>{ if(t<0.25) return {q:ringPt(rH,pl.p0+da*t/0.25)};
@@ -112,12 +112,12 @@ function drawSys(p:string){
         const r=a*(1-e*e)/(1+e*Math.cos(nu)); return {q:ringPt(r,pl.u0+th), glow:hasAtm(p) && r<rLow*1.08 && t<0.97}; }; }
   }
   let ship:any=null;
-  if(mine && S.node){
+  if(mine && S.domain.node){
     if(path){ const t=moveProg(), c=path(t), a=P(path(Math.max(0,t-0.01)).q), b=P(path(Math.min(1,t+0.01)).q);
       const tr:Vec3[]=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly('spur',tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
       ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn, glow:c.glow, soon:path(Math.min(1,t+0.06)).burn}; }
-    else { const w=shipW(S.move?S.move.from.node:S.node); if(w){ const nd=S.node.split('.')[1]; let dir=[1,0];
-        if(!S.move && nd!=='surf'){ const [bb]=S.node.split('.'); const base:Vec3=M[bb]?moonW(bb,S.day):[0,0,0], rr=M[bb]?rMo:(nd==='capt'?rH:rLow), uu=M[bb]?st.moonU:(nd==='capt'?st.capU:st.lowU);
+    else { const w=shipW(S.render.move?S.render.move.from.node:S.domain.node); if(w){ const nd=S.domain.node.split('.')[1]; let dir=[1,0];
+        if(!S.render.move && nd!=='surf'){ const [bb]=S.domain.node.split('.'); const base:Vec3=M[bb]?moonW(bb,S.domain.day):[0,0,0], rr=M[bb]?rMo:(nd==='capt'?rH:rLow), uu=M[bb]?st.moonU:(nd==='capt'?st.capU:st.lowU);
           const a=P(vadd(base,ringPt(rr,uu-0.05))), c=P(vadd(base,ringPt(rr,uu+0.05))); dir=[c.x-a.x,c.y-a.y]; }
         if(nd==='surf') dir=[0,-1];
         ship={pt:P(w), dir, up:nd==='surf'}; } }
@@ -130,14 +130,14 @@ function drawSys(p:string){
       else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent'),z); }); }
 
 // moons as small spheres, behind or in front
-  const drawMoon=(m:string,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
-    glPut(m, moonW(m,S.day), 5.5);
+  const drawMoon=(m:string,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.domain.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
+    glPut(m, moonW(m,S.domain.day), 5.5);
     if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
     if(cargoTo(kk=>bodyOf(kk)===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
     if(sel){ w.strokeStyle=v('--accent'); w.lineWidth=2; w.beginPath(); w.arc(x,y,15,0,TAU); w.stroke(); }
     font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(M[m].name,x,y-12); w.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
-  ms.forEach(m=>{ const c=P(moonW(m,S.day)); const hid=c.z<0; (hid?back:front).push(()=>drawMoon(m,hid?gb:g)); });
+  ms.forEach(m=>{ const c=P(moonW(m,S.domain.day)); const hid=c.z<0; (hid?back:front).push(()=>drawMoon(m,hid?gb:g)); });
   // Order: far side, the ring behind (Saturn), the planet, the near side
   back.forEach(f=>f());
   glPut(p,null,Rp);
@@ -150,7 +150,7 @@ function drawSys(p:string){
   HITS.push({canvas:sc,x:cx,y:cy,r:Rp+3,pick:pp});
   front.forEach(f=>f());
   // Bahnmarkierungen
-  const nodeMark=(q:Vec3,node:string,label:string,align:CanvasTextAlign)=>{ const c=P(q), x=c.x, y=c.y, pk={type:'node',node}, sel=isPick(pk), here_=mine&&S.node===node;
+  const nodeMark=(q:Vec3,node:string,label:string,align:CanvasTextAlign)=>{ const c=P(q), x=c.x, y=c.y, pk={type:'node',node}, sel=isPick(pk), here_=mine&&S.domain.node===node;
     g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(x,y,6,0,TAU); g.fill(); g.stroke();
     if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+6,y-7,3,0,TAU); g.fill(); }
@@ -170,7 +170,7 @@ function drawBody(b:string){
   glBegin(W,W,cx,cy,R,bodyView(b).el); prepBack(W,W);
   const gb = bctx; // hidden parts belong behind the sphere
   glPut(b,null,1);
-  const [k,l]=here(), mine=k===b && !S.transit;
+  const [k,l]=here(), mine=k===b && !S.action.transit;
   const font=(w:number, sz:number)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
   const back:Function[]=[], front:Function[]=[]; // drawing jobs behind and in front of the body
   const P=(p:Vec3)=>cam.proj(p);
@@ -190,8 +190,8 @@ function drawBody(b:string){
 
 // path and ship
   let shipAt:Vec3|null=null, shipDir:[number,number]|null=null, burn:string|null=null, glow=false, fade=1, soon:string|null=null, att:{mode:string;up:number}|null=null;
-  if(mine && S.move && S.move.path && S.move.path.b===b){
-    const pa=S.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
+  if(mine && S.render.move && S.render.move.path && S.render.move.path.b===b){
+    const pa=S.render.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
     const trail=[]; for(let j=0;j<=80;j++){ const q=P(pa.at(j/80).p); trail.push({x:q.x,y:q.y,z:q.z*R}); }
     glPath('spur',trail,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
     shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
@@ -265,7 +265,7 @@ function drawBody(b:string){
     g.shadowColor='rgba(0,0,0,0.8)'; g.shadowBlur=3; g.fillText(name,x+(left?-10:10),y); g.shadowBlur=0; g.globalAlpha=1;
     HITS.push({canvas:cv,x,y,r:22,pick:pk});
 // a landed ship: upright, pointing away from the body
-    if(mine && !S.move && l==='surf' && S.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
+    if(mine && !S.render.move && l==='surf' && S.domain.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
       setRocketMode(hid ? 'flat' : 'gl'); // faded on the far side but still visible, like the marker itself
       drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},v('--accent'),zPad);
@@ -280,18 +280,18 @@ let idleT=0;
 
 export function idleLoop(ts:number){
   requestAnimationFrame(idleLoop);
-  if(reduce || !S || S.busy || document.hidden || ts-idleT<40){ if(ts-idleT>=40) idleT=ts; return; }
+  if(reduce || !S || S.action.busy || document.hidden || ts-idleT<40){ if(ts-idleT>=40) idleT=ts; return; }
   const dt=Math.min(0.1,(ts-idleT)/1000); idleT=ts;
-  if(!S.node || $('stage')!.clientWidth<1) return;
-  const vw=mapView(), [b,nd]=S.node.split('.');
+  if(!S.domain.node || $('stage')!.clientWidth<1) return;
+  const vw=mapView(), [b,nd]=S.domain.node.split('.');
 // system view: keep circling in low orbit, at a moon, or in high orbit
   if(vw.level==='sys' && !sc.hidden && vw.planet===planetOfBody(b) && nd!=='surf'){
     const st=sysState(vw.planet); if(M[b]) st.moonU+=dt*1.4; else if(nd==='orbit') st.lowU+=dt*0.5; else st.capU+=dt*0.04;
     clearHits(sc); drawSys(vw.planet); return; }
   if(nd!=='orbit' || cv.hidden) return;
   if(vw.level!=='body' || vw.body!==b) return;
-  if(!S.orb || S.orb.body!==b) S.orb=defaultOrb(b) as unknown as {body:string;u:number;[k:string]:any};
-  S.orb!.u=(S.orb!.u+dt*0.35)%TAU; clearHits(cv); drawBody(b);
+  if(!S.render.orb || S.render.orb.body!==b) S.render.orb=defaultOrb(b) as unknown as {body:string;u:number;[k:string]:any};
+  S.render.orb!.u=(S.render.orb!.u+dt*0.35)%TAU; clearHits(cv); drawBody(b);
 }
 
 export function wireDraw(){
