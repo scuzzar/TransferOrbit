@@ -19,13 +19,19 @@ export const infobtn = $('infobtn') as HTMLButtonElement;
 export function setLegend(open: boolean){ ($('legend') as HTMLElement).hidden = !open; infobtn.setAttribute('aria-expanded', String(open)); }
 
 // Fullscreen where the browser allows it (Safari on iPhone cannot do it for pages)
-export const isFs = () => !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+// Safari still ships only the prefixed fullscreen API
+type WebkitDocument = Document & { webkitFullscreenElement?:Element|null; webkitExitFullscreen?:()=>void; webkitFullscreenEnabled?:boolean };
+type WebkitElement = HTMLElement & { webkitRequestFullscreen?:()=>void };
+const doc = document as WebkitDocument;
+
+export const isFs = () => !!(document.fullscreenElement || doc.webkitFullscreenElement);
 
 export function toggleFs(){
-  const el = document.documentElement;
+  const el = document.documentElement as WebkitElement;
   try{
-    if(isFs()) (document.exitFullscreen || (document as any).webkitExitFullscreen).call(document);
-    else { const r = ((el as any).requestFullscreen || (el as any).webkitRequestFullscreen).call(el); if(r && (r as any).catch) (r as any).catch(()=>{ S.ui.msg = 'Fullscreen is blocked here.'; changed(); }); }
+    if(isFs()){ if(document.exitFullscreen) document.exitFullscreen(); else doc.webkitExitFullscreen?.(); }
+    else if(el.requestFullscreen) el.requestFullscreen().catch(()=>{ S.ui.msg = 'Fullscreen is blocked here.'; changed(); });
+    else el.webkitRequestFullscreen?.();
   }catch(e){ S.ui.msg = 'Fullscreen is blocked here.'; changed(); }
 }
 
@@ -54,7 +60,7 @@ export function wireMenu(){
 // Only offer fullscreen where the browser allows it.
 function wireFullscreen(){
   const b = $('fs') as HTMLButtonElement, m = $('menufs') as HTMLElement;
-  if(!(document.fullscreenEnabled || (document as any).webkitFullscreenEnabled)) return;
+  if(!(document.fullscreenEnabled || doc.webkitFullscreenEnabled)) return;
   b.hidden = false; m.hidden = false;
   b.onclick = toggleFs;
   const upd = ()=>{ const on = isFs(); b.setAttribute('aria-label', on?'Exit fullscreen':'Fullscreen'); m.textContent = on?'Exit fullscreen':'Fullscreen'; setTimeout(draw,100); };

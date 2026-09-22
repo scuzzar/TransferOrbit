@@ -3,11 +3,11 @@
 import { $, TAU, reduce } from '../basics.js';
 import { B, POST_BY_ID, POSTS, M, PLANETS, SITES, bodyColor, bodyOf, fuelHere, hasAtm, hasDepot, moonsOf, planetOfBody } from '../game/world.js';
 import { keplerNu, theta, transfer, transferConic } from '../game/physics.js';
-import { S, burn, cargoOrders, here, homePlanet } from '../game/state.js';
+import { S, Pick, cargoOrders, here, homePlanet } from '../game/state.js';
 import { D2R, Plane, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
 import { HITS, bctx, cargoTo, cssVar, ctx, cv, fitCanvas, clearHits, isPick, moveProg, prep, prepBack, sc, sctx } from './canvas.js';
 import { RKT_LEN } from './rocketdata.js';
-import { GL, glBegin, glEnd, glHide, glNote, glPath, glPut, glSaturnRing } from './gl.js';
+import { GL, PathStyle, glBegin, glEnd, glHide, glNote, glPath, glPut, glSaturnRing } from './gl.js';
 import { drawRocket, setRocketMode } from './rocket.js';
 import { mapView, renderCrumbs } from './view.js';
 
@@ -28,7 +28,7 @@ function drawSol(){
   ctx.fillStyle=v('--sun'); ctx.beginPath(); ctx.arc(c,c,6,0,TAU); ctx.fill();
   const from=homePlanet(), tgt=S.domain.target;
   if(from && tgt && tgt!==from){
-    const t=transfer(from,tgt as string,S.domain.day), thA=theta(from,S.domain.day), thG=thA+t.phiStar, rT=rOf(B[tgt as string].a);
+    const t=transfer(from,tgt,S.domain.day), thA=theta(from,S.domain.day), thG=thA+t.phiStar, rT=rOf(B[tgt].a);
     ctx.strokeStyle=t.d<0.04?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.moveTo(c,c); ctx.lineTo(c+rT*Math.cos(thG), c-rT*Math.sin(thG)); ctx.stroke();
     ctx.beginPath(); ctx.arc(c+rT*Math.cos(thG), c-rT*Math.sin(thG), 10,0,TAU); ctx.stroke(); ctx.setLineDash([]);
@@ -54,7 +54,7 @@ function drawSol(){
     const conic=transferConic(rA,rB,dth);
     const pt=(s:number)=>{ const q=conic.at(s), th=T.th0+q.th; return [c+q.r*Math.cos(th), c-q.r*Math.sin(th)]; };
     ctx.strokeStyle=v('--accent'); ctx.setLineDash([3,4]); ctx.lineWidth=1.5; ctx.beginPath();
-    for(let i=0;i<=96;i++){const [x,y]=conic.geo(i/96).map((z:number,j:number)=>z); const th=T.th0+y; const X=c+x*Math.cos(th), Y=c-x*Math.sin(th); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.stroke(); ctx.setLineDash([]);
+    for(let i=0;i<=96;i++){const [x,y]=conic.geo(i/96); const th=T.th0+y; const X=c+x*Math.cos(th), Y=c-x*Math.sin(th); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.stroke(); ctx.setLineDash([]);
     const p=Math.min(1,Math.max(0,(S.domain.day-T.dep)/(T.arr-T.dep))), [x,y]=pt(p), [x2,y2]=pt(Math.min(1,p+0.01));
 // burning at departure (prograde) and on arrival (braking), with the rocket turning beforehand
     const bAt=(q:number)=>q<0.04?'pro':q>0.955?'retro':null;
@@ -78,11 +78,11 @@ function drawSys(p:string){
   const rOf=(m:string)=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(M[m].rv)-lo)/(hi-lo);
   const P=(q:Vec3)=>{ const y2=q[1]*ce-q[2]*se, z2=q[1]*se+q[2]*ce; return {x:cx+q[0], y:cy-y2, z:z2, hidden:z2<0 && Math.hypot(q[0],y2)<Rp}; };
   const moonW=(m:string,day:number)=>ringPt(rOf(m),moonAngle(m,day));
-  const [k,l]=here(), mine=homePlanet()===p && !S.action.transit, st=sysState(p);
+  const mine=homePlanet()===p && !S.action.transit, st=sysState(p);
   const font=(w:number, sz:number)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
-  const back:Function[]=[], front:Function[]=[];
+  const back:(()=>void)[]=[], front:(()=>void)[]=[];
 // orbits in the 3D layer, in pixels including depth: planet and rocket hide them correctly
-  const poly=(key:string,pts:Vec3[],style:{col:string;[k:string]:any})=>glPath(key,pts.map(P),style);
+  const poly=(key:string,pts:Vec3[],style:PathStyle)=>glPath(key,pts.map(P),style);
   const circle=(r:number)=>{ const a:Vec3[]=[]; for(let j=0;j<=120;j++) a.push(ringPt(r,j/120*TAU)); return a; };
   poly('hoch',circle(rH),{col:v('--line'),w:1.5,dash:[6,5]});
   ms.forEach(m=>poly('mond:'+m,circle(rOf(m)),{col:v('--orbit'),w:1}));
@@ -111,11 +111,11 @@ function drawSys(p:string){
       path=(t)=>{ const th=pl.th*t, ra=rH+(rLow-rH)*Math.min(1,t*1.05), rp=rLow*0.97, a=(rp+ra)/2, e=(ra-rp)/(ra+rp), nu=th+Math.PI;
         const r=a*(1-e*e)/(1+e*Math.cos(nu)); return {q:ringPt(r,pl.u0+th), glow:hasAtm(p) && r<rLow*1.08 && t<0.97}; }; }
   }
-  let ship:any=null;
+  let ship:{pt:ReturnType<typeof P>; dir:number[]; burn?:string|null; soon?:string|null; glow?:boolean; up?:boolean}|null=null;
   if(mine && S.domain.node){
     if(path){ const t=moveProg(), c=path(t), a=P(path(Math.max(0,t-0.01)).q), b=P(path(Math.min(1,t+0.01)).q);
       const tr:Vec3[]=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly('spur',tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
-      ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn, glow:c.glow, soon:path(Math.min(1,t+0.06)).burn}; }
+      ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn??null, glow:c.glow, soon:path(Math.min(1,t+0.06)).burn??null}; }
     else { const w=shipW(S.render.move?S.render.move.from.node:S.domain.node); if(w){ const nd=S.domain.node.split('.')[1]; let dir=[1,0];
         if(!S.render.move && nd!=='surf'){ const [bb]=S.domain.node.split('.'); const base:Vec3=M[bb]?moonW(bb,S.domain.day):[0,0,0], rr=M[bb]?rMo:(nd==='capt'?rH:rLow), uu=M[bb]?st.moonU:(nd==='capt'?st.capU:st.lowU);
           const a=P(vadd(base,ringPt(rr,uu-0.05))), c=P(vadd(base,ringPt(rr,uu+0.05))); dir=[c.x-a.x,c.y-a.y]; }
@@ -127,10 +127,10 @@ function drawSys(p:string){
 // real depth: the planet hides the rocket by itself. Standing on a moon it has to be in front.
       const va=Math.atan2(-uy,ux), z=s.pt.z+(s.up?RKT_LEN*0.6:0);
       if(s.up) drawRocket(c,'sys',s.pt.x,s.pt.y,va,null,null,{mode:'up',up:Math.PI/2},v('--accent'),z);
-      else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn,s.soon,null,v('--accent'),z); }); }
+      else drawRocket(c,'sys',s.pt.x,s.pt.y,va,s.burn??null,s.soon??null,null,v('--accent'),z); }); }
 
 // moons as small spheres, behind or in front
-  const drawMoon=(m:string,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.domain.day)), x=c.x, y=c.y, pk={type:'body',body:m}, sel=isPick(pk);
+  const drawMoon=(m:string,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.domain.day)), x=c.x, y=c.y, pk:Pick={type:'body',body:m}, sel=isPick(pk);
     glPut(m, moonW(m,S.domain.day), 5.5);
     if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
     if(cargoTo(kk=>bodyOf(kk)===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
@@ -144,13 +144,13 @@ function drawSys(p:string){
   // The ring lies in the equatorial plane. The drawing reaches the edge of the image, so half the
   // edge length is the outer ring radius; inside it stays transparent.
   if(p==='saturn'){ const rg=glSaturnRing(); rg.visible=true; rg.scale.set(Rp*2.24,Rp*2.24,1); }
-  const pp={type:'body',body:p};
+  const pp:Pick={type:'body',body:p};
   if(cargoTo(kk=>bodyOf(kk)===p && kk.node!==p+'.capt' && kk.node!==p+'.orbit').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
   if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }
   HITS.push({canvas:sc,x:cx,y:cy,r:Rp+3,pick:pp});
   front.forEach(f=>f());
-  // Bahnmarkierungen
-  const nodeMark=(q:Vec3,node:string,label:string,align:CanvasTextAlign)=>{ const c=P(q), x=c.x, y=c.y, pk={type:'node',node}, sel=isPick(pk), here_=mine&&S.domain.node===node;
+  // orbit markers
+  const nodeMark=(q:Vec3,node:string,label:string,align:CanvasTextAlign)=>{ const c=P(q), x=c.x, y=c.y, pk:Pick={type:'node',node}, sel=isPick(pk), here_=mine&&S.domain.node===node;
     g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(x,y,6,0,TAU); g.fill(); g.stroke();
     if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+6,y-7,3,0,TAU); g.fill(); }
@@ -172,7 +172,7 @@ function drawBody(b:string){
   glPut(b,null,1);
   const [k,l]=here(), mine=k===b && !S.action.transit;
   const font=(w:number, sz:number)=>g.font=`${w} ${sz}px 'Saira Semi Condensed','Arial Narrow',sans-serif`;
-  const back:Function[]=[], front:Function[]=[]; // drawing jobs behind and in front of the body
+  const back:(()=>void)[]=[], front:(()=>void)[]=[]; // drawing jobs behind and in front of the body
   const P=(p:Vec3)=>cam.proj(p);
   // A rocket standing on the visible side must not be cut by the sphere anywhere, so it goes in
   // front of the whole sphere. Taking the surface depth at its foot point is not enough: the
@@ -180,7 +180,7 @@ function drawBody(b:string){
   const zPad = R + RKT_LEN;
 // the orbit ring as a polyline, split into hidden and visible pieces
 // the orbit ring in the 3D layer: depth in pixels, so body and rocket hide it correctly
-  const ring=(key:string, fn:(u:number)=>Vec3, style:{col:string;[k:string]:any})=>{ const pts=[]; for(let j=0;j<=96;j++){ const q=P(fn(j/96*TAU)); pts.push({x:q.x,y:q.y,z:q.z*R}); }
+  const ring=(key:string, fn:(u:number)=>Vec3, style:PathStyle)=>{ const pts=[]; for(let j=0;j<=96;j++){ const q=P(fn(j/96*TAU)); pts.push({x:q.x,y:q.y,z:q.z*R}); }
     glPath(key,pts,style); };
 // high orbit only for planets without moons (otherwise it lives in the system view)
   const showHigh = B[b] && !moonsOf(b).length;
@@ -195,11 +195,11 @@ function drawBody(b:string){
     const trail=[]; for(let j=0;j<=80;j++){ const q=P(pa.at(j/80).p); trail.push({x:q.x,y:q.y,z:q.z*R}); }
     glPath('spur',trail,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
     shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn??null; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
-    soon=pa.at(Math.min(1,t+0.06)).burn??null; att=q.att?{mode:q.att as string,up:0}:null;
+    soon=pa.at(Math.min(1,t+0.06)).burn??null; att=q.att?{mode:q.att,up:0}:null;
   } else if(mine && l==='orbit'){
     shipAt=orbitPos(b,orb,orb.u,R_ORB); const a=P(orbitPos(b,orb,orb.u-0.02,R_ORB)), c=P(orbitPos(b,orb,orb.u+0.02,R_ORB)); shipDir=[c.x-a.x,c.y-a.y];
   }
-  let shipLast:Function|null=null;
+  let shipLast:(()=>void)|null=null;
   if(shipAt){
     const sp=P(shipAt);
 // close to the surface the rocket stands on the site (as when landed), not in the middle of the marker
@@ -230,13 +230,13 @@ function drawBody(b:string){
   g.restore();
   // Latitude labels along the visible right-hand edge
   font(500,11); g.fillStyle=v('--muted'); g.textAlign='left'; g.textBaseline='middle';
-  [[60,'60° N'],[30,'30° N'],[0,'0°'],[-30,'30° S'],[-60,'60° S']].forEach(([lat,t])=>{ let bx:Record<string,any>|null=null;
-    for(let d=0;d<=180;d+=3){ const p=cam.proj(bvec(b,lat as number,bodyLon0(b)+d)); if(p.z>=0 && (!bx||p.x>bx.x)) bx=p; }
-    if(bx && bx.x>cx+R*0.35) g.fillText(t as string,bx.x+6,bx.y); });
+  ([[60,'60° N'],[30,'30° N'],[0,'0°'],[-30,'30° S'],[-60,'60° S']] as const).forEach(([lat,t])=>{ let bx:{x:number;y:number}|null=null;
+    for(let d=0;d<=180;d+=3){ const p=cam.proj(bvec(b,lat,bodyLon0(b)+d)); if(p.z>=0 && (!bx||p.x>bx.x)) bx=p; }
+    if(bx && bx.x>cx+R*0.35) g.fillText(t,bx.x+6,bx.y); });
   front.forEach(f=>f());
 
   // Orbit markers
-  const marker=(p:Record<string,any>,node:string,label:string,al:CanvasTextAlign)=>{ const pk={type:'node',node}, sel=isPick(pk);
+  const marker=(p:{x:number;y:number},node:string,label:string,al:CanvasTextAlign)=>{ const pk:Pick={type:'node',node}, sel=isPick(pk);
     g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(p.x,p.y,6,0,TAU); g.fill(); g.stroke();
     if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(p.x,p.y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(p.x+6,p.y-7,3,0,TAU); g.fill(); }
@@ -251,7 +251,7 @@ function drawBody(b:string){
 // landing sites (faded on the far side, still tappable)
   (SITES[b]||[]).forEach(st=>{
     const p=P(bvec(b,st.lat,st.lon)), x=p.x, y=p.y, hid=p.z<0;
-    const pk={type:'node',node:b+'.surf',site:st.id}, sel=isPick(pk), kon=POSTS.find(kk=>kk.node===b+'.surf' && (!kk.site||kk.site===st.id));
+    const pk:Pick={type:'node',node:b+'.surf',site:st.id}, sel=isPick(pk), kon=POSTS.find(kk=>kk.node===b+'.surf' && (!kk.site||kk.site===st.id));
     g.globalAlpha=hid?0.45:1;
     if(cargoTo(kkk=>!!kon && kkk.id===kon.id).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(sel){ g.strokeStyle=v('--accent'); g.lineWidth=2.5; g.beginPath(); g.arc(x,y,17,0,TAU); g.stroke(); }

@@ -19,7 +19,7 @@ export function renderPick(){
   let title='', tags:string[]=[], info='', stats:[string,string][]=[], btns:[string,string,()=>void][]=[];
   const close = `<button type="button" class="x" aria-label="Close the selection">×</button>`;
   if(p.type==='planet'){
-    const k = p.planet!, hp = homePlanet(), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
+    const k = p.planet, hp = homePlanet(), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
     const n = cargoTo(x=>planetOfBody(bodyOf(x))===k).length;
     title = B[k]!.name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);
@@ -32,7 +32,7 @@ export function renderPick(){
     if(deeper) btns.push(['Look closer','',()=>setView(deeper)]);
     if(hp!==k) btns.push(['Plan a route','go',()=>openRoute(pickTarget(p),null)]);
   } else if(p.type==='body'){
-    const b = p.body!, posts = POSTS.filter(x=>bodyOf(x)===b), n = cargoTo(x=>bodyOf(x)===b).length, st = SITES[b]||[];
+    const b = p.body, posts = POSTS.filter(x=>bodyOf(x)===b), n = cargoTo(x=>bodyOf(x)===b).length, st = SITES[b]||[];
     title = bodyName(b); if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     if(posts.length) tags.push(tag('post',posts.length>1?`${posts.length} trading posts`:'Trading post'));
     if(hasDepot(b)) tags.push(tag('toward','Fuel depot'));
@@ -42,7 +42,7 @@ export function renderPick(){
     if(st.length) btns.push(['Show the landing sites','',()=>setView({level:'body',planet:planetOfBody(b),body:b})]);
     const t = pickTarget(p); if(!atTarget(t)) btns.push([`Route: ${st.length?'orbit':'high orbit'}`,'go',()=>openRoute(t,null)]);
   } else {
-    const t = pickTarget(p), nd = p.node!, [b,l] = nd.split('.'), post = POSTS.find(x=>x.node===nd && (!x.site||x.site===p.site));
+    const t = pickTarget(p), nd = p.node, [b,l] = nd.split('.'), post = POSTS.find(x=>x.node===nd && (!x.site||x.site===p.site));
     title = targetName(t).replace(/ \(.*\)$/,'');
     const n = post?cargoTo(x=>x.id===post.id).length:0;
     if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));

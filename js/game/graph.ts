@@ -2,7 +2,7 @@
 
 import { B, GOODS, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, moonsOf, rotPenalty, siteOf } from './world.js';
 import { captDv, hopCost, transfer } from './physics.js';
-import { S } from './state.js';
+import { S, Order } from './state.js';
 
 const idealCache: Record<string, {total:number; tof:number}> = {};
 
@@ -12,11 +12,12 @@ export function idealTransfer(a: string, b: string){
   return idealCache[key]={total:t.total, tof:t.tof};
 }
 
-export interface Edge { node:string; site:string|null; dv:number; days:number; [k:string]:any }
+// hop: between two sites of one body; launch: on a launcher (fee); leg: an interplanetary transfer
+export interface Edge { node:string; site:string|null; dv:number; days:number; hop?:boolean; launch?:boolean; leg?:[string,string] }
 
 export function edgesFrom(node: string, site: string|null): Edge[]{
   const [k,l]=node.split('.'); const E: Edge[]=[];
-  const e=(n:string, s:string|null, dv:number, days:number, x:Record<string,any>={})=>E.push({node:n,site:s||null,dv,days,...x});
+  const e=(n:string, s:string|null, dv:number, days:number, x:Pick<Edge,'hop'|'launch'|'leg'>={})=>E.push({node:n,site:s||null,dv,days,...x});
   const lat=(body:string, s:string|null)=>{const st=siteOf(body,s); return st?st.lat:0;};
   const lands=(body:string, down:number)=>(SITES[body]||[]).forEach(st=>e(body+'.surf',st.id,down+(hasAtm(body)?0:rotPenalty(body,st.lat)),0.2));
   if(l==='surf' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(k+'.surf',st.id,h.dv,h.days,{hop:true,launch:h.launcher}); });
@@ -37,7 +38,7 @@ export function edgesFrom(node: string, site: string|null): Edge[]{
   return E;
 }
 
-export interface RouteResult { dv:number; days:number; legs:unknown[]; launch:boolean; first:Edge|null }
+export interface RouteResult { dv:number; days:number; legs:[string,string][]; launch:boolean; first:Edge|null }
 const routeCache: Record<string, RouteResult> = {};
 interface Place { id:string; node:string; site:string|null }
 
@@ -59,8 +60,8 @@ export function route(from: Place, to: Place): RouteResult{
     }
   }
   if(!goal) return routeCache[key]={dv:Infinity,days:0,legs:[],launch:false,first:null};
-  const legs: unknown[] = []; let launch=false, k=goal as string, first: Edge|null = null;
-  while(prev[k]){ if(prev[k].ed.leg) legs.unshift(prev[k].ed.leg); if(prev[k].ed.launch && !prev[k].ed.hop) launch=true; first=prev[k].ed; k=prev[k].k; }
+  const legs: [string,string][] = []; let launch=false, k=goal as string, first: Edge|null = null;
+  while(prev[k]){ const {ed}=prev[k]; if(ed.leg) legs.unshift(ed.leg); if(ed.launch && !ed.hop) launch=true; first=ed; k=prev[k].k; }
   return routeCache[key]={dv:dist[goal].dv, days:dist[goal].days, legs, launch, first};
 }
 
@@ -76,8 +77,6 @@ const LUCK = {p:0.08, min:1.4, max:1.9} as const;
 
 const rewardLuck = () => Math.random()<LUCK.p ? LUCK.min+(LUCK.max-LUCK.min)*Math.random()**2 : 0.9+Math.random()*0.3;
 
-interface Order { deadline:number; reward:number }
+export const lateFactor = (o: Pick<Order,'deadline'>, day: number): number => day<=o.deadline ? 1 : Math.max(0.25, 1-0.02*(day-o.deadline));
 
-export const lateFactor = (o: Order, day: number): number => day<=o.deadline ? 1 : Math.max(0.25, 1-0.02*(day-o.deadline));
-
-export const payout = (o: Order): number => Math.round(o.reward*lateFactor(o,S.domain.day));
+export const payout = (o: Pick<Order,'deadline'|'reward'>): number => Math.round(o.reward*lateFactor(o,S.domain.day));
