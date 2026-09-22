@@ -11,7 +11,7 @@ export interface Move { from:Target; to:Target; d0:number; d1:number; orb:Orbit|
 // During a time-lapse animation fast moons would otherwise spin round many times (a wild blur).
 // So in an animation they advance at most one lap and end up exactly at their real position.
 export function moonAngle(m:string,day:number){
-  const base=MOONS.indexOf(m)*1.7, P=M[m].P, A=S&&S.anim;
+  const base=MOONS.indexOf(m)*1.7, P=M[m].P, A=S&&S.render.anim;
   if(A && A.d1>A.d0 && day>=A.d0-1e-9 && day<=A.d1+1e-9){
     const a0=TAU*A.d0/P, a1=TAU*A.d1/P, res=((a1-a0)%TAU+TAU)%TAU;
     return a0 + res*(day-A.d0)/(A.d1-A.d0) + base;
@@ -72,7 +72,7 @@ function siteOrbit(st:{lat:number;lon:number}){ const i=Math.abs(st.lat); return
 
 export const defaultOrb = (b:string):Orbit => ({body:b, i:0, Om:bodyLon0(b)-90, u:90*D2R});
 
-export const shipOrb = (b:string):Orbit => (S.orb && S.orb.body===b) ? S.orb : defaultOrb(b);
+export const shipOrb = (b:string):Orbit => (S.render.orb && S.render.orb.body===b) ? S.render.orb : defaultOrb(b);
 
 const easeIn = (t:number)=>t*t, easeOut = (t:number)=>1-(1-t)*(1-t);
 
@@ -129,7 +129,7 @@ export const SYS_EL = 35*D2R;
 
 export const ringPt=(r:number,a:number):Vec3=>[r*Math.cos(a),0,-r*Math.sin(a)];
 
-export const sysState = (p:string) => { if(!S.sys || S.sys.p!==p) S.sys={p, capU:-0.75, lowU:0, moonU:0}; return S.sys; };
+export const sysState = (p:string) => { if(!S.render.sys || S.render.sys.p!==p) S.render.sys={p, capU:-0.75, lowU:0, moonU:0}; return S.render.sys; };
 
 // Plan of a manoeuvre in the system view (angles only, independent of scale)
 export function sysPlan(mv:Move):any{

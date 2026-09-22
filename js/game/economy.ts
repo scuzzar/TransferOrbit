@@ -17,13 +17,13 @@ export function newEconomy(): Eco {
   return eco;
 }
 
-const openCount = (k:Post, g:string) => S.eco.orders.filter(o=>o.from===k.id && o.good===g && o.state==='open').length;
+const openCount = (k:Post, g:string) => S.domain.eco.orders.filter(o=>o.from===k.id && o.good===g && o.state==='open').length;
 
 const HUBS_ = HUBS as Record<string, Post>;
 
 export function hubRoom(h:Post){
-  const stored=Object.values(S.eco.fwd[h.id]).reduce((a,b)=>a+b,0);
-  const incoming=S.eco.orders.filter(o=>o.to===h.id).reduce((a,o)=>a+o.n,0);
+  const stored=Object.values(S.domain.eco.fwd[h.id]).reduce((a,b)=>a+b,0);
+  const incoming=S.domain.eco.orders.filter(o=>o.to===h.id).reduce((a,o)=>a+o.n,0);
   return HUB_CAP-stored-incoming;
 }
 
@@ -33,7 +33,7 @@ function pickWeighted<T>(list:T[], w:(x:T)=>number){
 }
 
 function makeOrder(k:Post, g:string, fwd:boolean, day:number){
-  const eco=S.eco, G=GOODS[g], store=fwd?eco.fwd[k.id]:eco.stock[k.id], have=store[g]||0;
+  const eco=S.domain.eco, G=GOODS[g], store=fwd?eco.fwd[k.id]:eco.stock[k.id], have=store[g]||0;
   if(have<G.lot[0] || openCount(k,g)>=MAX_OPEN) return;
   const cand = POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && eco.demand[c.id][g]>0 &&
     (fwd ? REGION[bodyOf(c)]===k.hub : bodyOf(c)!==bodyOf(k)) && route(k,c).dv<=MAX_ROUTE_DV);
@@ -62,7 +62,7 @@ export function legWait(r:RouteResult, day:number){ if(!r.legs.length) return 0;
 export function freshDeadline(o:Order, day:number){ const r=route(POST_BY_ID[o.from],POST_BY_ID[o.to]); return day+legWait(r,day)+1.5*o.days+30; }
 
 function econTick(day:number){
-  const eco=S.eco;
+  const eco=S.domain.eco;
   POSTS.forEach(k=>k.makes.forEach(g=>{ eco.stock[k.id][g]=Math.min(12,(eco.stock[k.id][g]||0)+1/GOODS[g].rate); }));
   if(Math.round(day-START_DAY)%60===0) POSTS.forEach(k=>k.needs.forEach(g=>{ eco.demand[k.id][g]=Math.min(3,eco.demand[k.id][g]+1); }));
   // orders that expired without being accepted are dropped
@@ -83,7 +83,7 @@ function econTick(day:number){
 // Bulk orders: every producer fills a bulk store on the side. Once the lot size is reached,
 // an order appears with more containers than the Cog can carry (7 to 18).
 function bulkTick(day:number){
-  const eco=S.eco;
+  const eco=S.domain.eco;
   if(!eco.bulk){ eco.bulk={}; eco.bulkN={}; }
   POSTS.forEach(k=>k.makes.forEach(g=>{
     const B_=eco.bulk![k.id]=eco.bulk![k.id]||{}, N=eco.bulkN![k.id]=eco.bulkN![k.id]||{};
@@ -106,4 +106,4 @@ function bulkTick(day:number){
   }));
 }
 
-export function econAdvance(toDay:number){ while(S.eco.day+1<=toDay){ S.eco.day++; econTick(S.eco.day); } }
+export function econAdvance(toDay:number){ while(S.domain.eco.day+1<=toDay){ S.domain.eco.day++; econTick(S.domain.eco.day); } }

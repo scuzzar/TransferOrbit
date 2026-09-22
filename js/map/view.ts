@@ -10,10 +10,10 @@ import { Hit, HITS, cv, sc } from './canvas.js';
 // Automatic: in transit -> solar system; in low orbit or on the ground -> the body with its sites;
 // in high orbit -> system map, unless the next step towards the cargo is an interplanetary transfer.
 export function autoView():ViewLevel{
-  if(S.transit || !S.node) return {level:'sol'};
+  if(S.action.transit || !S.domain.node) return {level:'sol'};
   const [k,l]=here(), hp=homePlanet(), moons=moonsOf(hp).length>0;
-  if(S.move){
-    const [fb,fl]=S.move.from.node.split('.'), [tb,tl]=S.move.to.node.split('.');
+  if(S.render.move){
+    const [fb,fl]=S.render.move.from.node.split('.'), [tb,tl]=S.render.move.to.node.split('.');
     if(fb===tb && fl!=='capt' && tl!=='capt' && SITES[fb]) return {level:'body', planet:hp, body:fb};
     if(moons) return {level:'sys', planet:hp};
     if(SITES[fb]) return {level:'body', planet:hp, body:fb};
@@ -30,7 +30,7 @@ export function autoView():ViewLevel{
 }
 
 export function mapView():ViewLevel{
-  const key=S.transit?'transit':(S.move?'mv:'+S.move.to.node+(S.move.to.site||'')+'|':'')+(S.node||'')+(S.site||'');
+  const key=S.action.transit?'transit':(S.render.move?'mv:'+S.render.move.to.node+(S.render.move.to.site||'')+'|':'')+(S.domain.node||'')+(S.domain.site||'');
   if(S.ui.mapKey!==key){ S.ui.mapKey=key; S.ui.mapView=null; }
   return S.ui.mapView||autoView();
 }
@@ -72,7 +72,7 @@ export function onMapClick(e:MouseEvent){
   if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=pk?deeperView(pk):null; if(dv){ setView(dv); return; } }
   lastTap={key,t:now};
   S.ui.pick=pk as Pick|null;
-  if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.target=best.pick.planet;
+  if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.domain.target=best.pick.planet;
   changed();
 }
 

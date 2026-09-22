@@ -16,19 +16,19 @@ export function speedHint(){ const h=$('speedhint') as HTMLElement|null; if(!h) 
   h.textContent = ANIM.fast ? '» schneller' : 'Tippen: schneller'; h.classList.toggle('on',ANIM.fast); }
 
 export function header(){
-  ($('date') as HTMLElement).textContent=dateStr(S.day);
-  ($('mday') as HTMLElement).textContent=`Day ${Math.floor(S.day-START_DAY)}`;
+  ($('date') as HTMLElement).textContent=dateStr(S.domain.day);
+  ($('mday') as HTMLElement).textContent=`Day ${Math.floor(S.domain.day-START_DAY)}`;
   const dv=dvAvail(), max=dvOf(eng().cap);
   ($('dv') as HTMLElement).innerHTML=`${km(dv)} <small>km/s</small>`;
   ($('gauge') as HTMLElement).style.width=`${Math.max(0,Math.min(100,dv/max*100))}%`;
   ($('shipname') as HTMLElement).textContent=eng().name;
   ($('shipinfo') as HTMLElement).textContent=`${eng().drive}, Isp ${eng().isp} s`;
-  const cr=$('credits') as HTMLElement; cr.innerHTML=`${Math.round(S.credits).toLocaleString('en-GB')} <small>Cr</small>`; cr.classList.toggle('neg',S.credits<0);
+  const cr=$('credits') as HTMLElement; cr.innerHTML=`${Math.round(S.domain.credits).toLocaleString('en-GB')} <small>Cr</small>`; cr.classList.toggle('neg',S.domain.credits<0);
   const cells:string[]=[]; cargoOrders().forEach(o=>{ for(let i=0;i<o.n;i++) cells.push(`<i style="background:${GOODS[o.good]!.color}"></i>`); });
   while(cells.length<eng().slots) cells.push('<i></i>');
   ($('mslots') as HTMLElement).innerHTML=cells.join('');
   ($('slotinfo') as HTMLElement).textContent=`${eng().slots-slotsUsed()} of ${eng().slots} free`;
-  ($('autofill') as HTMLInputElement).setAttribute('aria-pressed',String(!!S.autoFill));
+  ($('autofill') as HTMLInputElement).setAttribute('aria-pressed',String(!!S.domain.autoFill));
   ($('cargotile') as HTMLButtonElement).classList.toggle('on',S.ui.view==='cargo');
 }
 
@@ -36,10 +36,10 @@ export function header(){
 let toastMsg: string|null=null, toastT: number|null=null;
 
 function toast(){
-  if(S.msg===toastMsg) return; toastMsg=S.msg;
+  if(S.ui.msg===toastMsg) return; toastMsg=S.ui.msg;
   const t=$('toast') as HTMLElement;
-  if(!S.msg){ t.hidden=true; return; }
-  t.textContent=S.msg; t.hidden=false; t.classList.remove('fade');
+  if(!S.ui.msg){ t.hidden=true; return; }
+  t.textContent=S.ui.msg; t.hidden=false; t.classList.remove('fade');
   if(toastT) clearTimeout(toastT);
   toastT=setTimeout(()=>{ t.classList.add('fade'); toastT=setTimeout(()=>{ t.hidden=true; },450); },5000);
 }
@@ -50,9 +50,9 @@ export function render(){
   document.body.classList.toggle('panel-open',pv);
   header(); draw(); renderPick(); renderAutobar(); toast();
   ($('mainview') as HTMLElement).hidden=pv; ($('panel') as HTMLElement).hidden=!pv;
-  ($('used') as HTMLElement).textContent=`Gesamt verbraucht: ${km(S.used)} km/s`;
-  document.querySelectorAll<HTMLElement>('[data-wait]').forEach(b=>(b as HTMLButtonElement).disabled=S.busy||S.over);
-  if(pv){ renderPanel(); document.querySelectorAll<HTMLElement>('#panel button').forEach(b=>{ if(S.over && !(b as HTMLButtonElement).classList.contains('back')) (b as HTMLButtonElement).disabled=true; }); return; }
+  ($('used') as HTMLElement).textContent=`Gesamt verbraucht: ${km(S.domain.used)} km/s`;
+  document.querySelectorAll<HTMLElement>('[data-wait]').forEach(b=>(b as HTMLButtonElement).disabled=S.action.busy||S.domain.over);
+  if(pv){ renderPanel(); document.querySelectorAll<HTMLElement>('#panel button').forEach(b=>{ if(S.domain.over && !(b as HTMLButtonElement).classList.contains('back')) (b as HTMLButtonElement).disabled=true; }); return; }
   renderPlace();
 }
 
