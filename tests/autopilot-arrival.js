@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 (async()=>{ const b=await chromium.launch(); const errs=[];
   const p=await b.newPage({viewport:{width:1300,height:800}}); p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('http://localhost:8765/index.html'); await p.waitForTimeout(600);
+  await p.goto('http://localhost:8765/dist/index.html'); await p.waitForTimeout(600);
   await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} TO.newGame(); TO.S.domain.fuel=80; TO.S.domain.credits=1e6; TO.changed(); TO.ANIM.fast=true; });
   await p.evaluate(()=>{ TO.openRoute({node:'moon.surf',site:'shackleton'}); TO.startAutopilot(); TO.ANIM.fast=true; });
   await p.waitForFunction(()=>!TO.S.ui.auto&&!TO.S.action.busy,{timeout:90000}); await p.waitForTimeout(400);

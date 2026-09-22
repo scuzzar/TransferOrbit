@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 (async()=>{ const b=await chromium.launch(); const errs=[];
   const p=await b.newPage({viewport:{width:1100,height:760},deviceScaleFactor:4}); p.on('pageerror',e=>errs.push(e.message));
   // Over the server, not over file://: ES modules only load over http, and three.js needs the network.
-  await p.goto('http://localhost:8765/index.html'); await p.waitForTimeout(2500);
+  await p.goto('http://localhost:8765/dist/index.html'); await p.waitForTimeout(2500);
   console.log('3D layer on:', await p.evaluate(()=>TO.GL.on));
   await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} TO.newGame(); TO.S.domain.fuel=80; TO.changed(); });
   // Where the rocket was drawn last is remembered by map/rocket itself: no need to patch the function.

@@ -97,7 +97,7 @@ const AI = String.raw`
 (async()=>{
   const b=await chromium.launch(); const p=await b.newPage({viewport:{width:1440,height:860}});
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('http://localhost:8765/index.html'); await p.waitForTimeout(800);
+  await p.goto('http://localhost:8765/dist/index.html'); await p.waitForTimeout(800);
   await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} TO.newGame(); TO.changed(); });
   await p.evaluate(AI);
   const hist=[]; let res;
