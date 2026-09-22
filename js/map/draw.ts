@@ -143,7 +143,7 @@ function drawSys(p:string){
   glPut(p,null,Rp);
   // The ring lies in the equatorial plane. The drawing reaches the edge of the image, so half the
   // edge length is the outer ring radius; inside it stays transparent.
-  if(p==='saturn'){ const rg=glSaturnRing(); rg.visible=true; rg.scale.set(Rp*2.24,Rp*2.24,1); }
+  if(p==='saturn') glSaturnRing(Rp*2.24);
   const pp:Pick={type:'body',body:p};
   if(cargoTo(kk=>bodyOf(kk)===p && kk.node!==p+'.capt' && kk.node!==p+'.orbit').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
   if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }

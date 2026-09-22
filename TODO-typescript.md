@@ -11,11 +11,11 @@ Diese Datei löschen, sobald alles erledigt ist.
 | 1 | `Pick` als Union, `Hit` mit echten Feldern, überflüssige Casts entfernt, Fullscreen-Präfixe typisiert, `window.TO` deklariert | erledigt (`c88f54d`), getestet |
 | 2 | `[k:string]:any` aus `LocalAction`, `Edge`, `PlanStep` entfernt; `PlanStep` als Union über `kind`; `RouteResult.legs` typisiert | erledigt (`c88f54d`), getestet |
 | 3 | Spielstand validieren, `eco:null as any`, `flags` | erledigt |
-| 4 | three.js typisieren | **offen** |
+| 4 | three.js typisieren | erledigt |
 | 5 | `noUnusedLocals` / `noUnusedParameters` | erledigt |
 | 6 | ID-Typen + `noUncheckedIndexedAccess` | **offen** |
 
-Etappen 1–3 und 5 sind mit `npm test` gegen einen frischen Build geprüft (`errors: none`, `invariants: ok`). Etappe 3 zusätzlich mit einem alten Spielstand (deutsche IDs, fehlende Felder) und kaputten Spielständen, die abgelehnt werden müssen.
+Etappen 1–5 sind mit `npm test` gegen einen frischen Build geprüft (`errors: none`, `invariants: ok`). Etappe 3 zusätzlich mit einem alten Spielstand (deutsche IDs, fehlende Felder) und kaputten Spielständen, die abgelehnt werden müssen.
 
 ## Regeln und Stolpersteine
 
@@ -34,25 +34,13 @@ Etappen 1–3 und 5 sind mit `npm test` gegen einen frischen Build geprüft (`er
 - `migrate()` arbeitet auf `Record<string, unknown>` und übersetzt jetzt auch die Landeplätze in den `refuel:`-Flags.
 - Übrig bleibt ein Cast in `parseEco()`, nachdem alle Felder geprüft sind.
 
-## Etappe 4: three.js
+## Etappe 4: three.js – erledigt
 
-Dateien: `globals.d.ts`, `js/map/gl.ts`, `js/start.ts`, `package.json`
-
-three.js wird zur Laufzeit per dynamischem `import()` vom CDN geladen (`three@0.169.0`, siehe `start.ts:44`) und ist nicht gebündelt. Im Moment ist alles `any`:
-- `globals.d.ts:1-21` – beide `declare module`-Blöcke mit `const THREE: any`
-- `gl.ts:22` – `export const GL: any = {...}`
-- `gl.ts:48, 109, 126, 141` – `T:any`
-- `start.ts:45` – `THREE as any`
-
-Vorgehen:
-- [ ] `npm i -D @types/three@0.169` (Version passend zum CDN).
-- [ ] `globals.d.ts`: `declare module 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js' { export * from 'three'; }`. Den Block `declare module 'three'` entfernen, denn den liefert `@types/three`.
-- [ ] `gl.ts`: `import type * as THREE from 'three'` und `type Three = typeof THREE`.
-- [ ] `GL` aufteilen:
-  - Status: `{ on:boolean; state:'loading'|'on'|'off'; why:string }`. Das bleibt exportiert, weil `draw.ts` `GL.on` liest, `start.ts` `GL.state` liest und `tests/rocket-images.js` `TO.GL.on` liest.
-  - Die Szene kommt in ein eigenes, nicht exportiertes Objekt, etwa `let G: Scene3D|null`. Es enthält `T, r:WebGLRenderer, scene, cam:OrthographicCamera, root/flat:Group, sphere, plane, rocket:Mesh, qa/qb:Quaternion, AX/AY/AZ:Vector3, dl, amb, aniso, mat:Record<string,Material>, mesh:Record<string,Mesh>, path:Record<string,{gm,ghost,solid,cap}>, ring:Mesh|null`. `glOff()` setzt es auf `null`.
-- [ ] Achtung: `glRocketGeo`, `glSurface` und `glRingTexture` werden in `glInit` aufgerufen, bevor `GL.r` bzw. `GL.aniso` gesetzt sind. Die Reihenfolge prüfen.
-- [ ] `start.ts:45`: `.then((THREE) => Gl.glInit(THREE))` ohne Cast.
+- `@types/three@0.169` als devDependency, passend zur CDN-Version. `globals.d.ts` leitet das CDN-Modul mit `export * from 'three'` auf diese Typen um.
+- `GL` ist nur noch der Status (`on`, `state`, `why`). Die Szene liegt im nicht exportierten `G: Scene3D|null`, das `glOff()` auf `null` setzt. Die exportierten Funktionen prüfen `G` statt `GL.on`.
+- `glSaturnRing(d)` setzt Sichtbarkeit und Größe selbst, `draw.ts` fasst kein three.js-Objekt mehr an. `glPut` gibt nichts mehr zurück.
+- Die Reihenfolge in `glInit` war unkritisch: Nur `glRocketGeo` läuft dort, und das braucht weder Renderer noch `aniso`. `glSurface`/`glRingTexture` laufen erst später aus `glMat`/`glSaturnRing`.
+- **Testen mit 3D:** Hier im Container ist das CDN gesperrt, dann bleibt `GL.on` falsch und `gl.ts` läuft gar nicht. Zum Testen three.js lokal ausliefern (`npm pack three@0.169.0`, in Playwright `page.route('https://cdn.jsdelivr.net/npm/three@0.169.0/**', …)` mit `access-control-allow-origin: *`). So geprüft: `rocket-images.js` mit `3D layer on: true`, Tests grün, Screenshots von Erde, Saturn-System und Saturn gleich wie vorher.
 
 ## Etappe 5: Ungenutzter Code – erledigt
 

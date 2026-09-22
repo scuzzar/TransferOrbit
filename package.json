@@ -13,6 +13,7 @@
     "game-bot": "node tests/game-bot.js"
   },
   "devDependencies": {
+    "@types/three": "^0.169.0",
     "playwright": "^1.47.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",

@@ -42,7 +42,7 @@ requestAnimationFrame(Draw.idleLoop);
 // three.js arrives only after the first frame, and only if the network plays along.
 // A dynamic import() keeps the rest of the game alive when the CDN is blocked.
 import('https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js')
-  .then((THREE: unknown) => Gl.glInit(THREE as any))
+  .then(THREE => Gl.glInit(THREE))
   .catch((e: unknown) => Gl.glOff(e instanceof Error ? e.message : String(e)));
 setTimeout(()=>{ if(Gl.GL.state==='loading') Gl.glOff('three.js could not be loaded.'); }, 10000);
 

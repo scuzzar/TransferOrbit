@@ -1,6 +1,7 @@
 // The three.js layer: spheres, rings, orbit ribbons, the rocket. None of it knows
 // anything about the game being played.
 
+import type * as THREE from 'three';
 import { tick } from '../events.js';
 import { TAU } from '../basics.js';
 import { bodyColor } from '../game/world.js';
@@ -19,12 +20,26 @@ import { RKT, RKT_HEX, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
 // No foreign textures: the surfaces are built in the browser from data the game already has -
 // hand-drawn continents, polar caps, gas giant bands, Saturn's ring. That way the 3D layer
 // loads not a single image and runs inside a locked iframe without any origin trouble.
-export const GL: any = {on:false, state:'loading', why:'', T:null, r:null, mat:{}, mesh:{}, path:{}, ring:null, rocket:null, aniso:1};
+type Three = typeof THREE;
+export const GL: { on:boolean; state:'loading'|'on'|'off'; why:string } = {on:false, state:'loading', why:''};
+
+// Two passes of one ribbon share the geometry, see glPath
+type RibbonMesh = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+interface Ribbon { gm:THREE.BufferGeometry; at:THREE.BufferAttribute|null; ghost:RibbonMesh; solid:RibbonMesh; cap:number }
+// Everything three.js built. Only there while GL.on; glOff() drops it.
+interface Scene3D {
+  T:Three; r:THREE.WebGLRenderer; scene:THREE.Scene; cam:THREE.OrthographicCamera;
+  root:THREE.Group; flat:THREE.Group; sphere:THREE.SphereGeometry; plane:THREE.PlaneGeometry;
+  rocket:THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>;
+  qa:THREE.Quaternion; qb:THREE.Quaternion; AX:THREE.Vector3; AY:THREE.Vector3; AZ:THREE.Vector3; aniso:number;
+  mat:Record<string, THREE.MeshLambertMaterial>; mesh:Record<string, THREE.Mesh>; path:Record<string, Ribbon>; ring:THREE.Mesh|null;
+}
+let G: Scene3D|null = null;
 const glcEl:HTMLCanvasElement = glc as HTMLCanvasElement;
 
 export function glOff(why:string){
   if(GL.state==='off') return;
-  GL.state='off'; GL.on=false; GL.T=null; GL.why=why||'';
+  GL.state='off'; GL.on=false; G=null; GL.why=why||'';
   console.warn('3D view off:', why);
   glcEl.hidden=true; cvb.hidden=true;
   try{ tick(); }catch(e){}
@@ -45,7 +60,7 @@ export function glNote(canvas:HTMLCanvasElement,g:CanvasRenderingContext2D,W:num
 }
 
 // Rocket: the same data as the hand-rolled 2D renderer, only as a triangle mesh with vertex colours.
-function glRocketGeo(T:any){
+function glRocketGeo(T:Three){
   const n=RKT.f.length/4, pos=new Float32Array(n*9), col=new Float32Array(n*9), c=new T.Color();
   for(let k=0;k<n;k++){
     c.set(RKT_HEX[RKT.f[4*k+3]]);
@@ -106,7 +121,7 @@ function texBands(g:CanvasRenderingContext2D){
 }
 
 // The map of a body. With no features there is no map, and the base colour is enough.
-function glSurface(T:any,b:string){
+function glSurface({T,aniso}:Scene3D,b:string){
   const caps=CAPS[b]||[], gas=b==='jupiter'||b==='saturn', earth=b==='earth';
   if(!caps.length && !gas && !earth) return null;
   const col=bodyColor(b), cn=texCanvas(TEX_W,TEX_H), g=cn.getContext('2d')!;
@@ -118,12 +133,12 @@ function glSurface(T:any,b:string){
   }
   if(gas) texBands(g);
   caps.forEach(([lat,a])=>texCap(g,lat,a));
-  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
+  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=aniso; return t;
 }
 
 // Saturn's ring: bands across the radius, transparent at the inner and outer edge. The Cassini
 // division sits at just under two thirds, as it does in nature.
-function glRingTexture(T:any){
+function glRingTexture({T,aniso}:Scene3D){
   const N=512, cn=texCanvas(N,N), g=cn.getContext('2d')!, c=N/2;
   const inner=0.614; // 1.35 of 2.2 Saturn radii: the ring does not start at the planet
   const band=(r0:number,r1:number,fill:string)=>{ g.beginPath(); g.arc(c,c,r1*c,0,TAU); g.arc(c,c,r0*c,0,TAU,true);
@@ -135,93 +150,92 @@ function glRingTexture(T:any){
   g.globalCompositeOperation='source-over';
   band(0.86,0.95,'rgba(236,224,190,0.5)');
   band(0.97,1,'rgba(200,186,150,0.25)');
-  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=GL.aniso; return t;
+  const t=new T.CanvasTexture(cn); t.colorSpace=T.SRGBColorSpace; t.anisotropy=aniso; return t;
 }
 
-export function glInit(T:any){
-  let r;
+export function glInit(T:Three){
+  let r:THREE.WebGLRenderer;
   try{ r=new T.WebGLRenderer({canvas:glcEl, alpha:true, antialias:true, powerPreference:'low-power'}); }
   catch(e){ glOff('no WebGL context'); return; }
-  GL.T=T; GL.r=r;
   r.setClearAlpha(0);
   r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); // on mobile: at most 2
   r.autoClear=false;
-  GL.aniso=Math.min(4, r.capabilities.getMaxAnisotropy());
   glcEl.addEventListener('webglcontextlost', (e:Event)=>{ e.preventDefault(); glOff('WebGL context lost'); });
 
-  GL.scene=new T.Scene();
-  GL.cam=new T.OrthographicCamera(-1,1,1,-1,1,4000);
-  GL.cam.position.set(0,0,2000);
+  const scene=new T.Scene(), cam=new T.OrthographicCamera(-1,1,1,-1,1,4000);
+  cam.position.set(0,0,2000);
   // The light sits in the scene's space, i.e. in camera coordinates: exactly the LIGHT vector
   // from the 2D shading. The bodies hang in a rotated group, the light does not.
   const dl=new T.DirectionalLight(0xfff3e0, 1.25), amb=new T.AmbientLight(0x93a4d2, 0.2);
   dl.position.set(LIGHT[0]*500, LIGHT[1]*500, LIGHT[2]*500);
-  GL.dl=dl; GL.amb=amb;
-  GL.scene.add(dl, dl.target, amb);
-  GL.root=new T.Group(); GL.scene.add(GL.root);   // rotated like the camera in makeCam/drawSys
-  GL.flat=new T.Group(); GL.scene.add(GL.flat);   // unrotated: the rocket in screen coordinates
+  scene.add(dl, dl.target, amb);
+  const root=new T.Group(); scene.add(root);   // rotated like the camera in makeCam/drawSys
+  const flat=new T.Group(); scene.add(flat);   // unrotated: the rocket in screen coordinates
 
+  const rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide, transparent:true}));
+  rocket.scale.setScalar(RKT_LEN/1.25);
+  rocket.renderOrder=3; // after the orbit ribbons, so the faded far side does not sit on top
+  rocket.visible=false; flat.add(rocket);
+  G={T, r, scene, cam, root, flat, rocket,
   // One sphere for every body. phiStart is chosen so longitude 0° points towards +Z;
   // each body's centre of view then comes from a rotation around Y.
-  GL.sphere=new T.SphereGeometry(1, 64, 32, -Math.PI/2);
-  GL.plane=new T.PlaneGeometry(2,2);
-  GL.rocket=new T.Mesh(glRocketGeo(T), new T.MeshLambertMaterial({vertexColors:true, side:T.DoubleSide, transparent:true}));
-  GL.rocket.scale.setScalar(RKT_LEN/1.25);
-  GL.rocket.renderOrder=3; // after the orbit ribbons, so the faded far side does not sit on top
-  GL.rocket.visible=false; GL.flat.add(GL.rocket);
-  GL.qa=new T.Quaternion(); GL.qb=new T.Quaternion();
-  GL.AX=new T.Vector3(1,0,0); GL.AY=new T.Vector3(0,1,0); GL.AZ=new T.Vector3(0,0,1);
+    sphere:new T.SphereGeometry(1, 64, 32, -Math.PI/2), plane:new T.PlaneGeometry(2,2),
+    qa:new T.Quaternion(), qb:new T.Quaternion(), AX:new T.Vector3(1,0,0), AY:new T.Vector3(0,1,0), AZ:new T.Vector3(0,0,1),
+    aniso:Math.min(4, r.capabilities.getMaxAnisotropy()), mat:{}, mesh:{}, path:{}, ring:null};
   GL.on=true; GL.state='on';
   tick();
 }
 
-function glMat(key:string){
-  if(GL.mat[key]) return GL.mat[key];
-  const T=GL.T, map=glSurface(T,key);
-  return GL.mat[key]=new T.MeshLambertMaterial(map?{map}:{color:new T.Color(bodyColor(key))});
+function glMat(G:Scene3D,key:string){
+  if(G.mat[key]) return G.mat[key];
+  const T=G.T, map=glSurface(G,key);
+  return G.mat[key]=new T.MeshLambertMaterial(map?{map}:{color:new T.Color(bodyColor(key))});
 }
 
-function glBody(key:string){
-  if(GL.mesh[key]) return GL.mesh[key];
-  const m=new GL.T.Mesh(GL.sphere, glMat(key));
+function glBody(G:Scene3D,key:string){
+  if(G.mesh[key]) return G.mesh[key];
+  const m=new G.T.Mesh(G.sphere, glMat(G,key));
   m.rotation.y=-bodyLon0(key)*D2R; // turn the body's centre of view towards +Z
-  GL.root.add(m); return GL.mesh[key]=m;
+  G.root.add(m); return G.mesh[key]=m;
 }
 
-export function glSaturnRing(){
-  if(GL.ring) return GL.ring;
-  const T=GL.T;
-  const mat=new T.MeshBasicMaterial({map:glRingTexture(T), transparent:true, side:T.DoubleSide, depthWrite:false});
-  const m=new T.Mesh(GL.plane, mat);
-  m.rotation.x=-Math.PI/2; // a plane lies in XY, the ring belongs in the equatorial plane XZ
-  GL.root.add(m); return GL.ring=m;
+// Saturn's ring, d across in group units
+export function glSaturnRing(d:number){
+  if(!G) return;
+  if(!G.ring){
+    const T=G.T, mat=new T.MeshBasicMaterial({map:glRingTexture(G), transparent:true, side:T.DoubleSide, depthWrite:false});
+    G.ring=new T.Mesh(G.plane, mat);
+    G.ring.rotation.x=-Math.PI/2; // a plane lies in XY, the ring belongs in the equatorial plane XZ
+    G.root.add(G.ring);
+  }
+  G.ring.visible=true; G.ring.scale.set(d,d,1);
 }
 
 // Begin a view: size the canvas to match the front 2D canvas, set up the camera in pixels
 // and rotate the group the way makeCam and drawSys do.
 // scale is the number of pixels per unit inside the group (drawBody: R, drawSys: 1).
 export function glBegin(W:number,H:number,cx:number,cy:number,scale:number,el:number){
-  if(!GL.on) return false;
+  if(!G) return false;
   glcEl.hidden=false; cvb.hidden=false;
   layFor(glcEl,W,H);
-  GL.r.setSize(W,H,false);
-  const c=GL.cam; c.left=-W/2; c.right=W/2; c.top=H/2; c.bottom=-H/2; c.updateProjectionMatrix();
-  GL.root.position.set(cx-W/2, H/2-cy, 0);
-  GL.root.rotation.set(el,0,0);
-  GL.root.scale.setScalar(scale);
-  GL.flat.position.set(-W/2, H/2, 0);
-  for(const k in GL.mesh) GL.mesh[k].visible=false;
-  for(const k in GL.path){ GL.path[k].ghost.visible=false; GL.path[k].solid.visible=false; }
-  if(GL.ring) GL.ring.visible=false;
-  GL.rocket.visible=false;
+  G.r.setSize(W,H,false);
+  const c=G.cam; c.left=-W/2; c.right=W/2; c.top=H/2; c.bottom=-H/2; c.updateProjectionMatrix();
+  G.root.position.set(cx-W/2, H/2-cy, 0);
+  G.root.rotation.set(el,0,0);
+  G.root.scale.setScalar(scale);
+  G.flat.position.set(-W/2, H/2, 0);
+  for(const m of Object.values(G.mesh)) m.visible=false;
+  for(const o of Object.values(G.path)){ o.ghost.visible=false; o.solid.visible=false; }
+  if(G.ring) G.ring.visible=false;
+  G.rocket.visible=false;
   return true;
 }
 
 // Place a body somewhere in the group (p in group coordinates, r in group units)
 export function glPut(key:string,p:[number,number,number]|null,r:number){
-  const m=glBody(key); m.visible=true; m.scale.setScalar(r);
+  if(!G) return;
+  const m=glBody(G,key); m.visible=true; m.scale.setScalar(r);
   m.position.set(p?p[0]:0, p?p[1]:0, p?p[2]:0);
-  return m;
 }
 
 // Orbits and flight paths as narrow ribbons of triangles. WebGL cannot widen lines (always 1 px),
@@ -257,17 +271,17 @@ function glPathGeo(pts:PathPt[],w:number,dash:[number,number]|null){
 // then the full one with a depth test. That way the rocket hides the orbit and the other way round.
 export type PathStyle = { w?:number; dash?:[number,number]; a?:number; col:string; ghost?:number };
 export function glPath(key:string,pts:PathPt[],style:PathStyle){
-  const T=GL.T, tri=glPathGeo(pts, style.w||1, style.dash||null), n=tri.length/3;
-  let o=GL.path[key];
+  if(!G) return;
+  const {T,flat}=G, tri=glPathGeo(pts, style.w||1, style.dash||null), n=tri.length/3;
+  let o=G.path[key];
   if(!o){
     const gm=new T.BufferGeometry();
     const mk=(test:boolean,order:number)=>{ const m=new T.Mesh(gm,new T.MeshBasicMaterial({transparent:true,depthTest:test,depthWrite:test,side:T.DoubleSide}));
-      m.renderOrder=order; m.frustumCulled=false; GL.flat.add(m); return m; };
-    o=GL.path[key]={gm, ghost:mk(false,1), solid:mk(true,2), cap:0};
+      m.renderOrder=order; m.frustumCulled=false; flat.add(m); return m; };
+    o=G.path[key]={gm, at:null, ghost:mk(false,1), solid:mk(true,2), cap:0};
   }
-  if(o.cap<n){ o.cap=Math.max(n,512); o.gm.setAttribute('position', new T.BufferAttribute(new Float32Array(o.cap*3),3)); }
-  const at=o.gm.getAttribute('position');
-  at.array.set(tri); at.needsUpdate=true; o.gm.setDrawRange(0,n);
+  if(!o.at || o.cap<n){ o.cap=Math.max(n,512); o.at=new T.BufferAttribute(new Float32Array(o.cap*3),3); o.gm.setAttribute('position', o.at); }
+  o.at.array.set(tri); o.at.needsUpdate=true; o.gm.setDrawRange(0,n);
   const a=style.a==null?1:style.a;
   o.ghost.material.color.set(style.col); o.ghost.material.opacity=a*(style.ghost==null?0.35:style.ghost);
   o.solid.material.color.set(style.col); o.solid.material.opacity=a;
@@ -277,15 +291,16 @@ export function glPath(key:string,pts:PathPt[],style:PathStyle){
 // Rocket in screen coordinates: x,y as on the 2D canvas, z the real depth in pixels so the body
 // hides it piece by piece. a is the screen angle of the nose.
 export function glRocket(x:number,y:number,z:number,a:number,key:string,alpha?:number|null){
-  const m=GL.rocket, r=rollOf(key);
+  if(!G) return;
+  const m=G.rocket, r=rollOf(key), {qa,qb}=G;
   m.visible=true; m.position.set(x,-y,z);
   m.material.opacity=alpha??1;
-  GL.qa.setFromAxisAngle(GL.AY, r);
-  GL.qb.setFromAxisAngle(GL.AX, RKT_TILT); GL.qa.premultiply(GL.qb);
-  GL.qb.setFromAxisAngle(GL.AZ, a-Math.PI/2); GL.qa.premultiply(GL.qb);
-  m.quaternion.copy(GL.qa);
+  qa.setFromAxisAngle(G.AY, r);
+  qb.setFromAxisAngle(G.AX, RKT_TILT); qa.premultiply(qb);
+  qb.setFromAxisAngle(G.AZ, a-Math.PI/2); qa.premultiply(qb);
+  m.quaternion.copy(qa);
 }
 
-export function glEnd(){ if(!GL.on) return; GL.r.clear(); GL.r.render(GL.scene, GL.cam); }
+export function glEnd(){ if(!G) return; G.r.clear(); G.r.render(G.scene, G.cam); }
 
 export function glHide(){ glcEl.hidden=true; cvb.hidden=true; }
