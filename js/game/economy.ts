@@ -3,7 +3,7 @@
 import { randInt } from '../basics.js';
 import { BULK, GOODS, GoodId, HUBS, HUB_CAP, hubFor, POST_BY_ID, POSTS, MAX_OPEN, MAX_ROUTE_DV, START_DAY, Post, bodyOf, byPost } from './world.js';
 import { transfer } from './physics.js';
-import { S, Demand, Hub, Industry, Market, Order, PerGood, Starport, Store, stockOf, storeOf } from './state.js';
+import { Demand, Hub, Industry, Market, Order, PerGood, Starport, Store, stockOf, storeOf } from './state.js';
 import { rewardFor, route, RouteResult } from './graph.js';
 
 export function newMarket(): Market {
@@ -19,14 +19,18 @@ export function newMarket(): Market {
   return new Market(posts, 1, START_DAY-30);
 }
 
-const post = (k:Post) => S.market.post(k.id);
+// The market works on the market it is given, never on the game as a whole: what the ship
+// carries is none of its business.
+let M:Market;
+const post = (k:Post) => M.post(k.id);
 
 const openCount = (k:Post, g:GoodId) => post(k).offers.filter(o=>o.good===g).length;
 
-// Room left in a hub: its capacity less what it stores and what is on the way to it, open or aboard
-export function hubRoom(h:Post){
-  const stored=S.market.hub(h.id)?.stored ?? 0;
-  const incoming=S.orders.filter(o=>o.to===h.id).reduce((a,o)=>a+o.containers,0);
+// Room left in a hub: its capacity less what it stores and what the orders on offer would bring
+// it. What the ship carries towards it does not count, so a delivery may fill it past the top.
+export function hubRoom(market:Market, h:Post){
+  const stored=market.hub(h.id)?.stored ?? 0;
+  const incoming=market.offers.filter(o=>o.to===h.id).reduce((a,o)=>a+o.containers,0);
   return HUB_CAP-stored-incoming;
 }
 
@@ -39,7 +43,7 @@ const need = (k:Post, g:GoodId) => post(k).industry.levelOf(g);
 const setNeed = (k:Post, g:GoodId, level:number) => { post(k).industry.demand(g).level=level; };
 
 function makeOrder(k:Post, g:GoodId, fromHubStore:boolean, day:number){
-  const market=S.market, G=GOODS[g], store=fromHubStore?market.hub(k.id)?.transship:post(k).industry.stores, have=store?stockOf(store,g):0;
+  const market=M, G=GOODS[g], store=fromHubStore?market.hub(k.id)?.transship:post(k).industry.stores, have=store?stockOf(store,g):0;
   if(!store || have<G.lot[0] || openCount(k,g)>=MAX_OPEN) return;
   const cand = POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && need(c,g)>0 &&
     (fromHubStore ? hubFor(bodyOf(c))===k.hub : bodyOf(c)!==bodyOf(k)) && route(k,c).dv<=MAX_ROUTE_DV);
@@ -50,7 +54,7 @@ function makeOrder(k:Post, g:GoodId, fromHubStore:boolean, day:number){
     const reg=hubFor(bodyOf(to));
     if(reg!==hubFor(bodyOf(k)) && Math.random()<0.6){
       const h=HUBS[reg];
-      if(h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(h)>=n){ to=h; toHub=true; }
+      if(h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(M,h)>=n){ to=h; toHub=true; }
     }
   }
   const r=route(k,to); if(!isFinite(r.dv)) return;
@@ -71,7 +75,7 @@ export function freshDeadline(o:Order, day:number){ const r=route(POST_BY_ID[o.f
 const addTo = (m:PerGood<Store>, g:GoodId, n:number) => { storeOf(m,g).stock+=n; };
 
 function marketTick(day:number){
-  const market=S.market;
+  const market=M;
   POSTS.forEach(k=>k.makes.forEach(g=>{ const s=storeOf(post(k).industry.stores,g); s.stock=Math.min(12,s.stock+1/GOODS[g].rate); }));
   if(Math.round(day-START_DAY)%60===0) POSTS.forEach(k=>k.needs.forEach(g=>setNeed(k,g,Math.min(3,need(k,g)+1))));
   // orders that expired without being accepted are dropped, and their goods go back where they came from
@@ -93,14 +97,14 @@ function marketTick(day:number){
 // Bulk orders: every producer fills a bulk store on the side. Once the lot size is reached,
 // an order appears with more containers than the Cog can carry (7 to 18).
 function bulkTick(day:number){
-  const market=S.market;
+  const market=M;
   POSTS.forEach(k=>k.makes.forEach(g=>{
     const p=post(k), bs=storeOf(p.industry.bulk,g), N=p.industry.bulkLot;
     let n=N.get(g); if(n===undefined){ n=randInt(BULK.min,BULK.max); N.set(g,n); }
     const have=bs.stock+=1/(GOODS[g].rate*BULK.slow);
     if(have<n || p.offers.some(o=>o.isBulk && o.good===g)) return;
     const cand=POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && need(c,g)>0 && bodyOf(c)!==bodyOf(k) && route(k,c).dv<=MAX_ROUTE_DV);
-    const hubs=Object.values(HUBS).filter((h)=>h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(h)>=n && route(k,h).dv<=MAX_ROUTE_DV);
+    const hubs=Object.values(HUBS).filter((h)=>h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(M,h)>=n && route(k,h).dv<=MAX_ROUTE_DV);
     let to:Post, toHub=false;
     if(nonEmpty(cand) && (!hubs.length || Math.random()<0.6)) to=pickWeighted(cand,c=>need(c,g));
     else if(nonEmpty(hubs)){ to=pickWeighted(hubs,()=>1); toHub=true; }
@@ -114,4 +118,6 @@ function bulkTick(day:number){
   }));
 }
 
-export function marketAdvance(toDay:number){ const m=S.market; while(m.simulatedTo+1<=toDay){ m.simulatedTo++; marketTick(m.simulatedTo); } }
+// Run the market day by day up to toDay
+export function advanceMarket(market:Market, toDay:number){
+  M=market; while(market.simulatedTo+1<=toDay){ market.simulatedTo++; marketTick(market.simulatedTo); } }

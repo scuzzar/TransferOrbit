@@ -331,14 +331,14 @@ test('Delivering pays, empties the hold and fills a hub store for transhipments'
   if (hub) assert.equal(state.stockOf(hub.transship, o.good), stored + o.containers);
 });
 
-test('A hub counts the orders heading to it, open or aboard, against its room', async () => {
+test('A hub counts its store and the orders offered towards it against its room, not what the ship carries', async () => {
   const { state, economy, world } = await fresh();
   const S = state.S, hub = world.POST_BY_ID.pavonis;
-  const room = economy.hubRoom(hub);
+  const room = economy.hubRoom(S.market, hub);
   const o = new state.Order({ id: 9999, good: 'mach', containers: 3, from: 'shipyard', to: 'pavonis', reward: 1, dv: 1, days: 1,
     deadline: S.day + 100, created: S.day, expires: S.day + 90, fromHubStore: false, toHub: true });
-  S.player.ship.load(o); assert.equal(economy.hubRoom(hub), room - 3);
-  S.player.ship.unload(o); S.market.post('shipyard').offer(o); assert.equal(economy.hubRoom(hub), room - 3);
+  S.player.ship.load(o); assert.equal(economy.hubRoom(S.market, hub), room);          // aboard: none of the market's business
+  S.player.ship.unload(o); S.market.post('shipyard').offer(o); assert.equal(economy.hubRoom(S.market, hub), room - 3);
 });
 
 test('Refuelling takes days and costs money', async () => {

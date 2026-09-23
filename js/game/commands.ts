@@ -10,7 +10,7 @@ import { BODIES, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST
 import { theta, transfer } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
 import { route } from './graph.js';
-import { freshDeadline, marketAdvance, newMarket } from './economy.js';
+import { advanceMarket, freshDeadline, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
 import { Move, MoveSpec, SCENE, bodyPath, defaultOrb, resetScene, sysPlan, sysState } from '../map/geometry.js';
 import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
@@ -23,7 +23,7 @@ export function newGame(){
   const start=nodeOf('earth.orbit');
   setState(new Game(START_DAY, new Player(20000, new Ship('cog', SHIPS.cog.cap, new Docked(start))), newMarket()));
   resetScene();
-  marketAdvance(START_DAY);
+  advanceMarket(S.market, START_DAY);
 // orders from the run-up period start with a full deadline
   S.market.offers.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
   report('A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.','fresh');
@@ -103,7 +103,7 @@ export function setAutoFill(on:boolean){
 function animateTo(target:number, ms:number, done:()=>void){
   const d0=S.day;
 // Straight to the target without animating: time-lapse tools and tests switch this on.
-  if(ANIM.instant){ SCENE.anim=null; S.day=target; marketAdvance(S.day); done(); return; }
+  if(ANIM.instant){ SCENE.anim=null; S.day=target; advanceMarket(S.market, S.day); done(); return; }
   SCENE.anim={d0, d1:target}; ANIM.active=true; ANIM.long=ms>1500; tick();
   let prog=0, last=performance.now();
   const step=(now:number)=>{
@@ -112,7 +112,7 @@ function animateTo(target:number, ms:number, done:()=>void){
     const p=prog, e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
     S.day=d0+(target-d0)*e; tick();
     if(p<1) requestAnimationFrame(step);
-    else { S.day=target; SCENE.anim=null; ANIM.active=false; if(!S.player.ship.autopilot) ANIM.fast=false; tick(); marketAdvance(S.day); done(); }
+    else { S.day=target; SCENE.anim=null; ANIM.active=false; if(!S.player.ship.autopilot) ANIM.fast=false; tick(); advanceMarket(S.market, S.day); done(); }
   };
   requestAnimationFrame(step);
 }

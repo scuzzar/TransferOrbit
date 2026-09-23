@@ -72,7 +72,7 @@ function panelPost(p:HTMLElement){
     g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(post.industry.levelOf(x))}</div>`).join('');
     p.appendChild(g);
     const n=document.createElement('p'); n.className='hint';
-    n.textContent=k.hub?`The dots show demand. As a hub, ${k.name} also takes any goods for transhipment; ${HUB_CAP-hubRoom(k)} of ${HUB_CAP} slots are taken.`:'The dots show demand. Orders coming here are created at other posts.';
+    n.textContent=k.hub?`The dots show demand. As a hub, ${k.name} also takes any goods for transhipment; ${HUB_CAP-hubRoom(S.market,k)} of ${HUB_CAP} slots are taken.`:'The dots show demand. Orders coming here are created at other posts.';
     p.appendChild(n);
   }
 

@@ -36,7 +36,7 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 - **Hubs.** A hub's zone of influence decides where goods for other zones are transhipped, which
   destinations the orders from its transhipment store serve, how long a rescue takes and which
   fuel prices the refuel panel lists. Every hub sells every ship class. Whether a hub has room
-  counts its store only, not what the ship carries towards it.
+  counts its store and the orders offered towards it, not what the ship carries towards it.
 - **Industry.** An industry makes and needs goods. For every good it makes there is a store for
   ordinary orders and one for bulk orders, for every good it needs a demand (`level` 0 to 3: how
   keen the starport is to get it). A good comes in at one container per `rate` days. Once the bulk
@@ -58,8 +58,6 @@ The code in `js/game/` was written against an earlier model and departs from thi
   orbit, so these are empty; the game only needs them for the planets.
 - **Transit.** `InTransit` exists only for transfers between planets; every other manoeuvre is
   `busy` plus an animation.
-- **Market.** There is no `Market.advance(day)`; `marketAdvance()` in `game/economy.ts` reads the
-  global `S`. A hub's room (`hubRoom()`) also counts the orders in the ship's hold.
 - **Starport table.** The fixed data of the starports and their industries sits in rows of the
   `Post` table in `game/world.ts` (name, node, landing site, makes, needs, hub), which the
   starports built for each game refer to through `def`.
