@@ -193,7 +193,8 @@ the first one is `S`:
 ### The game as objects
 
 `S` is a `Game`, and the objects in it relate the way the things in the game do.
-[`docs/domain-model.md`](docs/domain-model.md) draws them as a class diagram.
+[`docs/domain-model.md`](docs/domain-model.md) draws them as a class diagram. That diagram
+leads: the code follows it, and where it does not yet, the file says so.
 
 ```
 S.day                      days since 1 January 2000

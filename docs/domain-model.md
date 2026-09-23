@@ -1,27 +1,24 @@
 # Domain model
 
-The game state `S` (`js/game/state.ts`) as objects that relate the way the things in the game do.
+**This diagram leads.** The code follows it, never the other way round. A change to the model is
+made here first, agreed, and then carried into the code; the code is never allowed to drift from
+it, and the diagram is never redrawn to match what the code happens to do. Until the code has
+caught up, the gaps are listed under *Where the code does not follow yet* at the end.
 
-- The **player** has the money and keeps a **logbook**: places visited, deliveries, milestones, depots used.
-- The **ship** is at a **location**: either **docked** at a **place** (node and landing site) or
-  **in transit** between two planets. `ship.place` is null while in transit.
+The game state as objects that relate the way the things in the game do.
+
+- The **player** owns a **ship** and keeps a **logbook** (places visited, deliveries, milestones, depots used).
+- The ship **is at** a **location**: either **docked** at a **place** (node and landing site) or
+  **in transit** between two planets.
 - The ship's **hold** carries the orders it has taken aboard. A **trading post** **offers** orders,
-  each going to a destination post. Where an order lies is its state: open at a post, aboard in
-  the hold. There is no state field that could disagree.
-- A trading post keeps what it has produced and what it needs; a **hub** also stores goods for
-  its region, which it passes on as short regional orders.
-- The **market** holds the posts and hands out order ids. `marketAdvance()` in
-  `js/game/economy.ts` runs it day by day; it needs the route graph, which the objects must not
-  import.
-- The fixed tables from `js/game/world.ts` (ship definitions, goods, trading post definitions)
-  are referenced, never copied. A place is a value: a ship that moves gets a new one.
+  each going to a **destination** post. Where an order lies is its state.
+- A trading post **sits at** a place and keeps what it produced and what it needs; a **hub** also
+  stores goods for the region.
+- The **market** advances the posts day by day and hands out order ids.
+- The fixed tables from `game/world.ts` (ship classes, goods, post definitions, places) are referenced, never copied.
 
-`Game` holds the day and is where saving starts: `S.toSave()` flattens the objects into the same
-JSON a save always had, `parseSave()` in `js/game/save.ts` rebuilds them. What is under way right
-now — `ship.busy`, the transfer, the autopilot — is never saved.
-
-The objects do each change and keep it consistent; `js/game/commands.ts` decides when, plays
-the animation and reports. `ARCHITECTURE.md` has the rest.
+`Game` holds the day and is where saving and loading start. The save keeps its format:
+`toSave()` collects the object graph back into the flat JSON.
 
 ```mermaid
 ---
@@ -34,12 +31,9 @@ direction TB
 
 class Game {
   +day: number
-  +windowPlanet: PlanetId
-  +canAct() boolean
-  +postHere() TradingPost
-  +orders() Order[]
-  +arrive(place) void
+  +pass(days) void
   +toSave() SaveObj
+  +fromSave(raw)$ Game
 }
 
 namespace Player_and_ship {
@@ -53,41 +47,31 @@ namespace Player_and_ship {
   }
 
   class Logbook {
-    +visited: Set~string~
+    +visited: Set~Place~
     +delivered: number
     +milestones: Set~Milestone~
-    +depots: Set~string~
-    +visit(place) void
-    +refuelled(place) void
+    +depotsUsed: Set~Place~
   }
 
   class Ship {
-    +type: ShipId
     +fuel: number
     +dvUsed: number
     +busy: boolean
-    +place() Place
-    +transit() InTransit
     +cargoMass() number
     +dvAvail() number
-    +dvWith(fuel, cargo) number
     +burn(dv) void
     +refuel(tons) void
-    +swapTo(type) void
     +load(order) void
     +unload(order) void
-    +dock(place) void
-    +depart(transit) void
   }
 
   class Autopilot {
-    +target: Target
     +mode: RouteMode
-    +start: string
+    +start: Place
   }
 
   class Location {
-    <<union>>
+    <<abstract>>
   }
 
   class Docked
@@ -102,11 +86,9 @@ namespace Player_and_ship {
 
 namespace Trade {
   class Market {
-    +nextId: number
     +simulatedTo: number
-    +post(id) TradingPost
-    +hub(id) Hub
-    +offers() Order[]
+    +nextId: number
+    +advance(day) void
   }
 
   class TradingPost {
@@ -114,18 +96,15 @@ namespace Trade {
     +need: Amounts
     +bulkStore: Amounts
     +bulkLot: Amounts
-    +needOf(good) number
-    +offer(order) void
-    +withdraw(order) void
+    +fuelPrice() number
   }
 
   class Hub {
     +store: Amounts
-    +stored() number
+    +room() number
   }
 
   class Order {
-    +id: number
     +containers: number
     +reward: number
     +dv: number
@@ -133,11 +112,15 @@ namespace Trade {
     +created: number
     +deadline: number
     +expires: number
-    +toHub: boolean
     +isBulk: boolean
     +fromHubStore: boolean
-    +mass() number
     +payout(day) number
+  }
+
+  class OrderState {
+    <<enumeration>>
+    offered
+    aboard
   }
 }
 
@@ -148,13 +131,9 @@ namespace World_fixed_tables {
     +site: string
     +body() BodyId
     +planet() PlanetId
-    +post() Post
-    +fuelPrice() number
-    +name() string
-    +is(target) boolean
   }
 
-  class ShipDef {
+  class ShipClass {
     <<reference>>
     +isp: number
     +dry: number
@@ -163,42 +142,66 @@ namespace World_fixed_tables {
     +price: number
   }
 
-  class GoodDef {
+  class Good {
     <<reference>>
-    +m: number
+    +mass: number
     +lot: number[2]
     +rate: number
   }
 
-  class Post {
+  class PostDef {
     <<reference>>
     +name: string
-    +makes: GoodId[]
-    +needs: GoodId[]
+    +makes: Good[]
+    +needs: Good[]
   }
 }
 
 %% the player and their ship
 Game "1" --> "1" Player : player
-Game "1" --> "1" Ship : ship
 Game "1" --> "1" Market : market
-Player "1" *-- "1" Logbook : log
-Ship "*" --> "1" ShipDef : def
-Ship "1" *-- "1" Location : location
-Ship "1" *-- "0..1" Autopilot : autopilot
+Player "1" --> "1" Ship : owns
+Player "1" *-- "1" Logbook : keeps
+Ship "*" --> "1" ShipClass : is a
+Ship "1" *-- "1" Location : is at
+Ship "1" *-- "0..1" Autopilot : flies with
+Autopilot "*" --> "1" Place : target
 Location <|-- Docked
 Location <|-- InTransit
-Docked "*" --> "1" Place : place
+Docked "*" --> "1" Place : at
 
 %% trade
 Market "1" *-- "*" TradingPost : posts
 TradingPost <|-- Hub
-TradingPost "*" --> "1" Post : def
-Place ..> Post : post()
+TradingPost "*" --> "1" PostDef : is
+TradingPost "0..1" --> "1" Place : sits at
 TradingPost "1" o-- "*" Order : offers (from)
-Order "*" --> "1" TradingPost : to
-Order "*" --> "1" GoodDef : good
+Order "*" --> "1" TradingPost : destination (to)
+Order "*" --> "1" Good : carries
+Order --> OrderState
 Ship "1" o-- "*" Order : hold
 
-note for Order "In a post's offers it is open, in the ship's hold it is aboard.<br>No state field that could disagree."
+note for Order "offered: lies at its post, aboard: in the ship's hold.<br>The state follows from where the order is."
 ```
+
+## Where the code does not follow yet
+
+The code in `js/game/state.ts` was written against this model but departs from it here:
+
+- `Game` holds the ship directly (`S.ship`); in the model the **player owns** it.
+- `Market.advance(day)` does not exist; the market runs through `marketAdvance()` in
+  `game/economy.ts`, which reads the global `S`. `Hub.room()` is `hubRoom()` there.
+- A **trading post does not sit at a place**: `Place.post` looks up the post's definition.
+  `fuelPrice()` is on `Place`, not on `TradingPost`.
+- `Location` is a TypeScript union, not an abstract class.
+- The **autopilot's target** and **start** are a `Target` and a key string, not `Place`s.
+- `Logbook.visited` and `depots` hold strings, not places; `depotsUsed` is called `depots`.
+- `Game.fromSave` does not exist; `parseSave()` in `game/save.ts` does its job, and there is
+  no `Game.pass(days)`.
+- The reference classes carry their `world.ts` names (`ShipDef`, `GoodDef` with `m`, `Post`),
+  not `ShipClass`, `Good` (`mass`) and `PostDef`.
+- `Order` has no `OrderState`; its state is only where it lies.
+- Much of the behaviour is still written from outside the objects: the commands set
+  `ship.busy`, fill a hub's store, count deliveries and change `need` directly.
+- The code has members the model does not show (`Ship.type`, `Game.windowPlanet`,
+  `Order.id`, `Order.toHub`, and many operations). They need a place in the model first.
