@@ -1,7 +1,7 @@
 // Orbital mechanics: circular orbits, escape velocity, Hohmann transfers, ballistic hops.
 
 import { TAU, wrap } from '../basics.js';
-import { AU, B, BodyId, M, MU_SUN, PlanetId, hasAtm, isMoon, launcherAt, siteOf } from './world.js';
+import { AU, B, BODIES, BodyId, M, MU_SUN, PlanetId, hasAtm, isMoon, launcherAt, planetOrbit, siteOf } from './world.js';
 
 // Circular orbital speed at the surface in m/s (moons: approximate)
 const VSURF: Partial<Record<BodyId, number>> = {mercury:3005, venus:7326, earth:7910, mars:3555, ceres:365, moon:1680, phobos:8, deimos:4,
@@ -37,11 +37,11 @@ export function hopCost(b: BodyId, s1: string|null, s2: string|null): {dv:number
 
 export const HOP_FEE_SHARE = 0.4; // share of the launch fee for a suborbital flight on Earth
 
-export const theta = (k: PlanetId, day: number): number => B[k].L0*Math.PI/180 + TAU*day/B[k].T;
+export const theta = (k: PlanetId, day: number): number => BODIES[k].meanLongitude*Math.PI/180 + TAU*day/BODIES[k].period;
 
-const nn = (k: PlanetId): number => TAU/B[k].T;
+const nn = (k: PlanetId): number => TAU/BODIES[k].period;
 
-const vc = (k: PlanetId): number => Math.sqrt(B[k].mu/(B[k].R+B[k].alt));   // km/s
+const vc = (k: PlanetId): number => { const o=planetOrbit(k); return Math.sqrt(o.gravity/(o.radius+o.lowOrbitAltitude)); };   // km/s
 
 const vesc = (k: PlanetId): number => Math.SQRT2*vc(k);
 
@@ -50,7 +50,7 @@ export const captDv = (k: PlanetId): number => (0.98*vesc(k)-vc(k))*1000;       
 const hyp = (k: PlanetId, vinf: number): number => (Math.sqrt(vinf*vinf+vesc(k)**2)-0.98*vesc(k))*1000; // burn at periapsis (Oberth)
 
 export function transfer(a: PlanetId, b: PlanetId, day: number): {dep:number; arr:number; total:number; tof:number; d:number; wait:number; phiStar:number}{
-  const r1=B[a].a*AU, r2=B[b].a*AU, at=(r1+r2)/2;
+  const r1=BODIES[a].orbitRadius*AU, r2=BODIES[b].orbitRadius*AU, at=(r1+r2)/2;
   const v1=Math.sqrt(MU_SUN/r1), v2=Math.sqrt(MU_SUN/r2);
   const vp=Math.sqrt(MU_SUN*(2/r1-1/at)), va=Math.sqrt(MU_SUN*(2/r2-1/at));
   const vi1=Math.abs(vp-v1), vi2=Math.abs(v2-va);

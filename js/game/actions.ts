@@ -1,6 +1,6 @@
 // Which manoeuvres are possible from here. A pure query, changes nothing.
 
-import { B, BANKRUPT, BodyId, LAUNCH_FEE, LandingSite, M, NodeId, ROT, bodyName, fmtCr, hasDepot, isMoon, latStr, rotPenalty, siteOf } from './world.js';
+import { BODIES, BANKRUPT, BodyId, LAUNCH_FEE, LandingSite, M, NodeId, ROT, bodyName, fmtCr, hasDepot, isMoon, latStr, rotPenalty, siteOf } from './world.js';
 import { HOP_FEE_SHARE, bodyDown, bodyUp, hopCost } from './physics.js';
 import { S } from './state.js';
 import { connectionsFrom } from './graph.js';
@@ -43,7 +43,7 @@ export function localActions(): LocalAction[]{
         return add('Ride a launcher to orbit',{lat:L.lat,fee,note:`Launch fee ${fmtCr(fee)}${fee>S.player.credits?', deferred':''}. The missing rotation bonus comes out of your tank. ${L.rotNote}`}); }
       return add('Ascend to orbit',{lat:L.lat,note:L.rotNote});
     }
-    if(isMoon(k)) return add(`Back to high orbit of ${B[to.planet].name}`);
+    if(isMoon(k)) return add(`Back to high orbit of ${BODIES[to.planet].name}`);
     if(place.level==='orbit') return add('Up to high orbit',{note:'Starting point for transfers and for the moons'});
     if(to.body===k) return c.dv<100 ? add('Aerobrake into low orbit',{aero:true, note:'Many passes through the upper atmosphere'}) : add('Down to low orbit');
     const m=to.body;

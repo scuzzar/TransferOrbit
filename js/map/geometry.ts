@@ -1,7 +1,7 @@
 // Where a body, an orbit or a ship sits on screen. Pure mathematics.
 
 import { TAU } from '../basics.js';
-import { BodyId, M, MOONS, MoonId, NodeId, PlanetId, SITES, Site, hasAtm, isMoon, moonsOf, planetOfBody, siteOf, splitNode } from '../game/world.js';
+import { BODIES, BodyId, MoonId, NodeId, PlanetId, SITES, Site, hasAtm, isMoon, moonsOf, planetOfBody, siteOf, splitNode } from '../game/world.js';
 import { keplerNu } from '../game/physics.js';
 
 export type Vec3 = [number,number,number];
@@ -44,7 +44,7 @@ export function resetScene(){ Object.assign(SCENE, {move:null, orb:null, sys:nul
 // During a time-lapse animation fast moons would otherwise spin round many times (a wild blur).
 // So in an animation they advance at most one lap and end up exactly at their real position.
 export function moonAngle(m:MoonId,day:number){
-  const base=MOONS.indexOf(m)*1.7, P=M[m].P, A=SCENE.anim;
+  const base=BODIES[m].meanLongitude*Math.PI/180, P=BODIES[m].period, A=SCENE.anim;
   if(A && A.d1>A.d0 && day>=A.d0-1e-9 && day<=A.d1+1e-9){
     const a0=TAU*A.d0/P, a1=TAU*A.d1/P, res=((a1-a0)%TAU+TAU)%TAU;
     return a0 + res*(day-A.d0)/(A.d1-A.d0) + base;

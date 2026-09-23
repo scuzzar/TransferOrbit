@@ -9,8 +9,9 @@ export const START_DAY = 10957.5; // days since J2000 -> 1 Jan 2030
 const keysOf = <T extends object>(t: T) => Object.keys(t) as (keyof T & string)[];
 
 export interface BodySurf { up:number; down:number; launcher?:boolean; note?:string }
-export interface Body { name:string; a:number; T:number; L0:number; mu:number; R:number; alt:number; atm:boolean; surf:BodySurf|null; color:string }
-export interface Moon { name:string; parent:PlanetId; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
+// Rows of the planet and moon tables; the game reads them through the Body objects below
+export interface PlanetRow { name:string; a:number; T:number; L0:number; mu:number; R:number; alt:number; atm:boolean; surf:BodySurf|null; color:string }
+export interface MoonRow { name:string; parent:PlanetId; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
 export interface Site { id:string; name:string; lat:number; lon:number; port?:boolean; depot?:number; note?:string }
 // A class of ship: drive, specific impulse (s), dry mass and tank (t), cargo slots, price (Cr)
 export interface ShipClass { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
@@ -28,9 +29,9 @@ const PLANET_TABLE = {
   ceres:  {name:'Ceres',  a:2.767, T:1681.6, L0:153.0,  mu:62.6,      R:470,   alt:30,   atm:false, surf:{up:400,  down:400}, color:'#9a958d'},
   jupiter:{name:'Jupiter',a:5.203, T:4332.6, L0:34.40,  mu:126686534, R:69911, alt:10000, atm:true,  surf:null, color:'#d2a679'},
   saturn: {name:'Saturn', a:9.537, T:10759,  L0:49.94,  mu:37931187,  R:58232, alt:8000,  atm:true,  surf:null, color:'#e3cf8e'},
-} satisfies Record<string, Body>;
+} satisfies Record<string, PlanetRow>;
 export type PlanetId = keyof typeof PLANET_TABLE;
-export const B: Record<PlanetId, Body> = PLANET_TABLE;
+export const B: Record<PlanetId, PlanetRow> = PLANET_TABLE;
 
 export const PLANETS = keysOf(PLANET_TABLE);
 
@@ -46,9 +47,9 @@ const MOON_TABLE = {
   callisto: {name:'Callisto',  parent:'jupiter',xfer:1100, days:8,  up:1750, down:1750, P:16.69, rv:1882700, downNote:'Outside the heavy radiation belts'},
   enceladus:{name:'Enceladus', parent:'saturn', xfer:2400, days:5,  up:180,  down:180,  P:1.370, rv:238000, downNote:'Geysers from the south pole'},
   titan:    {name:'Titan',     parent:'saturn', xfer:700,  days:10, up:7600, down:100,  P:15.95, rv:1221900, downNote:'Thick atmosphere, parachutes are enough', upNote:'The thick atmosphere makes getting back up expensive'},
-} satisfies Record<string, Moon>;
+} satisfies Record<string, MoonRow>;
 export type MoonId = keyof typeof MOON_TABLE;
-export const M: Record<MoonId, Moon> = MOON_TABLE;
+export const M: Record<MoonId, MoonRow> = MOON_TABLE;
 
 export const MOONS = keysOf(MOON_TABLE);
 
@@ -66,7 +67,7 @@ export const isLevel = (l: unknown): l is Level => l==='surf' || l==='orbit' || 
 export const isNode = (n: unknown): n is NodeId => { if(typeof n!=='string') return false; const [b,l,x]=n.split('.'); return x===undefined && isBody(b) && isLevel(l); };
 export const splitNode = (n: NodeId) => n.split('.') as [BodyId, Level];
 
-export const moonsOf = (p: BodyId): MoonId[] => MOONS.filter(m=>M[m].parent===p);
+export const moonsOf = (p: BodyId): MoonId[] => MOONS.filter(m=>BODIES[m].orbits?.id===p);
 
 // Orbital fuel depots; depots on the ground belong to the landing sites
 export const DEPOTS: Partial<Record<NodeId, number>> = {'earth.orbit':5, 'mars.orbit':10};
@@ -126,12 +127,12 @@ export const siteOf = (body: BodyId, id: string|null): Site | undefined => (SITE
 
 export const hasDepot = (body: BodyId): boolean => (SITES[body]||[]).some(x=>!!x.depot);
 
-export const rotPenalty = (body: BodyId, lat: number): number => (ROT[body]||0)*(1-Math.cos(lat*Math.PI/180)); // m/s
+export const rotPenalty = (body: BodyId, lat: number): number => BODIES[body].rotation*(1-Math.cos(lat*Math.PI/180)); // m/s
 
 // Earth: a commercial launcher flies you up (for a fee)
 export const launcherAt = (body: BodyId): boolean => isPlanet(body) && !!B[body].surf?.launcher;
 
-export const hasAtm = (body: BodyId): boolean => isPlanet(body) ? B[body].atm : body==='titan';
+export const hasAtm = (body: BodyId): boolean => BODIES[body].atmosphere;
 
 export const latStr = (lat: number): string => `${Math.abs(lat).toLocaleString('en-GB',{maximumFractionDigits:1})}° ${lat>=0?'N':'S'}`;
 
@@ -234,7 +235,7 @@ export const bodyOf = (k: Post): BodyId => splitNode(k.node)[0];
 
 export const planetOfBody = (b: BodyId): PlanetId => isMoon(b) ? M[b].parent : b;
 
-export const bodyName = (b: BodyId): string => isMoon(b) ? M[b].name : B[b].name;
+export const bodyName = (b: BodyId): string => BODIES[b].name;
 
 export const postPlace = (k: Post): string => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${bodyName(bodyOf(k))}` : bodyName(bodyOf(k));
 
@@ -248,6 +249,44 @@ export const SYSNAME: Partial<Record<PlanetId, string>> = {earth:'Earth system',
 const BODYCOL: Record<MoonId, string> = {moon:'#a8a49c', phobos:'#8e8378', deimos:'#9a9086', io:'#d8c35a', europa:'#cfc6b2', ganymede:'#a89f92', callisto:'#7f776d', enceladus:'#e6ecf0', titan:'#d9a441'};
 
 export const bodyColor = (b: BodyId): string => isPlanet(b) ? B[b].color : BODYCOL[b];
+
+// ── The bodies as fixed objects ──────────────────────────────────────────────
+// What the game needs to know about a planet or a moon. A planet circles the Sun, a moon its
+// planet (orbits). Of the moons the tables know only the orbit: gravity, radius and the height
+// of the low orbit are left empty, and the mean longitude is the phase the map starts them at.
+
+export class Body {
+  readonly id:BodyId;
+  readonly name:string;
+  readonly orbits:Body|null;                // the planet a moon circles; null for a planet
+  readonly orbitRadius:number;              // planets: AU from the Sun; moons: km from the planet
+  readonly period:number;                   // days per orbit
+  readonly meanLongitude:number;            // degrees on 1 January 2000
+  readonly gravity:number|null;             // gravitational parameter, km³/s²
+  readonly radius:number|null;              // km
+  readonly lowOrbitAltitude:number|null;    // km
+  readonly rotation:number;                 // speed of the surface at the equator, m/s
+  readonly atmosphere:boolean;
+  constructor(b:{id:BodyId; name:string; orbits:Body|null; orbitRadius:number; period:number; meanLongitude:number;
+    gravity:number|null; radius:number|null; lowOrbitAltitude:number|null; rotation:number; atmosphere:boolean}){
+    this.id=b.id; this.name=b.name; this.orbits=b.orbits; this.orbitRadius=b.orbitRadius; this.period=b.period; this.meanLongitude=b.meanLongitude;
+    this.gravity=b.gravity; this.radius=b.radius; this.lowOrbitAltitude=b.lowOrbitAltitude; this.rotation=b.rotation; this.atmosphere=b.atmosphere;
+  }
+}
+
+const PLANET_BODIES = Object.fromEntries(PLANETS.map(k=>{ const p=B[k];
+  return [k, new Body({id:k, name:p.name, orbits:null, orbitRadius:p.a, period:p.T, meanLongitude:p.L0, gravity:p.mu, radius:p.R,
+    lowOrbitAltitude:p.alt, rotation:ROT[k]||0, atmosphere:p.atm})]; })) as Record<PlanetId, Body>;
+export const BODIES: Record<BodyId, Body> = {...PLANET_BODIES, ...Object.fromEntries(MOONS.map((k,i)=>{ const m=M[k];
+  return [k, new Body({id:k, name:m.name, orbits:PLANET_BODIES[m.parent], orbitRadius:m.rv, period:m.P, meanLongitude:i*1.7*180/Math.PI,
+    gravity:null, radius:null, lowOrbitAltitude:null, rotation:ROT[k]||0, atmosphere:k==='titan'})]; })) as Record<MoonId, Body>};
+
+// The orbital data of a planet, which the tables know in full
+export function planetOrbit(k:PlanetId):{orbitRadius:number; period:number; meanLongitude:number; gravity:number; radius:number; lowOrbitAltitude:number}{
+  const b=BODIES[k], {gravity, radius, lowOrbitAltitude}=b;
+  if(gravity===null || radius===null || lowOrbitAltitude===null) throw new Error(`${k}: incomplete planet`);
+  return {orbitRadius:b.orbitRadius, period:b.period, meanLongitude:b.meanLongitude, gravity, radius, lowOrbitAltitude};
+}
 
 // ── The places as fixed objects ──────────────────────────────────────────────
 // A node is a body and a level; on a surface every node is a landing site. There is one
@@ -271,8 +310,8 @@ export class Node {
   // how the place is called on screen
   get label():string {
     const b=this.body, l=this.level;
-    if(isMoon(b)) return l==='surf' ? (M[b].surfName||`the surface of ${M[b].name}`) : (M[b].orbitName||`orbit around ${M[b].name}`);
-    return `${LVL[l]} of ${B[b].name}`;
+    if(isMoon(b)) return l==='surf' ? (M[b].surfName||`the surface of ${BODIES[b].name}`) : (M[b].orbitName||`orbit around ${BODIES[b].name}`);
+    return `${LVL[l]} of ${BODIES[b].name}`;
   }
 }
 

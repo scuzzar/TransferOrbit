@@ -57,9 +57,8 @@ The code in `js/game/` was written against an earlier model and departs from thi
   hub) rather than being fixed objects, and they reach their definition through `def`. Their
   industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random
   and saved, instead of `Good.bulkLot` and a daily test.
-- **Bodies** are two tables (`B` for planets, `M` for moons) with short field names (`a`, `T`,
-  `L0`, `mu`, `R`, `alt`) and the delta-v of landing and ascent (`up`, `down`, `xfer`), from which
-  the connections are built, instead of `Body` objects.
+- **Bodies.** Of the moons the tables do not know gravity, radius and the height of the low
+  orbit, so these are empty; the game only needs them for the planets.
 - **Transit.** `InTransit` exists only for transfers between planets; every other manoeuvre is
   `busy` plus an animation.
 - **Market.** There is no `Market.advance(day)`; `marketAdvance()` in `game/economy.ts` reads the

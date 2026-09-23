@@ -3,7 +3,7 @@
 
 import { changed } from '../events.js';
 import { esc, fmtDays, km, byId, find } from '../basics.js';
-import { B, GOODS, POSTS, M, ROT, SITES, Site, bodyName, bodyOf, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
+import { BODIES, GOODS, POSTS, ROT, SITES, Site, bodyName, bodyOf, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
 import { bodyDown, bodyUp, transfer } from '../game/physics.js';
 import { S } from '../game/state.js';
 import { idealTransfer } from '../game/graph.js';
@@ -22,9 +22,9 @@ export function renderPick(){
   if(p.type==='planet'){
     const k = p.planet, hp = (S.player.ship.place?.planet??null), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
     const n = cargoTo(x=>planetOfBody(bodyOf(x))===k).length;
-    title = B[k].name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
+    title = BODIES[k].name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);
-    info = `${ms.length?'With '+ms.map(m=>M[m].name).join(', ')+'. ':''}${posts.length?posts.length+(posts.length>1?' trading posts':' trading post')+(posts.some(x=>x.hub)?', one of them a hub.':'.'):'No trading post.'}`;
+    info = `${ms.length?'With '+ms.map(m=>BODIES[m].name).join(', ')+'. ':''}${posts.length?posts.length+(posts.length>1?' trading posts':' trading post')+(posts.some(x=>x.hub)?', one of them a hub.':'.'):'No trading post.'}`;
     if(hp && hp!==k){ const t = transfer(hp,k,S.day), id = idealTransfer(hp,k);
       stats.push(['Transfer at a window',`${km(id.total)} km/s`]);
       stats.push(['Next window', t.d<0.04?'<span class="ok">open</span>':`<span class="wait">in ${fmtDays(t.wait)}</span>`]); }

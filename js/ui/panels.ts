@@ -2,7 +2,7 @@
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { B, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, SHIPS, hubFor, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
+import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, SHIPS, hubFor, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
 import { Order, RouteMode, S } from '../game/state.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
 import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
@@ -196,7 +196,7 @@ export function renderPlace(){
   const w=byId('placecard',HTMLElement); w.innerHTML='';
   const k=(S.player.ship.place?.post??null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
   const c=document.createElement('div'); c.className='place';
-  const tr=S.player.ship.transit, where=S.player.ship.place?S.player.ship.place.label:tr?`Under way to ${B[tr.to].name}`:'Under way';
+  const tr=S.player.ship.transit, where=S.player.ship.place?S.player.ship.place.label:tr?`Under way to ${BODIES[tr.to].name}`:'Under way';
   const info = k ? `${k.makes.length?'Produces '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`
     : r ? `Fuel depot, ${r.price} Cr/t.` : '';
   c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Location</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${k.hub?'Hub':'Trading post'}</span>`:''}</div>`;
@@ -242,7 +242,7 @@ function panelRoute(p:HTMLElement){
   const tr=S.player.ship.transit;
   const here=S.player.ship.place;
   if(!here){
-    p.appendChild(phead(`Route: ${R.target.label}`, tr?`Under way to ${B[tr.to].name}, arriving ${dateStr(tr.arr)}.`:'Under way.', ''));
+    p.appendChild(phead(`Route: ${R.target.label}`, tr?`Under way to ${BODIES[tr.to].name}, arriving ${dateStr(tr.arr)}.`:'Under way.', ''));
     const h=document.createElement('p'); h.className='hint'; h.textContent='The schedule is recalculated once you arrive.'; p.appendChild(h);
     if(S.player.ship.autopilot) p.appendChild(autoBtn());
     return;

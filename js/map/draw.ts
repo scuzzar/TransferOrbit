@@ -1,7 +1,7 @@
 // The drawing code itself: solar system, system, body, with draw() as the entry point.
 
 import { $, TAU, reduce } from '../basics.js';
-import { B, BodyId, POST_BY_ID, POSTS, M, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, bodyOf, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
+import { BODIES, BodyId, POST_BY_ID, POSTS, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, bodyOf, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
 import { keplerNu, theta, transfer, transferConic } from '../game/physics.js';
 import { S } from '../game/state.js';
 import { UI, Pick } from '../ui/state.js';
@@ -23,13 +23,13 @@ function drawSol(){
   setRocketMode('flat'); glHide(); // the top-down view of the solar system stays flat
   const v=cssVar(), c=W/2, maxR=W/2-20;
   const rOf=(a:number)=>16+(maxR-16)*Math.sqrt(a/9.537);
-  const pos=(k:PlanetId,day:number):[number,number]=>{const th=theta(k,day), r=rOf(B[k].a); return [c+r*Math.cos(th), c-r*Math.sin(th)];};
+  const pos=(k:PlanetId,day:number):[number,number]=>{const th=theta(k,day), r=rOf(BODIES[k].orbitRadius); return [c+r*Math.cos(th), c-r*Math.sin(th)];};
   ctx.lineWidth=1; ctx.strokeStyle=v('--orbit');
-  PLANETS.forEach(k=>{ctx.beginPath(); ctx.arc(c,c,rOf(B[k].a),0,TAU); ctx.stroke();});
+  PLANETS.forEach(k=>{ctx.beginPath(); ctx.arc(c,c,rOf(BODIES[k].orbitRadius),0,TAU); ctx.stroke();});
   ctx.fillStyle=v('--sun'); ctx.beginPath(); ctx.arc(c,c,6,0,TAU); ctx.fill();
   const from=(S.player.ship.place?.planet??null), tgt=UI.windowPlanet;
   if(from && tgt && tgt!==from){
-    const t=transfer(from,tgt,S.day), thA=theta(from,S.day), thG=thA+t.phiStar, rT=rOf(B[tgt].a);
+    const t=transfer(from,tgt,S.day), thA=theta(from,S.day), thG=thA+t.phiStar, rT=rOf(BODIES[tgt].orbitRadius);
     ctx.strokeStyle=t.d<0.04?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.moveTo(c,c); ctx.lineTo(c+rT*Math.cos(thG), c-rT*Math.sin(thG)); ctx.stroke();
     ctx.beginPath(); ctx.arc(c+rT*Math.cos(thG), c-rT*Math.sin(thG), 10,0,TAU); ctx.stroke(); ctx.setLineDash([]);
@@ -45,13 +45,13 @@ function drawSol(){
     if(isPick({type:'planet',planet:k})){ ctx.strokeStyle=v('--accent'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,big+13,0,TAU); ctx.stroke(); }
     const th=theta(k,S.day), lx=x+Math.cos(th)*16, ly=y-Math.sin(th)*16;
     ctx.fillStyle=isPick({type:'planet',planet:k})?v('--text'):v('--muted'); ctx.textAlign=Math.cos(th)>0.3?'left':Math.cos(th)<-0.3?'right':'center';
-    ctx.fillText(B[k].name,lx,ly);
+    ctx.fillText(BODIES[k].name,lx,ly);
     HITS.push({canvas:cv,x,y,r:24,pick:{type:'planet',planet:k}});
     const ms=moonsOf(k); ctx.fillStyle=v('--muted');
     ms.forEach((m,i)=>{ const a=moonAngle(m,S.day), r=big+4+i*2.5; ctx.beginPath(); ctx.arc(x+r*Math.cos(a), y-r*Math.sin(a), 1.3,0,TAU); ctx.fill(); });
   });
   if(S.player.ship.transit){
-    const T=S.player.ship.transit, rA=rOf(B[T.from].a), rB=rOf(B[T.to].a), dth=((T.th1-T.th0)%TAU+TAU)%TAU;
+    const T=S.player.ship.transit, rA=rOf(BODIES[T.from].orbitRadius), rB=rOf(BODIES[T.to].orbitRadius), dth=((T.th1-T.th0)%TAU+TAU)%TAU;
     const conic=transferConic(rA,rB,dth);
     const pt=(s:number):[number,number]=>{ const q=conic.at(s), th=T.th0+q.th; return [c+q.r*Math.cos(th), c-q.r*Math.sin(th)]; };
     ctx.strokeStyle=v('--accent'); ctx.setLineDash([3,4]); ctx.lineWidth=1.5; ctx.beginPath();
@@ -75,8 +75,8 @@ function drawSys(p:PlanetId){
   glBegin(W,H,cx,cy,1,SYS_EL); prepBack(W,H);
   const gb = bctx; // hidden parts belong behind the sphere
   const rH=Math.min(W/2-34, (H/2-26)/se), rMax=rH*0.82, Rp=Math.max(13,Math.min(22,W*0.028)), rLow=Rp+11, rMin=rLow+22, rMo=10;
-  const lo=Math.log(Math.min(...ms.map(m=>M[m].rv))), hi=Math.log(Math.max(...ms.map(m=>M[m].rv)));
-  const rOf=(m:MoonId)=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(M[m].rv)-lo)/(hi-lo);
+  const lo=Math.log(Math.min(...ms.map(m=>BODIES[m].orbitRadius))), hi=Math.log(Math.max(...ms.map(m=>BODIES[m].orbitRadius)));
+  const rOf=(m:MoonId)=> ms.length===1 ? rMax*0.7 : rMin+(rMax-rMin)*(Math.log(BODIES[m].orbitRadius)-lo)/(hi-lo);
   const P=(q:Vec3)=>{ const y2=q[1]*ce-q[2]*se, z2=q[1]*se+q[2]*ce; return {x:cx+q[0], y:cy-y2, z:z2, hidden:z2<0 && Math.hypot(q[0],y2)<Rp}; };
   const moonW=(m:MoonId,day:number)=>ringPt(rOf(m),moonAngle(m,day));
   const mine=(S.player.ship.place?.planet??null)===p && !S.player.ship.transit, st=sysState(p);
@@ -137,7 +137,7 @@ function drawSys(p:PlanetId){
     if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
     if(cargoTo(kk=>bodyOf(kk)===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
     if(sel){ w.strokeStyle=v('--accent'); w.lineWidth=2; w.beginPath(); w.arc(x,y,15,0,TAU); w.stroke(); }
-    font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(M[m].name,x,y-12); w.shadowBlur=0;
+    font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(BODIES[m].name,x,y-12); w.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
   ms.forEach(m=>{ const c=P(moonW(m,S.day)); const hid=c.z<0; (hid?back:front).push(()=>drawMoon(m,hid?gb:g)); });
   // Order: far side, the ring behind (Saturn), the planet, the near side

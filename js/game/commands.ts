@@ -6,7 +6,7 @@
 
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
-import { B, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
+import { BODIES, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
 import { route } from './graph.js';
@@ -75,10 +75,10 @@ export function doTransfer(b:PlanetId){
   S.player.ship.burn(t.total);
   const dep=S.day, arr=S.day+t.tof;
   S.player.ship.depart(new InTransit({from:a, to:b, dep, arr, th0:theta(a,dep), th1:theta(b,arr)}));
-  S.player.ship.busy=true; report(`Under way to ${B[b].name}. Arrival on ${dateStr(arr)}.`); changed(); showMap();
+  S.player.ship.busy=true; report(`Under way to ${BODIES[b].name}. Arrival on ${dateStr(arr)}.`); changed(); showMap();
   animateTo(arr, 2800*SLOW, ()=>{
     arrive(`${b}.capt`,null);
-    report(`Arrived: high orbit of ${B[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`);
+    report(`Arrived: high orbit of ${BODIES[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`);
     S.player.ship.busy=false; changed(); autoFill();
   });
 }

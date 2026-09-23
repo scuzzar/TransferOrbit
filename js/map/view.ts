@@ -2,7 +2,7 @@
 
 import { changed } from '../events.js';
 import { $ } from '../basics.js';
-import { B, SITES, SYSNAME, bodyName, moonsOf, planetOfBody, splitNode } from '../game/world.js';
+import { BODIES, SITES, SYSNAME, bodyName, moonsOf, planetOfBody, splitNode } from '../game/world.js';
 import { S } from '../game/state.js';
 import { UI, Pick, ViewLevel } from '../ui/state.js';
 import { cargoHints } from '../game/planner.js';
@@ -45,7 +45,7 @@ export function renderCrumbs(v:ViewLevel){
   const segs:[string,ViewLevel][]=[['Solar system',{level:'sol'}]];
   if(v.level!=='sol'){
     const pl=v.planet;
-    if(pl && moonsOf(pl).length) segs.push([SYSNAME[pl]||B[pl].name,{level:'sys', planet:pl}]);
+    if(pl && moonsOf(pl).length) segs.push([SYSNAME[pl]||BODIES[pl].name,{level:'sys', planet:pl}]);
   }
   if(v.level==='body') segs.push([bodyName(v.body),v]);
   segs.forEach((sg,i)=>{

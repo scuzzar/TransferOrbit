@@ -1,7 +1,7 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
 import { km, popMin } from '../basics.js';
-import { B, DEPOT_LIST, POST_BY_ID, LAUNCH_FEE, M, Node, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, nodeOf, siteOf } from './world.js';
+import { BODIES, DEPOT_LIST, POST_BY_ID, LAUNCH_FEE, Node, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, nodeOf, siteOf } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
 import { S, RouteMode } from './state.js';
 import { Connection, connectionsFrom, idealTransfer, route } from './graph.js';
@@ -85,16 +85,16 @@ export function planRoute(target:Node, mode:RouteMode, start?:Start|null): PlanR
   return {steps, dv:goal.dv, days:goal.days, arrive:start.day+goal.days, fee};
 }
 
-const toName = (p:PlanetId) => B[p].name;
+const toName = (p:PlanetId) => BODIES[p].name;
 
 function stepLabel(from:Node, e:Connection){
   const leg=e.leg; if(leg) return `Transfer to ${toName(leg[1])}`;
   const fk=from.body, fl=from.level, tk=e.to.body, tl=e.to.level;
   if(tl==='surf'){ const st=siteOf(tk,e.to.site); if(fl==='surf') return `${e.launchFee?'Suborbital flight':'Hop'} to ${st?st.name:bodyName(tk)}`; return `Land at ${st?st.name:bodyName(tk)}`; }
-  if(fl==='surf') return e.launchFee?'Ride a launcher to orbit':`Ascend to orbit${isMoon(fk)?' around '+M[fk].name:''}`;
+  if(fl==='surf') return e.launchFee?'Ride a launcher to orbit':`Ascend to orbit${isMoon(fk)?' around '+BODIES[fk].name:''}`;
   if(fl==='orbit' && tl==='capt') return 'Up to high orbit';
   if(fl==='capt' && tk===fk) return e.dv<100?'Aerobrake into low orbit':'Down to low orbit';
-  if(fl==='capt' && isMoon(tk)) return tk==='moon'?'To the Moon':`To ${M[tk].name}`;
+  if(fl==='capt' && isMoon(tk)) return tk==='moon'?'To the Moon':`To ${BODIES[tk].name}`;
   if(isMoon(fk) && tl==='capt') return `Back to high orbit of ${bodyName(tk)}`;
   return e.to.label;
 }
