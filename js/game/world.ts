@@ -238,8 +238,77 @@ const BODYCOL: Record<MoonId, string> = {moon:'#a8a49c', phobos:'#8e8378', deimo
 
 export const bodyColor = (b: BodyId): string => isPlanet(b) ? B[b].color : BODYCOL[b];
 
-// How much delta-v from a place to the nearest fuel depot? 0 if there is one right there.
-export const FUEL_SPOTS: {node:NodeId; site:string|null}[] = Object.keys(FUEL_PRICE).map(k=>{ const [node='',site]=k.split('@');
-  if(!isNode(node)) throw new Error(`FUEL_PRICE: unknown place ${k}`); return {node, site:site||null}; });
+// ── The places as fixed objects ──────────────────────────────────────────────
+// A node is a body and a level; on a surface every node is a landing site. There is one
+// object per place, so two of them are the same place exactly when they are ===.
 
-export function fuelHere(node: NodeId, site: string|null): boolean{ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }
+export class Node {
+  readonly body:BodyId;
+  readonly level:Level;
+  readonly node:NodeId;              // "<body>.<level>", the id the tables and saves use
+  readonly site:string|null;         // the landing site's id; null off the surface
+  constructor(body:BodyId, level:Level, site:string|null=null){ this.body=body; this.level=level; this.node=`${body}.${level}`; this.site=site; }
+  // "<body>.<level>", and "@<site>" on a surface
+  get key():string { return this.site ? `${this.node}@${this.site}` : this.node; }
+  // the place as a start for route()
+  get id():string { return '@'+this.key; }
+  // the planet it belongs to; a moon counts as its planet
+  get planet():PlanetId { const b=this.body; return isMoon(b) ? M[b].parent : b; }
+  // the trading post here, if there is one
+  get post():Post|null { return POSTS.find(k=>k.node===this.node && k.site===this.site) || null; }
+  get depot():Depot|null { return DEPOT_AT.get(this.key) ?? null; }
+  // how the place is called on screen
+  get label():string {
+    const b=this.body, l=this.level;
+    if(isMoon(b)) return l==='surf' ? (M[b].surfName||`the surface of ${M[b].name}`) : (M[b].orbitName||`orbit around ${M[b].name}`);
+    return `${LVL[l]} of ${B[b].name}`;
+  }
+}
+
+export class LandingSite extends Node {
+  readonly name:string;
+  readonly lat:number;               // degrees; the further from the equator, the less rotation bonus
+  readonly lon:number;
+  readonly port:boolean;             // a spaceport
+  readonly note:string|null;
+  constructor(body:BodyId, st:Site){ super(body,'surf',st.id); this.name=st.name; this.lat=st.lat; this.lon=st.lon; this.port=!!st.port; this.note=st.note??null; }
+  override get label():string { return `${this.name} (${bodyName(this.body)})`; }
+}
+
+// Where the ship can take on propellant, and at what price and speed
+export class Depot {
+  readonly at:Node;
+  readonly fuelPrice:number;         // credits per tonne
+  readonly fillDays:number;          // days to fill the tank
+  constructor(at:Node, fuelPrice:number, fillDays:number){ this.at=at; this.fuelPrice=fuelPrice; this.fillDays=fillDays; }
+}
+
+const NODE_BY_KEY = new Map<string,Node>();
+for(const b of [...PLANETS, ...MOONS]){
+  (SITES[b]||[]).forEach(st=>{ const n=new LandingSite(b,st); NODE_BY_KEY.set(n.key,n); });
+  const levels:Level[] = isPlanet(b) ? ['orbit','capt'] : ['orbit'];
+  levels.forEach(l=>{ const n=new Node(b,l); NODE_BY_KEY.set(n.key,n); });
+}
+export const NODES:readonly Node[] = [...NODE_BY_KEY.values()];
+
+// The node for a place id and landing site, or undefined if there is no such place. Off the
+// surface the site is ignored.
+export function nodeAt(node:NodeId, site:string|null=null):Node|undefined {
+  return NODE_BY_KEY.get(node.endsWith('.surf') && site ? `${node}@${site}` : node);
+}
+// The same, for places the game itself names: one that does not exist is a bug
+export function nodeOf(node:NodeId, site:string|null=null):Node {
+  const n=nodeAt(node,site); if(!n) throw new Error(`No such place: ${node}${site?'@'+site:''}`); return n;
+}
+
+// Every depot: the fuel price table names the places, the fill time comes from the landing
+// site or, in orbit, from DEPOTS
+export const DEPOT_LIST:readonly Depot[] = Object.entries(FUEL_PRICE).map(([key,price])=>{
+  const [node='',site=null]=key.split('@'); if(!isNode(node)) throw new Error(`FUEL_PRICE: unknown place ${key}`);
+  const at=nodeOf(node,site), days=at instanceof LandingSite ? siteOf(at.body,at.site)?.depot : DEPOTS[node];
+  if(days===undefined) throw new Error(`FUEL_PRICE: no fill time for ${key}`);
+  return new Depot(at,price,days);
+});
+const DEPOT_AT = new Map(DEPOT_LIST.map(d=>[d.at.key,d]));
+
+export function fuelHere(node: NodeId, site: string|null): boolean{ return !!nodeAt(node,site)?.depot; }

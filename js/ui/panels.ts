@@ -2,8 +2,8 @@
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { B, FUEL_PRICE, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, REGION, SHIPS, SHIP_IDS, bodyName, fmtCr, isNode, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
-import { Order, RouteMode, S, targetName } from '../game/state.js';
+import { B, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, REGION, SHIPS, SHIP_IDS, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
+import { Order, RouteMode, S } from '../game/state.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
 import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
 import { abortOrder, acceptOrders, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
@@ -36,7 +36,7 @@ function panelPost(p:HTMLElement){
   const groups=new Map<PostId,[Order,...Order[]]>();
   offers.forEach(o=>{ const g=groups.get(o.to); if(g) g.push(o); else groups.set(o.to,[o]); });
   const glist=[...groups].map(([to,os])=>{
-    const tk=POST_BY_ID[to], tpl=planRoute({node:tk.node, site:tk.site},'eco');
+    const tk=POST_BY_ID[to], tpl=planRoute(nodeOf(tk.node, tk.site),'eco');
     return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
   }).sort((a,b)=>a.dv-b.dv);
   glist.forEach(dest=>{
@@ -86,7 +86,7 @@ function panelPost(p:HTMLElement){
 
 function panelCargo(p:HTMLElement){
   const locked=!S.canAct, co=S.player.ship.hold, hereK=(S.player.ship.place?.post??null);
-  p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, S.player.ship.place?`Currently in ${esc(S.player.ship.place.name)}.`:'Under way.', ''));
+  p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, S.player.ship.place?`Currently in ${esc(S.player.ship.place.label)}.`:'Under way.', ''));
   const slots=document.createElement('div'); slots.className='bigslots';
   const cells:string[]=[]; co.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].sh}</b><span>${GOODS[o.good].m} t</span></div>`); });
   while(cells.length<S.player.ship.def.slots) cells.push('<div class="free">free</div>');
@@ -134,7 +134,7 @@ function leaveRefuel(){ const back=UI.view==='refuel'?UI.back:null; UI.view=back
 function panelRefuel(p:HTMLElement){
   const r=refuelInfo(), place=S.player.ship.place; if(!r||!place){ openView('main'); return; }
   const locked=!S.canAct;
-  p.appendChild(phead(`Refuel`, `${esc(place.name)}. ${r.source}, ${r.price} Cr per t, takes ${fmtDays(r.days)}.`, ''));
+  p.appendChild(phead(`Refuel`, `${esc(place.label)}. ${r.source}, ${r.price} Cr per t, takes ${fmtDays(r.days)}.`, ''));
   if(UI.tank===null) UI.tank=+r.max.toFixed(1);
   const amt=Math.min(UI.tank,r.max), cost=Math.round(amt*r.price);
   const box=document.createElement('div'); box.className='tankbox';
@@ -155,11 +155,10 @@ function panelRefuel(p:HTMLElement){
     <p>Cost ${fmtCr(cost)}.${needDv?` Your cargo needs up to ${km(needDv)} km/s from here, ${dvA>=needDv?'which is enough':'which is not enough yet'}.`:''}</p>`;
   p.appendChild(cmp);
   const h=document.createElement('h3'); h.textContent='Prices in this region'; p.appendChild(h);
-  const reg=REGION[place.body], inReg=(key:string)=>{ const [n]=key.split('@'); return isNode(n) && REGION[splitNode(n)[0]]===reg; };
-  const rows=Object.entries(FUEL_PRICE).filter(([key])=>inReg(key)).sort((a,b)=>a[1]-b[1]);
+  const reg=REGION[place.body], rows=DEPOT_LIST.filter(d=>REGION[d.at.body]===reg).sort((a,b)=>a.fuelPrice-b.fuelPrice);
   const lst=document.createElement('div'); lst.className='pricelist';
-  const me=(S.player.ship.place?.key??null), isMe=(key:string)=>key===me || key===place.node && !(me && FUEL_PRICE[me]);
-  lst.innerHTML=rows.map(([key,pr])=>`<div class="${isMe(key)?'me':''}"><span>${esc(depotLabel(key))}${isMe(key)?' (here)':''}</span><span>${pr} Cr/t</span></div>`).join('');
+  lst.innerHTML=rows.map(d=>{ const me=d.at===place;
+    return `<div class="${me?'me':''}"><span>${esc(depotLabel(d.at.key))}${me?' (here)':''}</span><span>${d.fuelPrice} Cr/t</span></div>`; }).join('');
   p.appendChild(lst);
   const f=document.createElement('div'); f.className='pfoot';
   f.appendChild(btn(amt>=0.1?`Take on ${tons(amt)} for ${fmtCr(cost)}`:(r.need<0.05?'The tank is full':'No money for fuel'),'go wide',locked||amt<0.1,()=>{ if(doRefuel(amt)) leaveRefuel(); }));
@@ -197,7 +196,7 @@ export function renderPlace(){
   const w=byId('placecard',HTMLElement); w.innerHTML='';
   const k=(S.player.ship.place?.post??null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
   const c=document.createElement('div'); c.className='place';
-  const tr=S.player.ship.transit, where=S.player.ship.place?S.player.ship.place.name:tr?`Under way to ${B[tr.to].name}`:'Under way';
+  const tr=S.player.ship.transit, where=S.player.ship.place?S.player.ship.place.label:tr?`Under way to ${B[tr.to].name}`:'Under way';
   const info = k ? `${k.makes.length?'Produces '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`
     : r ? `Fuel depot, ${r.price} Cr/t.` : '';
   c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Location</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${k.hub?'Hub':'Trading post'}</span>`:''}</div>`;
@@ -243,13 +242,13 @@ function panelRoute(p:HTMLElement){
   const tr=S.player.ship.transit;
   const here=S.player.ship.place;
   if(!here){
-    p.appendChild(phead(`Route: ${targetName(R.target)}`, tr?`Under way to ${B[tr.to].name}, arriving ${dateStr(tr.arr)}.`:'Under way.', ''));
+    p.appendChild(phead(`Route: ${R.target.label}`, tr?`Under way to ${B[tr.to].name}, arriving ${dateStr(tr.arr)}.`:'Under way.', ''));
     const h=document.createElement('p'); h.className='hint'; h.textContent='The schedule is recalculated once you arrive.'; p.appendChild(h);
     if(S.player.ship.autopilot) p.appendChild(autoBtn());
     return;
   }
   if(S.player.ship.isAt(R.target)){
-    p.appendChild(phead(`Route: ${targetName(R.target)}`, 'You are at the target.', ''));
+    p.appendChild(phead(`Route: ${R.target.label}`, 'You are at the target.', ''));
     if(UI.rmsg && UI.msg){ const m=document.createElement('div'); m.className='msg'; m.style.margin='0 0 12px'; m.textContent=UI.msg; p.appendChild(m); }
     const del=deliverables();
     if(del.length){ const f=document.createElement('div'); f.className='pfoot'; f.appendChild(btn(`Deliver (${del.length}), ${fmtCr(del.reduce((s,o)=>s+o.payout(S.day),0))}`,'go wide',locked,()=>{ deliverAll(); })); p.appendChild(f); }
@@ -257,7 +256,7 @@ function panelRoute(p:HTMLElement){
   }
   const plans: Record<RouteMode, ReturnType<typeof planRoute>> = {eco:planRoute(R.target,'eco'), now:planRoute(R.target,'now')};
   const plan=plans[R.mode];
-  p.appendChild(phead(`Route: ${targetName(R.target)}`, `From ${esc(here.name)}.`, ''));
+  p.appendChild(phead(`Route: ${R.target.label}`, `From ${esc(here.label)}.`, ''));
   if(UI.rmsg && UI.msg){ const m=document.createElement('div'); m.className='msg'; m.style.margin='0 0 12px'; m.textContent=UI.msg; p.appendChild(m); }
   if(!plan){ const e=document.createElement('p'); e.className='hint'; e.textContent='There is no route to that place.'; p.appendChild(e); return; }
   const chips=document.createElement('div'); chips.className='chips';
@@ -301,8 +300,8 @@ function panelRoute(p:HTMLElement){
     // route too expensive: offer the way to the nearest depot that is still in reach
     const nf=nearestFuel({node:here.node,site:here.site,day:S.day});
     const spot=nf.spot;
-    if(spot && nf.dv>0 && nf.dv<=have+0.5 && !(spot.node===R.target.node && (spot.site||null)===(R.target.site||null))){
-      const fb=btn(`To the nearest depot first: ${targetName(spot)}, ${km(nf.dv)} km/s`,'wide',locked,()=>openRoute(spot,UI.back));
+    if(spot && nf.dv>0 && nf.dv<=have+0.5 && spot!==R.target){
+      const fb=btn(`To the nearest depot first: ${spot.label}, ${km(nf.dv)} km/s`,'wide',locked,()=>openRoute(spot,UI.back));
       fb.style.fontSize='.92rem'; sum.appendChild(fb);
     }
   }

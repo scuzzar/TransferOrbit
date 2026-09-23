@@ -3,9 +3,9 @@
 
 import { changed } from '../events.js';
 import { esc, fmtDays, km, byId, find } from '../basics.js';
-import { B, FUEL_PRICE, GOODS, POSTS, M, ROT, SITES, Site, bodyName, bodyOf, fuelHere, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
+import { B, GOODS, POSTS, M, ROT, SITES, Site, bodyName, bodyOf, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
 import { bodyDown, bodyUp, transfer } from '../game/physics.js';
-import { S, targetName } from '../game/state.js';
+import { S } from '../game/state.js';
 import { idealTransfer } from '../game/graph.js';
 import { cargoTo } from '../map/canvas.js';
 import { setView } from '../map/view.js';
@@ -43,21 +43,21 @@ export function renderPick(){
     const t = pickTarget(p); if(!S.player.ship.isAt(t)) btns.push([`Route: ${st.length?'orbit':'high orbit'}`,'go',()=>openRoute(t,null)]);
   } else {
     const t = pickTarget(p), nd = p.node, [b,l] = splitNode(nd), post = POSTS.find(x=>x.node===nd && (!x.site||x.site===p.site));
-    title = targetName(t).replace(/ \(.*\)$/,'');
+    title = t.label.replace(/ \(.*\)$/,'');
     const n = post?cargoTo(x=>x.id===post.id).length:0;
     if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     if(post) tags.push(tag('post',post.hub?'Hub':'Trading post'));
     const st = p.site ? siteOf(b,p.site) : null;
     if(st){
-      const fp = FUEL_PRICE[nd+'@'+st.id]??FUEL_PRICE[nd];
-      if(st.depot && fp!==undefined) tags.push(tag('toward',`Fuel depot, ${fp} Cr/t`));
+      const dp = t.depot;
+      if(dp) tags.push(tag('toward',`Fuel depot, ${dp.fuelPrice} Cr/t`));
       info = `${latStr(st.lat)}, ${bodyName(b)}.${post?(post.makes.length?' Produces '+post.makes.map(g=>GOODS[g].name).join(', ')+'.':'')+' Needs '+post.needs.map(g=>GOODS[g].name).join(', ')+'.':''}${st.note?' '+st.note+'.':''}`;
       const pen = rotPenalty(b,st.lat), rot = ROT[b]||0, down = bodyDown(b)+(hasAtm(b)?0:pen), up = bodyUp(b)+pen;
       stats.push(['Landing from orbit',`${km(down)} km/s`]);
       stats.push([rot>=20?`Getting back up, ${Math.round(rot-pen)} of ${rot} m/s bonus`:'Getting back up', launcherAt(b)?`Launcher${pen>1?', '+km(pen)+' km/s yourself':''}`:`${km(up)} km/s`]);
     } else {
       info = l==='capt' ? 'Gateway to the other planets and to the moons.' : 'Gateway to the surface.';
-      if(fuelHere(nd,null)) tags.push(tag('toward',`Fuel depot, ${FUEL_PRICE[nd]} Cr/t`));
+      const dp = t.depot; if(dp) tags.push(tag('toward',`Fuel depot, ${dp.fuelPrice} Cr/t`));
       if(post) info+=` ${post.name}: ${post.makes.length?'produces '+post.makes.map(g=>GOODS[g].name).join(', ')+', ':''}needs ${post.needs.map(g=>GOODS[g].name).join(', ')}.`;
     }
     if(!S.player.ship.isAt(t)) btns.push([p.site?'Route to here':'Plan a route','go',()=>openRoute(t,null)]);

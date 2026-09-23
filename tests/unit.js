@@ -36,32 +36,38 @@ const ready = (async () => {
 async function fresh(s = 1) { const m = await ready; seed(s); store.clear(); m.commands.newGame(); m.reports.length = 0; return m; }
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`);
 
-// ── Place ──────────────────────────────────────────────────────────────────
+// ── Nodes, landing sites, depots ───────────────────────────────────────────
 
-test('Place keeps a landing site only on a surface', async () => {
-  const { state: { Place } } = await ready;
-  assert.equal(new Place('moon.surf', 'shackleton').site, 'shackleton');
-  assert.equal(new Place('moon.orbit', 'shackleton').site, null);
-  assert.equal(new Place('earth.capt').site, null);
+test('There is one node per place; on a surface every node is a landing site', async () => {
+  const { world: { nodeAt, nodeOf, NODES, Node, LandingSite } } = await ready;
+  assert.equal(nodeOf('moon.surf', 'shackleton'), nodeOf('moon.surf', 'shackleton'));       // the same object
+  assert.ok(nodeOf('moon.surf', 'shackleton') instanceof LandingSite);
+  assert.equal(nodeOf('moon.orbit', 'shackleton'), nodeOf('moon.orbit'));                  // off the surface the site is ignored
+  assert.equal(nodeAt('venus.surf', null), undefined);                                     // no surface without a landing site
+  assert.equal(nodeAt('moon.capt'), undefined); assert.equal(nodeAt('jupiter.surf', 'x'), undefined);
+  assert.throws(() => nodeOf('mars.surf', 'atlantis'));
+  for (const n of NODES) { assert.ok(n instanceof Node); assert.equal(n.level === 'surf', n instanceof LandingSite, n.key); }
 });
 
-test('Place knows its body, level and planet; a moon counts as its planet', async () => {
-  const { state: { Place } } = await ready;
-  const p = new Place('titan.surf', 'kraken');
+test('A node knows its body, level and planet; a moon counts as its planet', async () => {
+  const { world: { nodeOf } } = await ready;
+  const p = nodeOf('titan.surf', 'kraken');
   assert.equal(p.body, 'titan'); assert.equal(p.level, 'surf'); assert.equal(p.planet, 'saturn');
-  assert.equal(new Place('mars.capt').planet, 'mars');
-  assert.equal(p.key, 'titan.surf@kraken'); assert.equal(p.id, '@titan.surf@kraken');
-  assert.equal(new Place('earth.orbit').key, 'earth.orbit');
+  assert.equal(nodeOf('mars.capt').planet, 'mars');
+  assert.equal(p.key, 'titan.surf@kraken'); assert.equal(p.id, '@titan.surf@kraken'); assert.equal(p.site, 'kraken');
+  assert.equal(nodeOf('earth.orbit').key, 'earth.orbit'); assert.equal(nodeOf('earth.capt').site, null);
+  assert.equal(p.name, 'Kraken Mare'); assert.equal(p.lat, 68); assert.equal(p.port, false);
+  assert.equal(nodeOf('mars.surf', 'pavonis').port, true);
 });
 
-test('Place finds the trading post there, by site where the body has several', async () => {
-  const { state: { Place } } = await ready;
-  assert.equal(new Place('moon.surf', 'shackleton').post?.id, 'shackleton');
-  assert.equal(new Place('moon.surf', 'tranquillitatis').post?.id, 'tranq');
-  assert.equal(new Place('earth.surf', 'kourou').post?.id, 'kourou');     // every Earth spaceport is a starport of its own
-  assert.equal(new Place('earth.surf', 'plesetsk').post?.id, 'plesetsk');
-  assert.equal(new Place('earth.orbit').post?.id, 'shipyard');
-  assert.equal(new Place('venus.surf', 'ishtar').post, null);
+test('A node finds the trading post there, by site where the body has several', async () => {
+  const { world: { nodeOf } } = await ready;
+  assert.equal(nodeOf('moon.surf', 'shackleton').post?.id, 'shackleton');
+  assert.equal(nodeOf('moon.surf', 'tranquillitatis').post?.id, 'tranq');
+  assert.equal(nodeOf('earth.surf', 'kourou').post?.id, 'kourou');     // every Earth spaceport is a starport of its own
+  assert.equal(nodeOf('earth.surf', 'plesetsk').post?.id, 'plesetsk');
+  assert.equal(nodeOf('earth.orbit').post?.id, 'shipyard');
+  assert.equal(nodeOf('venus.surf', 'ishtar').post, null);
 });
 
 test('The Earth has four starports, one per spaceport, that together make and need what the Earth did', async () => {
@@ -74,37 +80,30 @@ test('The Earth has four starports, one per spaceport, that together make and ne
   assert.equal(world.fuelHere('earth.surf', null), false);    // no fuel price for the surface as a whole any more
 });
 
-test('Place prices fuel by site first, then by node', async () => {
-  const { state: { Place } } = await ready;
-  assert.equal(new Place('mars.surf', 'pavonis').fuelPrice, 180);
-  assert.equal(new Place('earth.surf', 'baikonur').fuelPrice, 250);
-  assert.equal(new Place('earth.orbit').fuelPrice, 300);
-  assert.equal(new Place('mars.surf', 'jezero').fuelPrice, undefined);
+test('A depot sits at a node with its fuel price and fill time', async () => {
+  const { world: { nodeOf, DEPOT_LIST } } = await ready;
+  const d = nodeOf('mars.surf', 'pavonis').depot;
+  assert.equal(d.at, nodeOf('mars.surf', 'pavonis')); assert.equal(d.fuelPrice, 180); assert.equal(d.fillDays, 20);
+  assert.equal(nodeOf('earth.surf', 'baikonur').depot.fuelPrice, 250);
+  assert.deepEqual([nodeOf('earth.orbit').depot.fuelPrice, nodeOf('earth.orbit').depot.fillDays], [300, 5]);   // a fuel station in orbit
+  assert.equal(nodeOf('mars.surf', 'jezero').depot, null);
+  for (const x of DEPOT_LIST) assert.equal(x.at.depot, x);
 });
 
-test('Place names read like the game has always named them', async () => {
-  const { state: { Place } } = await ready;
-  assert.equal(new Place('moon.surf', 'shackleton').name, 'Shackleton Crater (Moon)');
-  assert.equal(new Place('moon.orbit').name, 'lunar orbit');
-  assert.equal(new Place('moon.surf').name, 'the lunar surface');
-  assert.equal(new Place('mars.capt').name, 'High orbit of Mars');
-  assert.equal(new Place('phobos.orbit').name, 'orbit around Phobos');
-});
-
-test('Place.is matches a target, with or without a site', async () => {
-  const { state: { Place } } = await ready;
-  const p = new Place('mars.surf', 'pavonis');
-  assert.ok(p.is({ node: 'mars.surf' }));
-  assert.ok(p.is({ node: 'mars.surf', site: 'pavonis' }));
-  assert.ok(!p.is({ node: 'mars.surf', site: 'jezero' }));
-  assert.ok(!p.is({ node: 'mars.orbit' }));
+test('Node labels read like the game has always named places', async () => {
+  const { world: { nodeOf } } = await ready;
+  assert.equal(nodeOf('moon.surf', 'shackleton').label, 'Shackleton Crater (Moon)');
+  assert.equal(nodeOf('moon.orbit').label, 'lunar orbit');
+  assert.equal(nodeOf('mars.capt').label, 'High orbit of Mars');
+  assert.equal(nodeOf('mars.orbit').label, 'Low orbit of Mars');
+  assert.equal(nodeOf('phobos.orbit').label, 'orbit around Phobos');
 });
 
 // ── Ship ───────────────────────────────────────────────────────────────────
 
 test('Ship: delta-v follows Tsiolkovsky with dry mass, cargo and propellant', async () => {
-  const { state: { Ship, Docked, Place }, world: { SHIPS, G0 } } = await ready;
-  const s = new Ship('cog', 80, new Docked(new Place('earth.orbit')));
+  const { state: { Ship, Docked }, world: { nodeOf }, world: { SHIPS, G0 } } = await ready;
+  const s = new Ship('cog', 80, new Docked(nodeOf('earth.orbit')));
   const d = SHIPS.cog;
   near(s.dvAvail, d.isp * G0 * Math.log((d.dry + 80) / d.dry));
   near(s.dvWith(40, 10), d.isp * G0 * Math.log((d.dry + 10 + 40) / (d.dry + 10)));
@@ -112,8 +111,8 @@ test('Ship: delta-v follows Tsiolkovsky with dry mass, cargo and propellant', as
 });
 
 test('Ship: a burn takes its delta-v off the tank; fuelFor is what a burn needs to end empty', async () => {
-  const { state: { Ship, Docked, Place } } = await ready;
-  const s = new Ship('hulk', 160, new Docked(new Place('earth.orbit')));
+  const { state: { Ship, Docked }, world: { nodeOf } } = await ready;
+  const s = new Ship('hulk', 160, new Docked(nodeOf('earth.orbit')));
   const before = s.dvAvail;
   s.burn(3000);
   near(s.dvAvail, before - 3000, 1e-6); near(s.dvUsed, 3000);
@@ -122,16 +121,16 @@ test('Ship: a burn takes its delta-v off the tank; fuelFor is what a burn needs 
 });
 
 test('Ship: refuelling stops at a full tank, a smaller ship keeps only what fits', async () => {
-  const { state: { Ship, Docked, Place } } = await ready;
-  const s = new Ship('galleon', 100, new Docked(new Place('earth.orbit')));
+  const { state: { Ship, Docked }, world: { nodeOf } } = await ready;
+  const s = new Ship('galleon', 100, new Docked(nodeOf('earth.orbit')));
   s.refuel(1000); assert.equal(s.fuel, 280);
   s.swapTo('carrack'); assert.equal(s.fuel, 150); assert.equal(s.def.name, 'Carrack');
   s.swapTo('galleon'); assert.equal(s.fuel, 150);
 });
 
 test('Ship: the hold keeps orders in id order and knows their mass and slots', async () => {
-  const { state: { Ship, Docked, Place, Order } } = await ready;
-  const s = new Ship('cog', 80, new Docked(new Place('earth.orbit')));
+  const { state: { Ship, Docked, Order }, world: { nodeOf } } = await ready;
+  const s = new Ship('cog', 80, new Docked(nodeOf('earth.orbit')));
   const o = (id, good, containers) => new Order({ id, good, containers, from: 'kourou', to: 'shipyard', reward: 1000, dv: 1, days: 1,
     deadline: 100, created: 0, expires: 90, fromHubStore: false, toHub: false });
   const a = o(5, 'water', 2), b = o(2, 'hab', 1), c = o(9, 'elec', 1);
@@ -143,12 +142,12 @@ test('Ship: the hold keeps orders in id order and knows their mass and slots', a
 });
 
 test('Ship: docked it has a place, in transit it has none', async () => {
-  const { state: { Ship, Docked, InTransit, Place } } = await ready;
-  const s = new Ship('cog', 80, new Docked(new Place('earth.capt')));
+  const { state: { Ship, Docked, InTransit }, world: { nodeOf } } = await ready;
+  const s = new Ship('cog', 80, new Docked(nodeOf('earth.capt')));
   assert.equal(s.place?.node, 'earth.capt'); assert.equal(s.transit, null);
   s.depart(new InTransit({ from: 'earth', to: 'mars', dep: 0, arr: 200, th0: 0, th1: 1 }));
-  assert.equal(s.place, null); assert.equal(s.transit?.to, 'mars'); assert.ok(!s.isAt({ node: 'earth.capt' }));
-  s.dock(new Place('mars.capt')); assert.ok(s.isAt({ node: 'mars.capt' })); assert.equal(s.transit, null);
+  assert.equal(s.place, null); assert.equal(s.transit?.to, 'mars'); assert.ok(!s.isAt(nodeOf('earth.capt')));
+  s.dock(nodeOf('mars.capt')); assert.ok(s.isAt(nodeOf('mars.capt'))); assert.equal(s.transit, null);
 });
 
 // ── Order, Player ─────────────────────────────────────────────────────────
@@ -164,8 +163,8 @@ test('Order pays in full up to the deadline, then 2% less a day, never below a q
 });
 
 test('Player pays, charges and knows what it can afford', async () => {
-  const { state: { Player, Ship, Docked, Place } } = await ready;
-  const p = new Player(1000, new Ship('cog', 80, new Docked(new Place('earth.orbit'))));
+  const { state: { Player, Ship, Docked }, world: { nodeOf } } = await ready;
+  const p = new Player(1000, new Ship('cog', 80, new Docked(nodeOf('earth.orbit'))));
   p.pay(500); p.charge(2000); assert.equal(p.credits, -500);
   assert.ok(p.canAfford(-500)); assert.ok(!p.canAfford(0));
   assert.equal(p.bankrupt, false);  // only a failed rescue declares bankruptcy
@@ -276,7 +275,7 @@ test('Delivering pays, empties the hold and fills a hub store for transhipments'
   const S = state.S, o = S.postHere.offers.find(x => x.containers <= 3);
   commands.acceptOrders([o.id]);
   const to = world.POST_BY_ID[o.to];
-  S.player.ship.dock(new state.Place(to.node, to.site));
+  S.player.ship.dock(world.nodeOf(to.node, to.site));
   assert.deepEqual(commands.deliverables(), [o]);
   const cr = S.player.credits, hub = o.toHub ? S.market.hub(o.to) : null, stored = hub ? state.stockOf(hub.transship, o.good) : 0;
   commands.deliverAll();
@@ -316,13 +315,13 @@ test('A manoeuvre burns fuel, takes its time and arrives', async () => {
 });
 
 test('An interplanetary transfer leaves from high orbit and arrives in high orbit', async () => {
-  const { state, commands } = await fresh();
+  const { state, commands, world } = await fresh();
   const S = state.S;
-  S.player.ship.dock(new state.Place('earth.capt')); S.player.ship.fuel = 80;
+  S.player.ship.dock(world.nodeOf('earth.capt')); S.player.ship.fuel = 80;
   commands.doTransfer('venus');                                    // may cost more than the tank holds
   if (S.player.ship.place?.node === 'earth.capt') { S.player.ship.swapTo('carrack'); S.player.ship.fuel = 150; commands.doTransfer('venus'); }
   assert.equal(S.player.ship.place?.node, 'venus.capt'); assert.equal(S.player.ship.transit, null); assert.ok(!S.player.ship.busy);
-  S.player.ship.dock(new state.Place('venus.orbit'));                     // not from low orbit
+  S.player.ship.dock(world.nodeOf('venus.orbit'));                     // not from low orbit
   const day = S.day, fuel = S.player.ship.fuel; commands.doTransfer('mars');
   assert.equal(S.day, day); assert.equal(S.player.ship.fuel, fuel); assert.equal(S.player.ship.place?.node, 'venus.orbit');
 });
@@ -347,7 +346,7 @@ test('Nothing happens while bankrupt', async () => {
 test('Stranded without money: a tanker on credit; bankrupt when the balance falls too low', async () => {
   const { state, commands, world } = await fresh();
   const S = state.S;
-  S.player.ship.dock(new state.Place('mars.surf', 'pavonis')); S.player.credits = 0; S.player.ship.fuel = 1; commands.strandCache.key = null;
+  S.player.ship.dock(world.nodeOf('mars.surf', 'pavonis')); S.player.credits = 0; S.player.ship.fuel = 1; commands.strandCache.key = null;
   assert.ok(commands.stranded());
   const r = commands.rescueInfo(); assert.ok(r.local);
   commands.rescue();
@@ -358,22 +357,22 @@ test('Stranded without money: a tanker on credit; bankrupt when the balance fall
 });
 
 test('On the surface of Venus the tanker lifts the ship into orbit', async () => {
-  const { state, commands } = await fresh();
+  const { state, commands, world } = await fresh();
   const S = state.S;
-  S.player.ship.dock(new state.Place('venus.surf', 'ishtar')); S.player.ship.fuel = 1; S.player.credits = 1e6; commands.strandCache.key = null;
+  S.player.ship.dock(world.nodeOf('venus.surf', 'ishtar')); S.player.ship.fuel = 1; S.player.credits = 1e6; commands.strandCache.key = null;
   assert.ok(commands.stranded()); assert.ok(commands.rescueInfo().lift);
   commands.rescue();
   assert.equal(S.player.ship.place?.node, 'venus.orbit'); assert.equal(S.player.ship.place?.site, null);
 });
 
 test('The autopilot flies to its target and stops there', async () => {
-  const { state, commands } = await fresh();
+  const { state, commands, world } = await fresh();
   const S = state.S;
   S.player.credits = 1e6;
-  commands.startAutopilot({ node: 'moon.surf', site: 'shackleton' }, 'eco');
-  assert.ok(S.player.ship.autopilot instanceof state.Autopilot); assert.equal(S.player.ship.autopilot.start, 'earth.orbit');
+  commands.startAutopilot(world.nodeOf('moon.surf', 'shackleton'), 'eco');
+  assert.ok(S.player.ship.autopilot instanceof state.Autopilot); assert.equal(S.player.ship.autopilot.start, world.nodeOf('earth.orbit'));
   for (let i = 0; i < 200 && S.player.ship.autopilot; i++) await new Promise(r => setTimeout(r, 0));
-  assert.equal(S.player.ship.autopilot, null); assert.ok(S.player.ship.isAt({ node: 'moon.surf', site: 'shackleton' }));
+  assert.equal(S.player.ship.autopilot, null); assert.ok(S.player.ship.isAt(world.nodeOf('moon.surf', 'shackleton')));
 });
 
 // ── Saves ──────────────────────────────────────────────────────────────────

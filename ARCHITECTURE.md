@@ -200,16 +200,17 @@ leads: the code follows it, and where it does not yet, the file says so.
 S.day                      days since 1 January 2000
 S.player                   credits, bankrupt, autoFill, and the ship they own
 S.player.ship              type, fuel, dvUsed, location, hold, autopilot, busy
-S.player.ship.location     Docked (at a Place) or InTransit (between two planets)
-S.player.ship.place        the Place it is docked at; null in transit
+S.player.ship.location     Docked (at a Node) or InTransit (between two planets)
+S.player.ship.place        the Node it is docked at; null in transit
 S.market.posts[id]         a Starport: its industry (a Store per good it makes, one for bulk orders, a Demand per good it needs) and the orders it offers; a Hub also has stores for transhipment
 ```
 
 An order lies at the post it comes from (`post.offers`) until the ship takes it
 aboard (`ship.hold`); where it lies is its state, there is no field for it that
-could disagree. A `Place` is a value — node and landing site — that knows its
-body, planet, trading post, fuel price and name; a ship that moves gets a new
-one. The questions that used to be free functions on `S` are properties now:
+could disagree. The places are fixed objects in `game/world.ts`: a `Node` is a
+body and a level, on a surface every node is a `LandingSite`, and there is one
+object per place, so `===` compares them. A node knows its planet, its trading
+post, its `Depot` (fuel price and fill time) and its label on screen. The questions that used to be free functions on `S` are properties now:
 `eng()` is `S.player.ship.def`, `dvAvail()` is `S.player.ship.dvAvail`, `postAt()` is
 `S.player.ship.place?.post`, `payout(o)` is `o.payout(S.day)`, and
 `S.action.busy || S.domain.bankrupt` is `!S.canAct`.

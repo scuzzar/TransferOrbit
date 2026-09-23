@@ -50,9 +50,9 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
-- **Places.** A `Place` is a value of node and landing site, and the autopilot's target is a
-  `Target`; here a `Node` is a fixed object and a `LandingSite` is a `Node`. The autopilot's
-  `start` is a key string, may be missing and is cleared after the first step.
+- **Autopilot.** `start` may be missing and is cleared after the first step.
+- **Levels** are called `surf`, `orbit` and `capt` in the code, the short forms the place ids
+  (`mars.surf`) use, not `surface`, `lowOrbit` and `highOrbit`.
 - **Starports** are built for each game from the `Post` table (name, node, site, makes, needs,
   hub) rather than being fixed objects, and they reach their definition through `def`. Their
   industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random

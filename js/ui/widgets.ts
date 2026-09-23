@@ -2,8 +2,7 @@
 
 import { changed } from '../events.js';
 import { esc, find, isDesk } from '../basics.js';
-import { GOODS, GoodId, postLabel, Post } from '../game/world.js';
-import { Target } from '../game/state.js';
+import { GOODS, GoodId, Node, postLabel, Post, nodeOf } from '../game/world.js';
 import { UI, View } from './state.js';
 
 // The label of the back button, per view it returns to.
@@ -38,9 +37,9 @@ export function ibtn(ic: string, label: string, cls: string, disabled: boolean, 
 export function openView(v: View, back?: View|null){ UI.rmsg=false; UI.back = v==='main' ? null : (back||null); UI.view=v; UI.sel=new Set<number>(); UI.tank=null; changed();
   if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
 
-export function openRoute(target: Target, back: View|null){ UI.route = {target, mode:'eco'}; openView('route', back); }
+export function openRoute(target: Node, back: View|null){ UI.route = {target, mode:'eco'}; openView('route', back); }
 
-export const kTarget = (k: Post): Target => ({node: k.node, site: k.site||null});
+export const kTarget = (k: Post): Node => nodeOf(k.node, k.site);
 
 export function routeLink(k: Post, back: View|null){ const b = document.createElement('button'); b.type = 'button'; b.className = 'olink';
   b.innerHTML = `${icon('route',15)}Route`; b.title = `Plan a route to ${postLabel(k)}`; b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openRoute(kTarget(k), back); }; return b; }

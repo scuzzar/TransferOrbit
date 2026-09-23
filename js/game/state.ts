@@ -2,50 +2,16 @@
 // that relate the way the things in the game do. Never writes anything by itself; the
 // commands decide when a method runs. docs/domain-model.md draws the whole picture.
 
-import { B, BodyId, FUEL_PRICE, G0, GOODS, GoodId, LVL, Level, M, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, ShipId, bodyName, byPost, isGood, isMoon, siteOf, splitNode } from './world.js';
+import { G0, GOODS, GoodId, Node, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, ShipId, byPost, isGood } from './world.js';
 
-export type Target = { node:NodeId; site?:string|null };
 export type RouteMode = 'eco'|'now';
 // Amounts per good, as a save writes the stores and demands
 export type Amounts = Partial<Record<GoodId,number>>;
 
-export const locOf = (node:NodeId, site:string|null) => node+(site?'@'+site:'');
-
-// A place in the solar system: a node and, on a surface, the landing site. A value: it never
-// changes, a ship that moves gets a new one.
-export class Place {
-  readonly node:NodeId;
-  readonly site:string|null;
-  constructor(node:NodeId, site:string|null=null){ this.node=node; this.site=node.endsWith('.surf') ? site : null; }
-  get body():BodyId { return splitNode(this.node)[0]; }
-  get level():Level { return splitNode(this.node)[1]; }
-  // the planet it belongs to; a moon counts as its planet
-  get planet():PlanetId { const b=this.body; return isMoon(b) ? M[b].parent : b; }
-  get key():string { return locOf(this.node,this.site); }
-  // the place as a start for route()
-  get id():string { return '@'+this.key; }
-  get post():Post|null { return POSTS.find(k=>k.node===this.node && (!k.site || k.site===this.site)) || null; }
-  get fuelPrice():number|undefined { return FUEL_PRICE[this.key] ?? FUEL_PRICE[this.node]; }
-  get name():string {
-    const b=this.body, l=this.level;
-    if(l==='surf' && this.site){ const st=siteOf(b,this.site); if(st) return `${st.name} (${bodyName(b)})`; }
-    if(isMoon(b)) return l==='surf' ? (M[b].surfName||`the surface of ${M[b].name}`) : (M[b].orbitName||`orbit around ${M[b].name}`);
-    return `${LVL[l]} of ${B[b].name}`;
-  }
-  is(t:Target){ return this.node===t.node && (!t.site || this.site===t.site); }
-}
-
-export function targetName(t:Target){
-  const [b,l]=splitNode(t.node);
-  if(t.site){ const st=siteOf(b,t.site); return `${st?st.name:''} (${bodyName(b)})`; }
-  if(l==='capt') return `High orbit of ${bodyName(b)}`;
-  return isMoon(b) ? (M[b].orbitName||`orbit around ${M[b].name}`) : `Low orbit of ${B[b].name}`;
-}
-
-// Where the ship is: docked at a place, or on an interplanetary transfer between two planets
+// Where the ship is: docked at a node, or on an interplanetary transfer between two planets
 export class Docked {
-  readonly place:Place;
-  constructor(place:Place){ this.place=place; }
+  readonly at:Node;
+  constructor(at:Node){ this.at=at; }
 }
 export class InTransit {
   readonly from:PlanetId; readonly to:PlanetId;
@@ -58,10 +24,10 @@ export class InTransit {
 export type Location = Docked|InTransit;
 
 export class Autopilot {
-  readonly target:Target;
+  readonly target:Node;
   readonly mode:RouteMode;
-  start:string|null;      // the place it started from; a delivery there is no reason to stop
-  constructor(target:Target, mode:RouteMode, start:string|null){ this.target=target; this.mode=mode; this.start=start; }
+  start:Node|null;        // the place it started from; a delivery there is no reason to stop
+  constructor(target:Node, mode:RouteMode, start:Node|null){ this.target=target; this.mode=mode; this.start=start; }
 }
 
 // Paid in full up to the deadline, then 2% less per day, down to a quarter
@@ -182,10 +148,10 @@ export class Ship {
   constructor(type:ShipId, fuel:number, location:Location){ this.type=type; this.fuel=fuel; this.location=location; }
   get def(){ return SHIPS[this.type]; }
   // where the ship is docked; null while in transit
-  get place():Place|null { return this.location instanceof Docked ? this.location.place : null; }
+  get place():Node|null { return this.location instanceof Docked ? this.location.at : null; }
   get transit():InTransit|null { return this.location instanceof InTransit ? this.location : null; }
-  isAt(t:Target){ return !!this.place?.is(t); }
-  dock(p:Place){ this.location=new Docked(p); }
+  isAt(n:Node){ return this.place===n; }
+  dock(n:Node){ this.location=new Docked(n); }
   depart(t:InTransit){ this.location=t; }
 
   get cargoMass(){ return this.hold.reduce((s,o)=>s+o.containers*GOODS[o.good].m,0); }

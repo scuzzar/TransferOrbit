@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
   const p=await b.newPage({viewport:{width:1300,height:800}}); p.on('pageerror',e=>errs.push(e.message));
   await p.goto('http://localhost:8765/dist/index.html'); await p.waitForTimeout(600);
   await p.evaluate(()=>{ try{localStorage.clear();}catch(e){} TO.newGame(); TO.S.player.ship.fuel=80; TO.S.player.credits=1e6; TO.changed(); TO.ANIM.fast=true; });
-  await p.evaluate(()=>{ TO.openRoute({node:'moon.surf',site:'shackleton'}); TO.launchAutopilot(); TO.ANIM.fast=true; });
+  await p.evaluate(()=>{ TO.openRoute(TO.nodeOf('moon.surf','shackleton')); TO.launchAutopilot(); TO.ANIM.fast=true; });
   await p.waitForFunction(()=>!TO.S.player.ship.autopilot&&!TO.S.player.ship.busy,{timeout:90000}); await p.waitForTimeout(400);
   console.log(await p.evaluate(()=>({node:TO.S.player.ship.place?.node??null,site:TO.S.player.ship.place?.site??null,view:TO.UI.view,mainHidden:document.getElementById('mainview').hidden,msg:TO.UI.msg})));
   await p.screenshot({path:'land2.png'});

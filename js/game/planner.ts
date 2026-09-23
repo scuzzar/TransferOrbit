@@ -1,13 +1,12 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
 import { km, popMin } from '../basics.js';
-import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, siteOf, splitNode } from './world.js';
+import { B, DEPOT_LIST, POST_BY_ID, LAUNCH_FEE, M, Node, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, nodeOf, siteOf, splitNode } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
-import { S, RouteMode, targetName, Target } from './state.js';
+import { S, RouteMode } from './state.js';
 import { edgesFrom, idealTransfer, route, Edge } from './graph.js';
 import { feeBlocked, localActions } from './actions.js';
 
-export interface FuelSpot { node:NodeId; site:string|null }
 
 // What a day is worth to the search, in m/s. "Economical" all but ignores time, so it
 // takes every cheap detour there is. "Leave now" means it literally: it does not wait for
@@ -47,7 +46,7 @@ interface RNode { n:NodeId; s:string|null; c:number; dv:number; days:number }
 // an edge as the search takes it: a transfer may start with a wait for its window
 interface PlanEdge extends Edge { wait?:number }
 
-export function planRoute(target:Target, mode:RouteMode, start?:Start|null): PlanResult|null{
+export function planRoute(target:Node, mode:RouteMode, start?:Start|null): PlanResult|null{
   const p=S.player.ship.place;
   start = start || (p ? {node:p.node, site:p.site, day:S.day} : null);
   if(!start) return null;
@@ -98,13 +97,13 @@ function stepLabel(from:RNode, e:Edge){
   if(fl==='capt' && tk===fk) return e.dv<100?'Aerobrake into low orbit':'Down to low orbit';
   if(fl==='capt' && isMoon(tk)) return tk==='moon'?'To the Moon':`To ${M[tk].name}`;
   if(isMoon(fk) && tl==='capt') return `Back to high orbit of ${bodyName(tk)}`;
-  return targetName({node:e.node});
+  return nodeOf(e.node, e.site).label;
 }
 
-export function nearestFuel(start:Start):{dv:number; spot:FuelSpot|null}{
+export function nearestFuel(start:Start):{dv:number; spot:Node|null}{
   if(fuelHere(start.node,start.site)) return {dv:0, spot:null};
-  let best:{dv:number; spot:FuelSpot|null}={dv:Infinity, spot:null};
-  FUEL_SPOTS.forEach(t=>{ const pl=planRoute(t,'eco',start); if(pl && pl.dv<best.dv) best={dv:pl.dv, spot:t}; });
+  let best:{dv:number; spot:Node|null}={dv:Infinity, spot:null};
+  DEPOT_LIST.forEach(d=>{ const pl=planRoute(d.at,'eco',start); if(pl && pl.dv<best.dv) best={dv:pl.dv, spot:d.at}; });
   return best;
 }
 

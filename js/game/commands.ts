@@ -6,9 +6,9 @@
 
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
-import { B, BANKRUPT, DEPOTS, GOODS, HubId, NodeId, POST_BY_ID, POSTS, PlanetId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, fmtCr, isMoon, planetOfBody, siteOf, splitNode } from './world.js';
+import { B, BANKRUPT, GOODS, HubId, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, Autopilot, Docked, Game, InTransit, Order, Place, Player, RouteMode, Ship, Target, setState, storeOf, targetName } from './state.js';
+import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
 import { route } from './graph.js';
 import { freshDeadline, marketAdvance, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
@@ -20,7 +20,7 @@ import { parseSave } from './save.js';
 export const shipFor = (n:number):ShipDef|undefined => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
 
 export function newGame(){
-  const start=new Place('earth.orbit');
+  const start=nodeOf('earth.orbit');
   setState(new Game(START_DAY, new Player(20000, new Ship('cog', SHIPS.cog.cap, new Docked(start))), newMarket()));
   resetScene();
   marketAdvance(START_DAY);
@@ -29,7 +29,7 @@ export function newGame(){
   report('A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.','fresh');
 }
 
-export function arrive(node:NodeId, site:string|null){ S.player.ship.dock(new Place(node, site)); }
+export function arrive(node:NodeId, site:string|null){ S.player.ship.dock(nodeOf(node, site)); }
 
 // Scroll the map into view if it is currently off screen
 function showMap(el?:Element){
@@ -64,7 +64,7 @@ export function doAction(a:LocalAction){
     if(spl) Object.assign(sysState(planetOfBody(tb)), spl.final);
 // orbit state for the 3D view: the launch orbit after lift-off, otherwise equatorial and in front
     if(tl==='orbit') SCENE.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); else if(tl==='surf') SCENE.orb=null;
-    arrive(a.to,a.site??null); report(`${a.label}: ${km(a.dv)} km/s used. Now: ${S.player.ship.place?.name}.`);
+    arrive(a.to,a.site??null); report(`${a.label}: ${km(a.dv)} km/s used. Now: ${S.player.ship.place?.label}.`);
     S.player.ship.busy=false; changed(); autoFill();
   });
 }
@@ -197,7 +197,7 @@ export function rescue(){
   S.player.charge(r.cost); S.player.ship.busy=true; changed(); showMap();
   animateTo(S.day+r.days, 900, ()=>{
     S.player.ship.fuel=S.player.ship.def.cap;
-    const b=S.player.ship.place?.body; if(r.lift && b) S.player.ship.dock(new Place(`${b}.orbit`));
+    const b=S.player.ship.place?.body; if(r.lift && b) S.player.ship.dock(nodeOf(`${b}.orbit`));
     S.player.ship.busy=false;
     if(S.player.credits<BANKRUPT){ S.player.bankrupt=true; report(`Bankrupt. Your balance stands at ${fmtCr(S.player.credits)}. Start again to have another go.`); }
     else if(r.local) report(`Fuelled on credit: ${tons(r.amount)} for ${fmtCr(r.cost)}. Your balance is ${fmtCr(S.player.credits)}.`);
@@ -208,10 +208,10 @@ export function rescue(){
 
 export function refuelInfo(){
   const p=S.player.ship.place; if(!p) return null;
-  const st=p.site?siteOf(p.body,p.site):null, days=st?st.depot:DEPOTS[p.node], price=p.fuelPrice;
-  if(days===undefined || price===undefined) return null;
+  const d=p.depot; if(!d) return null;
+  const days=d.fillDays, price=d.fuelPrice;
   const need=Math.max(0,S.player.ship.def.cap-S.player.ship.fuel), afford=Math.max(0,S.player.credits)/price;
-  return {days, price, need, max:Math.min(need,afford), source: st?(p.body==='earth'?'Refuelling at the spaceport':'Propellant from local ice'):'Orbital fuel depot'};
+  return {days, price, need, max:Math.min(need,afford), source: p instanceof LandingSite?(p.body==='earth'?'Refuelling at the spaceport':'Propellant from local ice'):'Orbital fuel depot'};
 }
 
 // false if nothing happens: no depot here, busy, or nothing to take on
@@ -282,8 +282,8 @@ export function execStep(st:PlanStep){
   doAction(a); return true;
 }
 
-export function startAutopilot(target:Target, mode:RouteMode){
-  S.player.ship.autopilot=new Autopilot(target, mode, S.player.ship.place?.key ?? null); changed();
+export function startAutopilot(target:Node, mode:RouteMode){
+  S.player.ship.autopilot=new Autopilot(target, mode, S.player.ship.place); changed();
   autoLater(200);
 }
 
@@ -298,9 +298,9 @@ function autoTick(){
   const A=S.player.ship.autopilot; if(!A) return;
   if(S.player.ship.busy){ autoLater(250); return; }
   if(S.player.bankrupt) return stopAutopilot();
-  if(S.player.ship.isAt(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
+  if(S.player.ship.isAt(A.target)) return stopAutopilot(`Autopilot: target reached, ${A.target.label}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   const k=S.player.ship.place?.post;
-  if(k && S.player.ship.place?.key!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);
+  if(k && S.player.ship.place!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);
   const plan=planRoute(A.target, A.mode);
   const st=plan?.steps[0];
   if(!st) return stopAutopilot('Autopilot: no route found.');

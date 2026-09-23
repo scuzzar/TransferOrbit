@@ -5,7 +5,7 @@ const AI = String.raw`
   TO.ANIM.instant=true;
   window.LOG=[]; window.EV={trips:0,profit:0,fuel:0,rescues:0,rescueCost:0,fees:0,ships:[],late:0,warnings:[],stuck:0,orders:0,waitDays:0};
   const log=(t)=>LOG.push('T'+Math.round(TO.S.day-TO.START_DAY)+' '+t+' | '+Math.round(TO.S.player.credits)+' Cr');
-  const priceHere=()=>TO.S.player.ship.place?.fuelPrice??220;
+  const priceHere=()=>TO.S.player.ship.place?.depot?.fuelPrice??220;
   window.refuel=function(){ const r=TO.refuelInfo(); if(!r||r.need<0.5||r.max<0.5) return; const c=Math.round(r.max*r.price); EV.fuel+=c; TO.doRefuel(r.max); };
   // route from an arbitrary start: delta-v, days, arrival
   const planFrom=(start,target)=>TO.planRoute(target,'eco',start);
@@ -37,7 +37,7 @@ const AI = String.raw`
   function travel(target){
     for(let i=0;i<40;i++){
       if(TO.S.player.ship.isAt(target)) return true;
-      const pl=TO.planRoute(target,'eco'); if(!pl||!pl.steps.length){ log('no route to '+TO.targetName(target)); return false; }
+      const pl=TO.planRoute(target,'eco'); if(!pl||!pl.steps.length){ log('no route to '+target.label); return false; }
       const st=pl.steps[0];
       if(st.kind!=='wait' && st.dv>TO.S.player.ship.dvAvail+0.5){ log('not enough delta-v for '+st.label+' ('+TO.km(st.dv)+' > '+TO.km(TO.S.player.ship.dvAvail)+')'); return false; }
       if(st.kind==='wait') EV.waitDays+=st.days;
@@ -47,7 +47,7 @@ const AI = String.raw`
       // refuel automatically on the way, if there is a depot
       if(!TO.S.player.ship.isAt(target)) { const r=TO.refuelInfo(); if(r && r.need>5) refuel(); }
     }
-    log('route to '+TO.targetName(target)+' not reached after 40 steps'); return false;
+    log('route to '+target.label+' not reached after 40 steps'); return false;
   }
   function tryBuy(){
     const k=TO.S.player.ship.place?.post; if(!k||!k.hub) return;
@@ -90,7 +90,7 @@ const AI = String.raw`
     }
     if(alt){ log('empty run to '+alt.kk.name+' ('+TO.km(alt.pl.dv)+' km/s, '+TO.fmtDays(alt.pl.days)+')'); const ok=travel(alt.t); if(!ok) EV.stuck++; return 'move'; }
   // nothing possible: head for the nearest depot, or wait
-    if(!TO.refuelInfo()){ const nf=TO.nearestFuel(start); if(nf.spot && nf.dv<=TO.S.player.ship.dvAvail){ log('heading for the depot '+TO.targetName(nf.spot)); travel(nf.spot); return 'fuel'; } }
+    if(!TO.refuelInfo()){ const nf=TO.nearestFuel(start); if(nf.spot && nf.dv<=TO.S.player.ship.dvAvail){ log('heading for the depot '+nf.spot.label); travel(nf.spot); return 'fuel'; } }
     log('waiting 30 days (nothing worthwhile)'); EV.waitDays+=30; TO.waitDays(30); return 'wait';
   };
 })();`;

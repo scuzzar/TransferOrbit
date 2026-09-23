@@ -1,8 +1,8 @@
 // Reading a save back: old ids and field names are mapped first, then the JSON is checked
 // and rebuilt, object by object, into a Game. Writing is Game.toSave() in game/state.ts.
 
-import { GoodId, PostId, byPost, isGood, isNode, isPost, isShip } from './world.js';
-import { Amounts, Docked, Game, Hub, Industry, Market, Order, Place, Player, Ship, Starport, demandsFrom, storesFrom } from './state.js';
+import { GoodId, PostId, byPost, isGood, isNode, isPost, isShip, nodeAt } from './world.js';
+import { Amounts, Docked, Game, Hub, Industry, Market, Order, Player, Ship, Starport, demandsFrom, storesFrom } from './state.js';
 
 // Saves written before the code was translated carry the old German ids, and saves
 // written before the state got readable names carry the old field names. One lookup
@@ -96,7 +96,8 @@ export function parseSave(raw:unknown):Game|null{
   if(!isObj(raw)) return null;
   const o=migrate(raw), m=parseMarket(o.market);
   if(!m || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
-  const ship=new Ship(o.ship, o.fuel, new Docked(new Place(o.node, isStr(o.site)?o.site:null)));
+  const at=nodeAt(o.node, isStr(o.site)?o.site:null); if(!at) return null;
+  const ship=new Ship(o.ship, o.fuel, new Docked(at));
   ship.dvUsed=isNum(o.dvUsed)?o.dvUsed:0;
   m.aboard.forEach(x=>ship.load(x));
   const player=new Player(o.credits, ship); player.bankrupt=o.bankrupt===true; player.autoFill=o.autoFill===true;

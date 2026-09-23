@@ -3,8 +3,8 @@
 // They only tell the player things through report(); hear() is where that lands.
 
 import type { ReportKind } from '../events.js';
-import { BodyId, NodeId, PlanetId, SITES, isPlanet } from '../game/world.js';
-import { RouteMode, Target } from '../game/state.js';
+import { BodyId, Node, NodeId, PlanetId, SITES, isPlanet, nodeOf } from '../game/world.js';
+import { RouteMode } from '../game/state.js';
 
 export type View = 'main'|'post'|'cargo'|'refuel'|'shipyard'|'route';
 // What is selected on the map
@@ -17,7 +17,7 @@ export interface UIState {
   sel:Set<number>;                    // orders ticked on the order board
   tank:number|null;                   // the amount on the refuel slider
   pick:Pick|null;                     // the map selection
-  route:{ target:Target; mode:RouteMode; strand?:boolean }|null;   // the route panel
+  route:{ target:Node; mode:RouteMode; strand?:boolean }|null;   // the route panel
   mapView:ViewLevel|null; mapKey:string|null;                      // a map level chosen by hand, and for which place
   msg:string|null; rmsg:boolean;      // the last message, and whether the route panel shows it too
   windowPlanet:PlanetId|null;         // where the transfer window on the solar system map points
@@ -36,4 +36,4 @@ export function hear(text:string, kind:ReportKind){
   if(kind==='arrived' && UI.view==='route'){ UI.view='main'; UI.back=null; }
 }
 
-export const pickTarget = (p:Pick):Target => p.type==='planet' ? {node:`${p.planet}.capt`} : p.type==='body' ? {node:isPlanet(p.body)&&!SITES[p.body] ? `${p.body}.capt` : `${p.body}.orbit`} : {node:p.node, site:p.site||null};
+export const pickTarget = (p:Pick):Node => nodeOf(p.type==='planet' ? `${p.planet}.capt` : p.type==='body' ? (isPlanet(p.body)&&!SITES[p.body] ? `${p.body}.capt` : `${p.body}.orbit`) : p.node, p.type==='node' ? p.site||null : null);

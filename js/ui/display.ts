@@ -3,7 +3,7 @@
 import { tick } from '../events.js';
 import { ANIM, dateStr, esc, km, byId, findAll, $ } from '../basics.js';
 import { GOODS, START_DAY } from '../game/world.js';
-import { S, targetName } from '../game/state.js';
+import { S } from '../game/state.js';
 import { planRoute } from '../game/planner.js';
 import { stopAutopilot } from '../game/commands.js';
 import { draw } from '../map/draw.js';
@@ -62,7 +62,7 @@ function renderAutobar(){
   w.innerHTML=''; w.hidden=!S.player.ship.autopilot;
   const A=S.player.ship.autopilot; if(!A) return;
   const plan=planRoute(A.target,A.mode), nx=plan&&plan.steps[0];
-  w.innerHTML=`<div><b>Autopilot</b> to ${esc(targetName(A.target))}${nx?`<br><span class="muted">Now: ${esc(nx.label)}</span>`:''}</div>`;
+  w.innerHTML=`<div><b>Autopilot</b> to ${esc(A.target.label)}${nx?`<br><span class="muted">Now: ${esc(nx.label)}</span>`:''}</div>`;
   w.appendChild(btn('Stop','',false,()=>stopAutopilot('Autopilot stopped.')));
 }
 

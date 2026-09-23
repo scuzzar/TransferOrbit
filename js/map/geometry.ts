@@ -1,9 +1,8 @@
 // Where a body, an orbit or a ship sits on screen. Pure mathematics.
 
 import { TAU } from '../basics.js';
-import { BodyId, M, MOONS, MoonId, PlanetId, SITES, Site, hasAtm, isMoon, moonsOf, planetOfBody, siteOf, splitNode } from '../game/world.js';
+import { BodyId, M, MOONS, MoonId, NodeId, PlanetId, SITES, Site, hasAtm, isMoon, moonsOf, planetOfBody, siteOf, splitNode } from '../game/world.js';
 import { keplerNu } from '../game/physics.js';
-import { Target } from '../game/state.js';
 
 export type Vec3 = [number,number,number];
 // An orbital plane: inclination i and ascending node Om, both in degrees
@@ -24,7 +23,9 @@ export type SysPlan =
   | { kind:'raise'; u0:number; final:{capU:number} }
   | { kind:'lower'; u0:number; aero:boolean; th:number; final:{lowU:number} };
 // A manoeuvre: from where to where over which days, plus the pictures it is drawn with
-export interface MoveSpec { from:Target; to:Target; d0:number; d1:number; aero:boolean; orb:Orbit|null }
+// a place by its ids, as the drawing code reads it
+export interface Spot { node:NodeId; site:string|null }
+export interface MoveSpec { from:Spot; to:Spot; d0:number; d1:number; aero:boolean; orb:Orbit|null }
 export interface Move extends MoveSpec { path:BodyPath|null; sys:SysPlan|null }
 
 // The map animation's per-frame caches: the manoeuvre being flown, the ship's orbit

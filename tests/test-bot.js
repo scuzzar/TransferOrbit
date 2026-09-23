@@ -87,7 +87,7 @@ async function run(b,name,vp,gl){
         if(h){ const fr=await (await p.$('#f')).boundingBox(); await p.mouse.dblclick(fr.x+h[0],fr.y+h[1]); log.push('double click'); }
         await f.evaluate(()=>TO.setView(null)); continue; }
       if(r<0.11){ // a hop, if one is possible
-        const hop=await f.evaluate(()=>{ const a=TO.localActions().find(a=>a.hop && a.dv<TO.S.player.ship.dvAvail); if(!a) return null; TO.openRoute({node:a.to,site:a.site}); return a.label; });
+        const hop=await f.evaluate(()=>{ const a=TO.localActions().find(a=>a.hop && a.dv<TO.S.player.ship.dvAvail); if(!a) return null; TO.openRoute(TO.nodeOf(a.to,a.site||null)); return a.label; });
         if(hop){ log.push(hop); await click('text=Next step only','execute the hop'); await idle(); await check('after the hop'); }
         continue; }
       // refuel when delta-v is low
