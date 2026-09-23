@@ -89,7 +89,9 @@ const STEPS = +process.env.STEPS || 120;
           if(await click('#panel button:has-text("To the nearest depot first")','-> nearest depot')){ if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); }); continue; }
           const tank=await f.evaluate(()=>{ const r=TO.refuelInfo(); return !!r && r.need>0.5 && r.max>0.5; });
           if(tank){ await f.evaluate(()=>TO.openView('refuel')); await click('#panel .pfoot button.go','Refuel (before the route)'); await idle(); }
-          else { await f.evaluate(()=>TO.openView('cargo')); const a=await click('#panel .o-btns button:has-text("Return")','return an order') || await click('#panel .o-btns button:has-text("Cancel")','Cancel an order'); if(!a) stuck++; }
+          else { await f.evaluate(()=>TO.openView('cargo')); const a=await click('#panel .o-btns button:has-text("Return")','return an order') || await click('#panel .o-btns button:has-text("Cancel")','Cancel an order'); if(!a) stuck++;
+            // otherwise the same order is taken straight back on (a destination it would strand at, say): let the board move on
+            else { await f.evaluate(()=>TO.openView('main')); await click('#menubtn'); await click('[data-wait="30"]','wait after returning'); await idle(); } }
         }
         await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); });
         continue;
@@ -97,8 +99,12 @@ const STEPS = +process.env.STEPS || 120;
       // accept orders
       if(await click('#placecard button:has-text("Orders")','order board')){
         // pick up to 2 reachable orders
-        const n=await f.evaluate(()=>{ let c=0; const hdr=[...document.querySelectorAll('.ogroup')];
-          for(const g of hdr){ if(g.querySelector('.o-warn')) continue; const inp=g.querySelector('.orow input:not(:disabled)'); if(inp && c<2){ inp.click(); c++; } } return c; });
+        // one at a time: every click redraws the board, and only then do the warnings count the selection
+        const n=await f.evaluate(()=>{ const free='.orow input:not(:disabled):not(:checked)', groups=()=>[...document.querySelectorAll('.ogroup')];
+          for(let c=0;c<2;c++){ const g=groups().find(g=>!g.querySelector('.o-warn') && g.querySelector(free)); if(!g) break; g.querySelector(free).click();
+            let bad; while((bad=groups().find(g=>g.querySelector('.o-warn') && g.querySelector('.orow input:checked')))) bad.querySelector('.orow input:checked').click();
+          }
+          return document.querySelectorAll('.orow input:checked').length; });
         if(n && await click('#panel .pfoot button.go','Accept')) continue;
         // nothing reachable: back out again
         await f.evaluate(()=>TO.openView('main'));
