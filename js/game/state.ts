@@ -144,6 +144,8 @@ export class Market {
   simulatedTo:number;           // the last day the market has been run up to
   constructor(posts:Record<PostId,Starport>, nextId:number, simulatedTo:number){ this.posts=posts; this.nextId=nextId; this.simulatedTo=simulatedTo; }
   post(id:PostId){ return this.posts[id]; }
+  // the starport at a node in this game, if there is one there
+  at(n:Node):Starport|null { const k=n.post; return k ? this.posts[k.id] : null; }
   hub(id:PostId):Hub|null { const p=this.posts[id]; return p instanceof Hub ? p : null; }
   // every open order, in id order
   get offers():Order[] { return POSTS.flatMap(k=>this.posts[k.id].offers).sort((a,b)=>a.id-b.id); }
@@ -227,7 +229,7 @@ export class Game {
   // nothing under way and not bankrupt: the player may give an order
   get canAct(){ return !this.player.ship.underWay && !this.player.bankrupt; }
   // the trading post the ship is docked at
-  get postHere():Starport|null { const k=this.player.ship.place?.post; return k ? this.market.post(k.id) : null; }
+  get postHere():Starport|null { const n=this.player.ship.place; return n ? this.market.at(n) : null; }
   // every order in the game, offered or aboard, in id order
   get orders():Order[] { return [...this.market.offers, ...this.player.ship.hold].sort((a,b)=>a.id-b.id); }
   // where an order lies is its state; null for one that is no longer in the game

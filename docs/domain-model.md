@@ -12,7 +12,9 @@ picture again with `java -jar plantuml.jar -tpng docs/domain-model.puml`; it nee
 
 The diagram shows data and relations only, no operations. Blue is the game state that a save
 keeps, grey with a dashed frame exists only while time runs or the autopilot flies and is never
-saved, green is the world: fixed tables, the same in every game. White boxes are value lists.
+saved, green is the world: fixed tables, the same in every game. Green turning orange with a
+dotted frame is fixed in what it is, but built anew for every game, because the game's state
+hangs on it. White boxes are value lists.
 
 ## Rules the picture does not show
 
@@ -44,14 +46,14 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   likelier the closer the store gets to the good's `bulkLot`, certain at the largest size, so the
   sizes average `bulkLot`. The order takes the whole containers in the store; if more piled up
   while an earlier bulk order was on offer, it takes one order's worth and the rest stays.
+- **Starports, hubs and industries** are the same in every game (name, place, what they make and
+  need, which hub), yet every game builds its own, owned by its market: the stores, demands and
+  offers of that game hang on them, and a starport shared by all games could not say which game's
+  store is meant. Their fixed data comes from the starport table in `game/world.ts`. A node finds
+  its starport through the game's market, hence `/has`.
 - **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
   no reason to stop. `target` is where it ends.
 
 ## Where the code does not follow yet
 
-The code in `js/game/` was written against an earlier model and departs from this one here:
-
-- **Starports, hubs and industries** are built anew for every game rather than being fixed
-  objects, because the stores, demands and offers of that game hang on them. What is fixed about
-  them sits in rows of the `Post` table in `game/world.ts` (name, node, landing site, makes,
-  needs, hub), which they reach through `def`; a node finds its starport through the market.
+Nothing at the moment.

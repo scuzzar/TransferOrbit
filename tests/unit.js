@@ -241,6 +241,7 @@ test('Every body lies in the zone of influence of exactly one hub; every hub sel
   const h = state.S.market.hub('pavonis');
   assert.deepEqual(h.zone, world.ZONES.pavonis); assert.deepEqual(h.sells, world.SHIP_IDS);
   assert.equal(h.name, 'Pavonis Mons'); assert.equal(h.at, world.nodeOf('mars.surf', 'pavonis'));
+  assert.equal(state.S.market.at(world.nodeOf('mars.surf', 'pavonis')), h); assert.equal(state.S.market.at(world.nodeOf('mars.orbit')), null);   // a node finds its starport through the market
 });
 
 test('Market: only hubs are hubs, and they start with goods in store', async () => {
