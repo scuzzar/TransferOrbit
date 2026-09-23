@@ -1,0 +1,195 @@
+' The domain model of TransferOrbit. It leads: the code follows it, never the other way round.
+' Render: java -jar plantuml.jar -tpng docs/domain-model.puml (no Graphviz needed)
+@startuml
+!pragma layout smetana
+title TransferOrbit – domain model
+hide empty members
+hide methods
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #e8ecfb
+  BorderColor #5b64b8
+  BackgroundColor<<transient>> #f4f4f4
+  BorderColor<<transient>> #8a8a8a
+  BackgroundColor<<reference>> #e6f4e6
+  BorderColor<<reference>> #4f9a4f
+  BackgroundColor<<value>> #ffffff
+  BorderColor<<value>> #8a8a8a
+}
+skinparam legendBackgroundColor #ffffff
+skinparam legendBorderColor #8a8a8a
+<style>
+classDiagram {
+  class {
+    .transient {
+      LineStyle 5-3
+    }
+  }
+}
+</style>
+hide <<transient>> stereotype
+hide <<reference>> stereotype
+hide <<value>> stereotype
+
+  class Game {
+    day: number
+  }
+  class Player {
+    credits: number
+    bankrupt: boolean
+    autoFill: boolean
+  }
+  class Ship {
+    fuel: number
+    dvUsed: number
+    busy: boolean {transient}
+  }
+  abstract class Location
+  class Docked
+  class InTransit <<transient>> {
+    dep: number
+    arr: number
+  }
+  class Autopilot <<transient>>
+  enum RouteMode <<value>> {
+    economical
+    leaveNow
+  }
+  class Market {
+    simulatedTo: number
+    nextId: number
+  }
+  class Starport <<reference>> {
+    name: string
+  }
+  class Hub <<reference>>
+  class Store {
+    stock: number
+  }
+  class Demand {
+    level: number
+  }
+  class Order {
+    id: number
+    containers: number
+    reward: number
+    dv: number
+    days: number
+    created: number
+    deadline: number
+    expires: number
+    isBulk: boolean
+    toHub: boolean
+    fromHubStore: boolean
+
+  }
+  enum OrderState <<value>> {
+    offered
+    aboard
+  }
+
+  class Node <<reference>>
+  enum Level <<value>> {
+    surface
+    lowOrbit
+    highOrbit
+  }
+  class Body <<reference>> {
+    name: string
+    orbitRadius: number
+    period: number
+    meanLongitude: number
+    gravity: number
+    radius: number
+    lowOrbitAltitude: number
+    rotation: number
+    atmosphere: boolean
+  }
+  class LandingSite <<reference>> {
+    name: string
+    lat: number
+    port: boolean
+  }
+  class Depot <<reference>> {
+    fuelPrice: number
+    fillDays: number
+  }
+  class Connection <<reference>> {
+    dv: number
+    days: number
+    launchFee: boolean
+    transferWindow: boolean
+  }
+  class Industry <<reference>>
+  class Good <<reference>> {
+    name: string
+    mass: number
+    value: number
+    lot: number[2]
+    bulkLot: number
+    rate: number
+  }
+  class ShipClass <<reference>> {
+    name: string
+    isp: number
+    dry: number
+    cap: number
+    slots: number
+    price: number
+  }
+
+' player and ship
+Game "1" *-- "1" Player : player
+Game "1" *-- "1" Market : market
+Player "1" *-- "1" Ship : owns
+Ship "*" --> "1" ShipClass : is a
+Ship "1" *-- "1" Location : is at
+Ship "1" *-- "0..1" Autopilot : flies with
+Location <|-- Docked
+Location <|-- InTransit
+Docked "*" --> "1" Node : at
+InTransit "*" --> "1" Connection : along
+Autopilot "*" --> "1" Node : target
+Autopilot "*" --> "1" Node : start
+Autopilot --> RouteMode : mode
+
+' trade
+Market "*" --> "*" Starport : posts
+Starport "1" --> "1" Industry : has
+Starport <|-- Hub
+Industry "1" *-- "*" Store : stores
+Industry "1" *-- "*" Store : bulk
+Industry "1" *-- "*" Demand : demands
+Hub "1" *-- "*" Store : transship
+Store "*" --> "1" Good : of
+Demand "*" --> "1" Good : of
+Hub "1" --> "*" Body : zone of influence
+Hub "*" --> "*" ShipClass : sells
+Starport "0..1" o-- "*" Order : offers
+Ship "0..1" o-- "*" Order : hold
+Order "*" --> "1" Starport : from
+Order "*" --> "1" Starport : to
+Order "*" --> "1" Good : carries
+Order --> OrderState : /state
+
+' world
+Node "*" --> "1" Body : on / around
+Node --> Level : level
+Node <|-- LandingSite
+Node "1" --> "0..1" Starport : has
+Body "0..1" <-- "*" Body : orbits
+Depot "0..1" --> "1" Node : at
+Connection "*" --> "1" Node : from
+Connection "*" --> "1" Node : to
+Industry "*" --> "*" Good : makes
+Industry "*" --> "*" Good : needs
+
+legend right
+  |<#e8ecfb> <color:#5b64b8>████</color> | Game state, saved |
+  |<#f4f4f4> <color:#8a8a8a>╌╌╌╌</color> | Only while time runs or the autopilot flies, never saved |
+  |<#e6f4e6> <color:#4f9a4f>████</color> | World: fixed tables, the same in every game |
+  |<#ffffff> <color:#8a8a8a>□□□□</color> | Value list |
+endlegend
+@enduml

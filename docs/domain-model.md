@@ -1,207 +1,79 @@
 # Domain model
 
 **This diagram leads.** The code follows it, never the other way round. A change to the model is
-made here first, agreed, and then carried into the code; the code is never allowed to drift from
-it, and the diagram is never redrawn to match what the code happens to do. Until the code has
-caught up, the gaps are listed under *Where the code does not follow yet* at the end.
+made here first, agreed, and then carried into the code; the diagram is never redrawn to match
+what the code happens to do. Until the code has caught up, the gaps are listed under
+*Where the code does not follow yet* at the end.
 
-The game state as objects that relate the way the things in the game do.
+![TransferOrbit domain model](domain-model.png)
 
-- The **player** owns a **ship** and keeps a **logbook** (places visited, deliveries, milestones, depots used).
-- The ship **is at** a **location**: either **docked** at a **place** (node and landing site) or
-  **in transit** between two planets.
-- The ship's **hold** carries the orders it has taken aboard. A **trading post** **offers** orders,
-  each going to a **destination** post. Where an order lies is its state.
-- A trading post **sits at** a place and keeps what it produced and what it needs; a **hub** also
-  stores goods for the region.
-- The **market** advances the posts day by day and hands out order ids.
-- The fixed tables from `game/world.ts` (ship classes, goods, post definitions, places) are referenced, never copied.
+The source is [`domain-model.puml`](domain-model.puml) (PlantUML). After changing it, render the
+picture again with `java -jar plantuml.jar -tpng docs/domain-model.puml`; it needs no Graphviz.
 
-`Game` holds the day and is where saving and loading start. The save keeps its format:
-`toSave()` collects the object graph back into the flat JSON.
+The diagram shows data and relations only, no operations. Blue is the game state that a save
+keeps, grey with a dashed frame exists only while time runs or the autopilot flies and is never
+saved, green is the world: fixed tables, the same in every game. White boxes are value lists.
 
-```mermaid
----
-title: TransferOrbit – domain model
-config:
-  layout: elk
----
-classDiagram
-direction TB
+## Rules the picture does not show
 
-class Game {
-  +day: number
-  +pass(days) void
-  +toSave() SaveObj
-  +fromSave(raw)$ Game
-}
-
-namespace Player_and_ship {
-  class Player {
-    +credits: number
-    +bankrupt: boolean
-    +autoFill: boolean
-    +pay(n) void
-    +charge(n) void
-    +canAfford(n) boolean
-  }
-
-  class Logbook {
-    +visited: Set~Place~
-    +delivered: number
-    +milestones: Set~Milestone~
-    +depotsUsed: Set~Place~
-  }
-
-  class Ship {
-    +fuel: number
-    +dvUsed: number
-    +busy: boolean
-    +cargoMass() number
-    +dvAvail() number
-    +burn(dv) void
-    +refuel(tons) void
-    +load(order) void
-    +unload(order) void
-  }
-
-  class Autopilot {
-    +mode: RouteMode
-    +start: Place
-  }
-
-  class Location {
-    <<abstract>>
-  }
-
-  class Docked
-
-  class InTransit {
-    +from: PlanetId
-    +to: PlanetId
-    +dep: number
-    +arr: number
-  }
-}
-
-namespace Trade {
-  class Market {
-    +simulatedTo: number
-    +nextId: number
-    +advance(day) void
-  }
-
-  class TradingPost {
-    +produced: Amounts
-    +need: Amounts
-    +bulkStore: Amounts
-    +bulkLot: Amounts
-    +fuelPrice() number
-  }
-
-  class Hub {
-    +store: Amounts
-    +room() number
-  }
-
-  class Order {
-    +containers: number
-    +reward: number
-    +dv: number
-    +days: number
-    +created: number
-    +deadline: number
-    +expires: number
-    +isBulk: boolean
-    +fromHubStore: boolean
-    +payout(day) number
-  }
-
-  class OrderState {
-    <<enumeration>>
-    offered
-    aboard
-  }
-}
-
-namespace World_fixed_tables {
-  class Place {
-    <<value object>>
-    +node: NodeId
-    +site: string
-    +body() BodyId
-    +planet() PlanetId
-  }
-
-  class ShipClass {
-    <<reference>>
-    +isp: number
-    +dry: number
-    +cap: number
-    +slots: number
-    +price: number
-  }
-
-  class Good {
-    <<reference>>
-    +mass: number
-    +lot: number[2]
-    +rate: number
-  }
-
-  class PostDef {
-    <<reference>>
-    +name: string
-    +makes: Good[]
-    +needs: Good[]
-  }
-}
-
-%% the player and their ship
-Game "1" --> "1" Player : player
-Game "1" --> "1" Market : market
-Player "1" --> "1" Ship : owns
-Player "1" *-- "1" Logbook : keeps
-Ship "*" --> "1" ShipClass : is a
-Ship "1" *-- "1" Location : is at
-Ship "1" *-- "0..1" Autopilot : flies with
-Autopilot "*" --> "1" Place : target
-Location <|-- Docked
-Location <|-- InTransit
-Docked "*" --> "1" Place : at
-
-%% trade
-Market "1" *-- "*" TradingPost : posts
-TradingPost <|-- Hub
-TradingPost "*" --> "1" PostDef : is
-TradingPost "0..1" --> "1" Place : sits at
-TradingPost "1" o-- "*" Order : offers (from)
-Order "*" --> "1" TradingPost : destination (to)
-Order "*" --> "1" Good : carries
-Order --> OrderState
-Ship "1" o-- "*" Order : hold
-
-note for Order "offered: lies at its post, aboard: in the ship's hold.<br>The state follows from where the order is."
-```
+- **What stays out.** Game rules (hub capacity, launch fee per tonne, rescue time per hub, how much
+  slower bulk goods come in) stay constants in the code. Data used only for display (colours,
+  notes, longitudes, short names) may stay in the world tables beside the classes. Where the
+  solar system map points its transfer window is interface state: it starts empty and is not saved.
+- **Orders.** An order lies either in its starport's offers or in the ship's hold, never both;
+  its state (`/state`) follows from where it lies. `from` and `to` stay the same wherever it lies.
+- **Time at a place, time under way.** Every manoeuvre puts the ship in transit along a
+  connection. `busy` means time passes while the ship stays where it is: waiting, refuelling,
+  the shipyard, a rescue. Saving works only at a place with the clock stopped.
+- **Connections with a transfer window** run between the high orbits of two planets. Their `dv`
+  and `days` are the values at the ideal window: the least delta-v and the longest flight. Leaving
+  on another day costs more and flies faster; how much follows from the two bodies' orbits and the
+  departure day. All other connections always cost what they say.
+- **Nodes on a surface are landing sites.** Every spaceport has its own starport; the Earth has
+  four (Kourou, Cape Canaveral, Baikonur, Plesetsk).
+- **Depots.** A depot in orbit is a fuel station (Earth orbit, Mars orbit); on a surface it is at
+  a landing site that sells fuel.
+- **Hubs.** A hub's zone of influence decides where goods for other zones are transhipped, which
+  destinations the orders from its transhipment store serve, how long a rescue takes and which
+  fuel prices the refuel panel lists. Every hub sells every ship class. Whether a hub has room
+  counts its store only, not what the ship carries towards it.
+- **Industry.** An industry makes and needs goods. For every good it makes there is a store for
+  ordinary orders and one for bulk orders, for every good it needs a demand (`level` 0 to 3: how
+  keen the starport is to get it). A good comes in at one container per `rate` days. Once the bulk
+  store holds enough for a bulk order, a random test each day decides whether the order appears:
+  likelier the closer the store gets to the good's `bulkLot`, certain at the largest size. The
+  order takes the whole bulk store.
+- **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
+  no reason to stop. `target` is where it ends.
 
 ## Where the code does not follow yet
 
-The code in `js/game/state.ts` was written against this model but departs from it here:
+The code in `js/game/` was written against an earlier model and departs from this one here:
 
-- `Game` holds the ship directly (`S.ship`); in the model the **player owns** it.
-- `Market.advance(day)` does not exist; the market runs through `marketAdvance()` in
-  `game/economy.ts`, which reads the global `S`. `Hub.room()` is `hubRoom()` there.
-- A **trading post does not sit at a place**: `Place.post` looks up the post's definition.
-  `fuelPrice()` is on `Place`, not on `TradingPost`.
-- `Location` is a TypeScript union, not an abstract class.
-- The **autopilot's target** and **start** are a `Target` and a key string, not `Place`s.
-- `Logbook.visited` and `depots` hold strings, not places; `depotsUsed` is called `depots`.
-- `Game.fromSave` does not exist; `parseSave()` in `game/save.ts` does its job, and there is
-  no `Game.pass(days)`.
-- The reference classes carry their `world.ts` names (`ShipDef`, `GoodDef` with `m`, `Post`),
-  not `ShipClass`, `Good` (`mass`) and `PostDef`.
-- `Order` has no `OrderState`; its state is only where it lies.
-- Much of the behaviour is still written from outside the objects: the commands set
-  `ship.busy`, fill a hub's store, count deliveries and change `need` directly.
-- The code has members the model does not show (`Ship.type`, `Game.windowPlanet`,
-  `Order.id`, `Order.toHub`, and many operations). They need a place in the model first.
+- **Game and player.** `Game` holds the ship directly (`S.ship`); here the player owns it.
+  `Logbook` and the milestones still exist and are saved; the model has neither.
+  `Game.windowPlanet` is still game state and saved.
+- **Places.** A `Place` is a value of node and landing site, and the autopilot's target is a
+  `Target`; here a `Node` is a fixed object and a `LandingSite` is a `Node`. The autopilot's
+  `start` is a key string, may be missing and is cleared after the first step.
+- **Starports.** The code has `TradingPost` and `Hub` as game state, built from the `Post` table
+  (name, node, site, makes, needs, hub). The amounts are maps on the post (`produced`, `need`,
+  `bulkStore`, `bulkLot`, and a hub's `store`) instead of `Store` and `Demand` objects at the
+  industry and the hub. `bulkLot` is rolled at random and saved instead of `Good.bulkLot` and a
+  daily test.
+- **The Earth** has one post for all four spaceports and one fuel price for the whole surface.
+- **Zones of influence** are the `REGION` table (body to hub id); the shipyard opens at any post
+  flagged as a hub.
+- **Connections** are computed in `game/actions.ts` and `game/graph.ts` from the body tables;
+  there are no `Connection` objects and no `transferWindow` flag. Bodies are two tables (`B` for
+  planets, `M` for moons) with short field names (`a`, `T`, `L0`, `mu`, `R`, `alt`).
+- **Transit.** `InTransit` exists only for transfers between planets; every other manoeuvre is
+  `busy` plus an animation.
+- **Market.** There is no `Market.advance(day)`; `marketAdvance()` in `game/economy.ts` reads the
+  global `S`. A hub's room (`hubRoom()`) also counts the orders in the ship's hold.
+- **Orders** have no state to read; it is only where they lie.
+- **Reference classes** carry their `world.ts` names: `ShipDef`, `GoodDef` (`m`, `w`, `sh`),
+  `Post`, not `ShipClass`, `Good` and `Industry`.
+- **`Location`** is a TypeScript union, not an abstract class.
+- **Behaviour from outside.** The commands set `ship.busy`, fill a hub's store and change a
+  post's need directly instead of asking the objects.
