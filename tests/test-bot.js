@@ -22,7 +22,7 @@ async function run(b,name,vp,gl){
     await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
     const f=p.frames().find(x=>x.url().includes('index.html'));
     await f.evaluate(()=>{ TO.ANIM.instant=true; });
-    const st=()=>f.evaluate(()=>({node:TO.S.domain.node,site:TO.S.domain.site,busy:TO.S.action.busy,auto:!!TO.S.action.auto,view:TO.UI.view,fuel:TO.S.domain.fuel,cr:TO.S.domain.credits,day:TO.S.domain.day,over:TO.S.domain.over,
+    const st=()=>f.evaluate(()=>({node:TO.S.domain.node,site:TO.S.domain.site,busy:TO.S.action.busy,auto:!!TO.S.action.auto,view:TO.UI.view,fuel:TO.S.domain.fuel,cr:TO.S.domain.credits,day:TO.S.domain.day,over:TO.S.domain.bankrupt,
       cargo:TO.cargoOrders().length,msg:TO.UI.msg,dv:document.getElementById('dv').textContent}));
     const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(20);} return false; };
     // Book the money flows: modules cannot be patched from outside any more, so the balance is
@@ -123,7 +123,7 @@ async function run(b,name,vp,gl){
         await f.evaluate(()=>TO.openView('main'));
       }
       // nothing to do: fly to the nearest post that has orders (pick card -> route)
-      const tgt=await f.evaluate(()=>{ const cand=TO.POSTS.filter(k=>TO.S.domain.eco.orders.some(o=>o.state==='open'&&o.from===k.id)&&!(TO.postAt()&&TO.postAt().id===k.id));
+      const tgt=await f.evaluate(()=>{ const cand=TO.POSTS.filter(k=>TO.S.domain.market.orders.some(o=>o.state==='open'&&o.from===k.id)&&!(TO.postAt()&&TO.postAt().id===k.id));
         const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.dvAvail()-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
         if(!pl) return null; TO.openRoute(TO.kTarget(pl.k)); return pl.k.name; });
       if(tgt){ log.push('flying to '+tgt); const go=await click('#panel button:has-text("Start the autopilot")','autopilot');

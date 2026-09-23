@@ -271,16 +271,39 @@ ship ids (`kogge` → `cog`, `holk` → `hulk`, `hulk` → `galleon`,
 `karacke` → `carrack`), site ids (`nordpol` → `northpole`,
 `tigerstreifen` → `tigerstripes`) and trading post ids (`erde` → `earth`,
 `werft` → `shipyard`, …) in the visited set, in the orders and in the three
-economy maps, and the landing sites inside the `refuel:` flags. Everything else
-in a save is language-neutral. The mapping runs before the check, which would
-otherwise reject an old save outright.
+market tables, and the landing sites inside the `refuel:` flags. It also moves
+the field names that saves from before the renaming carry to the current ones
+(`OLD_FIELDS`: `eco` → `market`, `stock` → `produced`, `demand` → `need`,
+`fwd` → `hubStore`, `n` → `containers`, `transship` → `toHub`, …). Everything
+else in a save is language-neutral. The mapping runs before the check, which
+would otherwise reject an old save outright.
 
 The check is `parseSave()` in `game/commands.ts`. What comes out of
 `localStorage` is `unknown` until it has been through it: the place, the ship
 and every order must use ids the game knows, the numbers must be numbers, or
 the save is refused. Fields added after a save was written get their defaults,
-trading posts added since get empty stock and demand rows, and the state is
+trading posts added since get empty `produced` and `need` rows, and the state is
 rebuilt field by field rather than cast.
+
+### What a save holds
+
+A save is `S.domain` as JSON, with `visited` as an array:
+
+| Field | Meaning |
+|---|---|
+| `day` | Days since 1 January 2000; the game starts at 10957.5, 1 January 2030 |
+| `node`, `site` | Where the ship is: `<body>.<surf\|orbit\|capt>` and, on a surface, the landing site |
+| `ship`, `fuel`, `credits` | Ship type, tonnes of propellant, money |
+| `dvUsed` | Delta-v burned so far, m/s |
+| `visited`, `flags` | Places seen; milestones, and `refuel:<body>@<site>` per depot used |
+| `windowPlanet` | The planet the transfer window on the solar system map points at |
+| `bankrupt`, `autoFill` | The run is over; "always fill up" is on |
+| `market.orders` | The order board. Per order: `good`, `containers`, `from`, `to`, `reward`, route `dv` (m/s) and `days`, `deadline`, `created`, `expires`, `state` (`open` or `aboard`); `toHub` if it ends at a hub, `fromHubStore` if a hub made it from its store, `isBulk` for bulk orders |
+| `market.produced` | Per post and good: made and not yet handed out as an order |
+| `market.need` | Per post and good, 0 to 3: how badly the post wants it, which decides where orders go |
+| `market.hubStore` | Per hub: goods delivered there, waiting to be passed on as short regional orders |
+| `market.bulkStore`, `market.bulkLot` | The slow store bulk orders come from, and the lot size (7 to 18) the next one waits for |
+| `market.nextId`, `market.simulatedTo` | The next order id; the last day the market has been run up to |
 
 ## Ids and types
 

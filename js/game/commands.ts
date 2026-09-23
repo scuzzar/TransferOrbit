@@ -6,9 +6,9 @@ import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
 import { B, BANKRUPT, DEPOTS, G0, GOODS, HubId, NodeId, POST_BY_ID, POSTS, PlanetId, PostId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, byPost, fmtCr, isGood, isMoon, isNode, isPlanet, isPost, isShip, planetOfBody, siteOf, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, Amounts, DomainState, Eco, Flags, RouteMode, Target, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, shipPlace, setState, slotsUsed, targetName, Order } from './state.js';
+import { S, Amounts, DomainState, Flags, Market, RouteMode, Target, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, shipPlace, setState, slotsUsed, targetName, Order } from './state.js';
 import { payout, route } from './graph.js';
-import { econAdvance, freshDeadline, newEconomy } from './economy.js';
+import { freshDeadline, marketAdvance, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
 import { Move, MoveSpec, SCENE, bodyPath, defaultOrb, resetScene, sysPlan, sysState } from '../map/geometry.js';
 import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
@@ -21,14 +21,14 @@ export const shipFor = (n:number):ShipDef|undefined => Object.values(SHIPS).filt
 
 export function newGame(){
   setState({
-    domain:{day:START_DAY, node:'earth.orbit', site:null, ship:'cog', fuel:SHIPS.cog.cap, used:0, credits:20000,
-      visited:new Set(['earth.orbit']), flags:{delivered:0}, target:'mars', over:false, autoFill:false, eco:newEconomy()},
+    domain:{day:START_DAY, node:'earth.orbit', site:null, ship:'cog', fuel:SHIPS.cog.cap, dvUsed:0, credits:20000,
+      visited:new Set(['earth.orbit']), flags:{delivered:0}, windowPlanet:'mars', bankrupt:false, autoFill:false, market:newMarket()},
     action:{busy:false, transit:null, auto:null},
   });
   resetScene();
-  econAdvance(START_DAY);
+  marketAdvance(START_DAY);
 // orders from the run-up period start with a full deadline
-  S.domain.eco.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
+  S.domain.market.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
   report('A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.','fresh');
 }
 
@@ -58,7 +58,7 @@ export function planMove(a:LocalAction):Move{
 }
 
 export function doAction(a:LocalAction){
-  if(S.action.busy || S.domain.over || a.dv>dvAvail()+0.5 || feeBlocked(a)) return;
+  if(S.action.busy || S.domain.bankrupt || a.dv>dvAvail()+0.5 || feeBlocked(a)) return;
   if(a.fee) S.domain.credits-=a.fee;
   burn(a.dv); S.action.busy=true;
 // remember the move so the system and body views can show the ship under way
@@ -78,7 +78,7 @@ export function doAction(a:LocalAction){
 }
 
 export function doTransfer(b:PlanetId){
-  const a=homePlanet(); if(!a || S.action.busy || S.domain.over || S.domain.node!==`${a}.capt`) return;
+  const a=homePlanet(); if(!a || S.action.busy || S.domain.bankrupt || S.domain.node!==`${a}.capt`) return;
   const t=transfer(a,b,S.domain.day); if(t.total>dvAvail()) return;
   burn(t.total);
   const dep=S.domain.day, arr=S.domain.day+t.tof;
@@ -92,13 +92,13 @@ export function doTransfer(b:PlanetId){
 }
 
 export function waitDays(n:number){
-  if(S.action.busy || S.domain.over) return; S.action.busy=true; changed(); showMap();
+  if(S.action.busy || S.domain.bankrupt) return; S.action.busy=true; changed(); showMap();
   animateTo(S.domain.day+n, Math.min(2400,350+n*5)*1.3, ()=>{ S.action.busy=false; report(`${fmtDays(n)} passed.`); changed(); });
 }
 
 // "Always fill up": at every depot take on as much as the tank holds and the money allows
 export function autoFill(){
-  if(!S.domain.autoFill || S.action.busy || S.domain.over) return false;
+  if(!S.domain.autoFill || S.action.busy || S.domain.bankrupt) return false;
   const r=refuelInfo(); if(!r || r.need<0.5 || r.max<0.5) return false;
   doRefuel(r.max); return true;
 }
@@ -111,7 +111,7 @@ export function setAutoFill(on:boolean){
 function animateTo(target:number, ms:number, done:()=>void){
   const d0=S.domain.day;
 // Straight to the target without animating: time-lapse tools and tests switch this on.
-  if(ANIM.instant){ SCENE.anim=null; S.domain.day=target; econAdvance(S.domain.day); done(); return; }
+  if(ANIM.instant){ SCENE.anim=null; S.domain.day=target; marketAdvance(S.domain.day); done(); return; }
   SCENE.anim={d0, d1:target}; ANIM.active=true; ANIM.long=ms>1500; tick();
   let prog=0, last=performance.now();
   const step=(now:number)=>{
@@ -120,38 +120,38 @@ function animateTo(target:number, ms:number, done:()=>void){
     const p=prog, e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
     S.domain.day=d0+(target-d0)*e; tick();
     if(p<1) requestAnimationFrame(step);
-    else { S.domain.day=target; SCENE.anim=null; ANIM.active=false; if(!S.action.auto) ANIM.fast=false; tick(); econAdvance(S.domain.day); done(); }
+    else { S.domain.day=target; SCENE.anim=null; ANIM.active=false; if(!S.action.auto) ANIM.fast=false; tick(); marketAdvance(S.domain.day); done(); }
   };
   requestAnimationFrame(step);
 }
 
-function removeOrder(o:Order){ S.domain.eco.orders=S.domain.eco.orders.filter(x=>x!==o); }
+function removeOrder(o:Order){ S.domain.market.orders=S.domain.market.orders.filter(x=>x!==o); }
 
 export function deliverOrder(o:Order, silent?:boolean){
-  if(S.action.busy||S.domain.over) return;
+  if(S.action.busy||S.domain.bankrupt) return;
   const pay=payout(o); S.domain.credits+=pay; removeOrder(o);
-  if(o.transship){ const f=S.domain.eco.fwd[o.to]??={}; f[o.good]=(f[o.good]||0)+o.n; S.domain.flags.hubDelivery=true; }
+  if(o.toHub){ const f=S.domain.market.hubStore[o.to]??={}; f[o.good]=(f[o.good]||0)+o.containers; S.domain.flags.hubDelivery=true; }
   S.domain.flags.delivered=(S.domain.flags.delivered||0)+1;
   if(silent) return;
-  report(`Delivered: ${o.n} × ${GOODS[o.good].name}. ${fmtCr(pay)} credited${pay<o.reward?' (late)':''}.`); changed();
+  report(`Delivered: ${o.containers} × ${GOODS[o.good].name}. ${fmtCr(pay)} credited${pay<o.reward?' (late)':''}.`); changed();
 }
 
 export function returnOrder(o:Order){
-  if(S.action.busy||S.domain.over) return;
-  o.state='open'; report(`Returned: ${o.n} × ${GOODS[o.good].name}. Free of charge, because you are still at the post it came from.`); changed();
+  if(S.action.busy||S.domain.bankrupt) return;
+  o.state='open'; report(`Returned: ${o.containers} × ${GOODS[o.good].name}. Free of charge, because you are still at the post it came from.`); changed();
 }
 
 export function abortOrder(o:Order){
   const pen=Math.round(o.reward*0.2);
-  if(S.action.busy||S.domain.over||pen>S.domain.credits) return;
+  if(S.action.busy||S.domain.bankrupt||pen>S.domain.credits) return;
   S.domain.credits-=pen; removeOrder(o);
-  if(!o.transship){ const d=S.domain.eco.demand[o.to]; d[o.good]=Math.min(3,(d[o.good]??0)+1); }
+  if(!o.toHub){ const d=S.domain.market.need[o.to]; d[o.good]=Math.min(3,(d[o.good]??0)+1); }
   report(`Order cancelled. Penalty ${fmtCr(pen)}, the cargo is lost.`); changed();
 }
 
 export function buyShip(id:ShipId){
   const net=SHIPS[id].price-0.7*eng().price;
-  if(S.action.busy||S.domain.over||net>S.domain.credits||slotsUsed()>SHIPS[id].slots) return;
+  if(S.action.busy||S.domain.bankrupt||net>S.domain.credits||slotsUsed()>SHIPS[id].slots) return;
   S.action.busy=true; changed();
   animateTo(S.domain.day+5, 500, ()=>{
     S.domain.credits-=net; S.domain.ship=id; S.domain.fuel=Math.min(S.domain.fuel,eng().cap); S.domain.flags.bought=true;
@@ -163,7 +163,7 @@ export function buyShip(id:ShipId){
 export const strandCache:{key:string|null,val:boolean}={key:null,val:false};
 
 export function stranded(){
-  const me=shipPlace(); if(S.action.busy||S.domain.over||!me) return false;
+  const me=shipPlace(); if(S.action.busy||S.domain.bankrupt||!me) return false;
   const ri=refuelInfo();
   if(ri){ // a depot here, but no money
     if(!(ri.need>1 && ri.max<Math.min(ri.need,5)) || deliverables().length) return false;
@@ -173,10 +173,10 @@ export function stranded(){
     if(strandCache.key!==key){
       const dv=dvAvail(), k=postAt();
       const cargoOk=cargoOrders().length && cargoOrders().every(o=>route(me,POST_BY_ID[o.to]).dv<=dv+0.5);
-      const hereOk=k && S.domain.eco.orders.some(o=>o.state==='open' && o.from===k.id && dvWith(S.domain.fuel,cargoMass()+o.n*GOODS[o.good].m)>=o.dv);
+      const hereOk=k && S.domain.market.orders.some(o=>o.state==='open' && o.from===k.id && dvWith(S.domain.fuel,cargoMass()+o.containers*GOODS[o.good].m)>=o.dv);
 // elsewhere: the approach plus the order's route must fit the fuel on board together
       const awayOk=!cargoOrders().length && POSTS.some(kk=>{ if(kk===k) return false; const d1=route(me,kk).dv; if(d1>dv+0.5) return false;
-        return S.domain.eco.orders.some(o=>o.state==='open'&&o.from===kk.id && d1+o.dv<=dvWith(S.domain.fuel,o.n*GOODS[o.good].m)+0.5); });
+        return S.domain.market.orders.some(o=>o.state==='open'&&o.from===kk.id && d1+o.dv<=dvWith(S.domain.fuel,o.containers*GOODS[o.good].m)+0.5); });
       strandCache.key=key; strandCache.val=!(cargoOk||hereOk||awayOk);
     }
     return strandCache.val;
@@ -207,7 +207,7 @@ export function rescue(){
     S.domain.fuel=eng().cap;
     const [b]=here(); if(r.lift && b){ S.domain.node=`${b}.orbit`; S.domain.site=null; }
     S.action.busy=false;
-    if(S.domain.credits<BANKRUPT){ S.domain.over=true; report(`Bankrupt. Your balance stands at ${fmtCr(S.domain.credits)}. Start again to have another go.`); }
+    if(S.domain.credits<BANKRUPT){ S.domain.bankrupt=true; report(`Bankrupt. Your balance stands at ${fmtCr(S.domain.credits)}. Start again to have another go.`); }
     else if(r.local) report(`Fuelled on credit: ${tons(r.amount)} for ${fmtCr(r.cost)}. Your balance is ${fmtCr(S.domain.credits)}.`);
     else report(`The tanker has arrived (${fmtDays(r.days)} travel): ${tons(r.amount)} for ${fmtCr(r.cost)}.${r.lift?' It also lifted you into orbit.':''} Your cargo is still aboard.`);
     changed();
@@ -224,7 +224,7 @@ export function refuelInfo(){
 
 // false if nothing happens: no depot here, busy, or nothing to take on
 export function doRefuel(amount:number){
-  const r=refuelInfo(); if(!r || S.action.busy || S.domain.over) return false;
+  const r=refuelInfo(); if(!r || S.action.busy || S.domain.bankrupt) return false;
   amount=Math.min(amount,r.max); if(amount<0.1) return false;
   const cost=Math.round(amount*r.price);
   S.action.busy=true; changed();
@@ -245,15 +245,15 @@ export const fuelFor = (dv:number, cm:number) => (eng().dry+cm)*(Math.exp(dv/(en
 
 export const deliverables = () => { const k=postAt(); return k ? cargoOrders().filter(o=>o.to===k.id) : []; };
 
-export function deliverAll(){ const list=deliverables(); if(!list.length||S.action.busy||S.domain.over) return;
+export function deliverAll(){ const list=deliverables(); if(!list.length||S.action.busy||S.domain.bankrupt) return;
   let sum=0; list.forEach(o=>{ sum+=payout(o); deliverOrder(o,true); });
   report(`${list.length} ${list.length>1?'orders':'order'} delivered, ${fmtCr(sum)} credited.`); changed(); }
 
 // Take the open orders with these ids aboard, all or none; false if they don't fit
 export function acceptOrders(ids:Iterable<number>){
-  const k=postAt(); if(!k||S.action.busy||S.domain.over) return false;
-  const want=new Set(ids), list=S.domain.eco.orders.filter(o=>want.has(o.id) && o.state==='open' && o.from===k.id);
-  const n=list.reduce((s,o)=>s+o.n,0); if(!list.length || slotsUsed()+n>eng().slots) return false;
+  const k=postAt(); if(!k||S.action.busy||S.domain.bankrupt) return false;
+  const want=new Set(ids), list=S.domain.market.orders.filter(o=>want.has(o.id) && o.state==='open' && o.from===k.id);
+  const n=list.reduce((s,o)=>s+o.containers,0); if(!list.length || slotsUsed()+n>eng().slots) return false;
   list.forEach(o=>{ o.deadline=freshDeadline(o,S.domain.day); o.created=S.domain.day; o.state='aboard'; });
   report(`${list.length} ${list.length>1?'orders':'order'} accepted, ${n} containers loaded.`); changed();
   return true;
@@ -262,13 +262,19 @@ export function acceptOrders(ids:Iterable<number>){
 const SAVE_KEY='transferorbit-v3', SLOT_KEY='transferorbit-slot1';
 const OLD_SAVE_KEY='transferfenster-v2', OLD_SLOT_KEY='transferfenster-slot1';
 
-// Saves written before the code was translated carry the old German ids. Everything
-// else in a save is language-neutral, so one lookup per kind is enough. Runs before
-// the sanity check below, which would otherwise reject an old save outright.
+// Saves written before the code was translated carry the old German ids, and saves
+// written before the state got readable names carry the old field names. One lookup
+// per kind is enough for both. Runs before the sanity check below, which would
+// otherwise reject an old save outright.
 const OLD_IDS: Record<'ship'|'site'|'post', Record<string,string>> = {
   ship: {kogge:'cog', holk:'hulk', hulk:'galleon', karacke:'carrack'},
   site: {nordpol:'northpole', tigerstreifen:'tigerstripes', aeqator:'equator'},
   post: {erde:'earth', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
+};
+const OLD_FIELDS: Record<'domain'|'market'|'order', Record<string,string>> = {
+  domain: {used:'dvUsed', target:'windowPlanet', over:'bankrupt', eco:'market'},
+  market: {stock:'produced', demand:'need', fwd:'hubStore', bulk:'bulkStore', bulkN:'bulkLot', day:'simulatedTo'},
+  order: {n:'containers', fwdOrder:'fromHubStore', transship:'toHub', bulk:'isBulk'},
 };
 
 type Raw = Record<string, unknown>;
@@ -276,17 +282,25 @@ const isObj = (x:unknown):x is Raw => typeof x==='object' && x!==null && !Array.
 const isNum = (x:unknown):x is number => typeof x==='number' && Number.isFinite(x);
 const isStr = (x:unknown):x is string => typeof x==='string';
 
+// Move old field names to the new ones, in place; a field already under its new name wins
+function renameFields(o:Raw, names:Record<string,string>){
+  for(const [old,now] of Object.entries(names)) if(old in o){ if(!(now in o)) o[now]=o[old]; delete o[old]; }
+}
+
 function migrate(o:Raw){
+  renameFields(o, OLD_FIELDS.domain);
+  if(isObj(o.market)){ renameFields(o.market, OLD_FIELDS.market);
+    if(Array.isArray(o.market.orders)) o.market.orders.forEach(x=>{ if(isObj(x)) renameFields(x, OLD_FIELDS.order); }); }
   const site = (s:string) => OLD_IDS.site[s] || s, post = (p:string) => OLD_IDS.post[p] || p;
   if(isStr(o.ship)) o.ship = OLD_IDS.ship[o.ship] || o.ship;
   if(isStr(o.site)) o.site = site(o.site);
   if(Array.isArray(o.visited)) o.visited = o.visited.filter(isStr).map(v=>{
     const i = v.indexOf('@'); return i<0 ? v : v.slice(0,i+1) + site(v.slice(i+1)); });
   if(isObj(o.flags)) o.flags = Object.fromEntries(Object.entries(o.flags).map(([k,v])=>[k.startsWith('refuel:') ? k.replace(/@(.*)$/,(_,s:string)=>'@'+site(s)) : k, v]));
-  const eco = o.eco; if(!isObj(eco)) return o;
-  if(Array.isArray(eco.orders)) eco.orders.forEach(x=>{ if(isObj(x) && isStr(x.from) && isStr(x.to)){ x.from = post(x.from); x.to = post(x.to); } });
-  for(const field of ['stock','demand','fwd']){ const m=eco[field]; if(isObj(m))
-    eco[field] = Object.fromEntries(Object.entries(m).map(([k,v])=>[post(k),v])); }
+  const market = o.market; if(!isObj(market)) return o;
+  if(Array.isArray(market.orders)) market.orders.forEach(x=>{ if(isObj(x) && isStr(x.from) && isStr(x.to)){ x.from = post(x.from); x.to = post(x.to); } });
+  for(const field of ['produced','need','hubStore']){ const m=market[field]; if(isObj(m))
+    market[field] = Object.fromEntries(Object.entries(m).map(([k,v])=>[post(k),v])); }
   return o;
 }
 
@@ -295,11 +309,11 @@ const isBool = (x:unknown):x is boolean => typeof x==='boolean';
 // A fresh, typed order, or null if anything is missing or unknown
 function parseOrder(x:unknown):Order|null{
   if(!isObj(x)) return null;
-  const {id,n,reward,dv,days,deadline,created,expires,good,from,to,state}=x;
-  if(!isNum(id) || !isNum(n) || !isNum(reward) || !isNum(dv) || !isNum(days) || !isNum(deadline) || !isNum(created) || !isNum(expires)) return null;
+  const {id,containers,reward,dv,days,deadline,created,expires,good,from,to,state}=x;
+  if(!isNum(id) || !isNum(containers) || !isNum(reward) || !isNum(dv) || !isNum(days) || !isNum(deadline) || !isNum(created) || !isNum(expires)) return null;
   if(!isGood(good) || !isPost(from) || !isPost(to) || (state!=='open' && state!=='aboard')) return null;
-  const o:Order={id, good, n, from, to, reward, dv, days, deadline, created, expires, state, fwdOrder:x.fwdOrder===true};
-  if(isBool(x.transship)) o.transship=x.transship; if(isBool(x.bulk)) o.bulk=x.bulk;
+  const o:Order={id, good, containers, from, to, reward, dv, days, deadline, created, expires, state, fromHubStore:x.fromHubStore===true};
+  if(isBool(x.toHub)) o.toHub=x.toHub; if(isBool(x.isBulk)) o.isBulk=x.isBulk;
   return o;
 }
 
@@ -315,30 +329,30 @@ function parseTable(x:unknown):Partial<Record<PostId,Amounts>>|null{
   return t;
 }
 
-// The economy, rebuilt field by field. Posts added since the save get empty rows.
-function parseEco(e:unknown):Eco|null{
-  if(!isObj(e) || !isNum(e.nextId) || !isNum(e.day) || !Array.isArray(e.orders)) return null;
-  const orders=e.orders.map(parseOrder), stock=parseTable(e.stock), fwd=parseTable(e.fwd), demand=parseTable(e.demand);
-  if(!orders.every(o=>o!==null) || !stock || !fwd || !demand) return null;
-  const eco:Eco={stock:byPost(k=>stock[k.id]??{}), fwd, demand:byPost(k=>demand[k.id]??{}), orders, nextId:e.nextId, day:e.day};
-  for(const f of ['bulk','bulkN'] as const){ if(e[f]===undefined) continue; const t=parseTable(e[f]); if(!t) return null; eco[f]=t; }
-  return eco;
+// The market, rebuilt field by field. Posts added since the save get empty rows.
+function parseMarket(e:unknown):Market|null{
+  if(!isObj(e) || !isNum(e.nextId) || !isNum(e.simulatedTo) || !Array.isArray(e.orders)) return null;
+  const orders=e.orders.map(parseOrder), produced=parseTable(e.produced), hubStore=parseTable(e.hubStore), need=parseTable(e.need);
+  if(!orders.every(o=>o!==null) || !produced || !hubStore || !need) return null;
+  const market:Market={produced:byPost(k=>produced[k.id]??{}), need:byPost(k=>need[k.id]??{}), hubStore, orders, nextId:e.nextId, simulatedTo:e.simulatedTo};
+  for(const f of ['bulkStore','bulkLot'] as const){ if(e[f]===undefined) continue; const t=parseTable(e[f]); if(!t) return null; market[f]=t; }
+  return market;
 }
 
 // Unchecked JSON from localStorage -> a domain state, or null if it isn't a usable save.
 // Fields added after a save was written get their defaults; old German ids are mapped first.
 export function parseSave(raw:unknown):DomainState|null{
   if(!isObj(raw)) return null;
-  const o=migrate(raw), eco=parseEco(o.eco);
-  if(!eco || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
+  const o=migrate(raw), market=parseMarket(o.market);
+  if(!market || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
   const f=isObj(o.flags)?o.flags:{}, flags:Flags={delivered:isNum(f.delivered)?f.delivered:0};
   for(const [k,v] of Object.entries(f)) if(v===true){
     if(k.startsWith('refuel:')) flags[`refuel:${k.slice(7)}`]=true;
     else if(k==='marsLanded'||k==='marsReturn'||k==='hubDelivery'||k==='bought') flags[k]=true;
   }
-  return {day:o.day, node:o.node, site:isStr(o.site)?o.site:null, ship:o.ship, fuel:o.fuel, used:isNum(o.used)?o.used:0, credits:o.credits,
-    visited:new Set(Array.isArray(o.visited)?o.visited.filter(isStr):[]), flags, target:isPlanet(o.target)?o.target:null,
-    over:o.over===true, autoFill:o.autoFill===true, eco};
+  return {day:o.day, node:o.node, site:isStr(o.site)?o.site:null, ship:o.ship, fuel:o.fuel, dvUsed:isNum(o.dvUsed)?o.dvUsed:0, credits:o.credits,
+    visited:new Set(Array.isArray(o.visited)?o.visited.filter(isStr):[]), flags, windowPlanet:isPlanet(o.windowPlanet)?o.windowPlanet:null,
+    bankrupt:o.bankrupt===true, autoFill:o.autoFill===true, market};
 }
 
 // Only the domain is ever written: it's the whole save, no blacklist of action fields
@@ -366,7 +380,7 @@ export function load(key?: string|null){
 }
 
 export function execStep(st:PlanStep){
-  if(!st || S.action.busy || S.domain.over) return false;
+  if(!st || S.action.busy || S.domain.bankrupt) return false;
   if(st.kind==='wait'){ const [a,b]=st.leg, t=transfer(a,b,S.domain.day); if(t.d<0.04) return true; waitDays(t.wait); return true; }
   if(st.kind==='leg'){ const hp=homePlanet(); if(!hp || S.domain.node!==`${hp}.capt` || transfer(hp,st.leg[1],S.domain.day).total>dvAvail()) return false; doTransfer(st.leg[1]); return true; }
   const a=localActions().find(al=>al.to===st.node && (al.site||null)===(st.site||null) && Math.abs(al.dv-st.dv)<1);
@@ -389,7 +403,7 @@ const autoLater = (ms:number) => setTimeout(autoTick, ANIM.instant?0:ms);
 function autoTick(){
   const A=S.action.auto; if(!A) return;
   if(S.action.busy){ autoLater(250); return; }
-  if(S.domain.over) return stopAutopilot();
+  if(S.domain.bankrupt) return stopAutopilot();
   if(atTarget(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   const k=postAt();
   if(k && locKey()!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);

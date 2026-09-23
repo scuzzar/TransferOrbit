@@ -6,22 +6,25 @@ export type Target = { node:NodeId; site?:string|null };
 export type RouteMode = 'eco'|'now';
 export type OrderState = 'open'|'aboard';
 export interface Order {
-  id:number; good:GoodId; n:number; from:PostId; to:PostId;
+  id:number; good:GoodId; containers:number; from:PostId; to:PostId;
   reward:number; dv:number; days:number; deadline:number; created:number; expires:number;
-  state:OrderState; fwdOrder:boolean; transship?:boolean; bulk?:boolean;
+  state:OrderState;
+  fromHubStore:boolean;   // made from a hub's store, a regional follow-up of a transhipment
+  toHub?:boolean;         // ends at a hub, whose store takes the goods, instead of at a customer
+  isBulk?:boolean;        // more containers than the Cog carries
 }
-// Amounts per post and good. stock and demand have a row for every post, the rest only
+// Amounts per post and good. produced and need have a row for every post, the rest only
 // where something is stored.
 export type Amounts = Partial<Record<GoodId,number>>;
-export interface Eco {
-  stock:Record<PostId,Amounts>;
-  fwd:Partial<Record<PostId,Amounts>>;
-  demand:Record<PostId,Amounts>;
+export interface Market {
+  produced:Record<PostId,Amounts>;              // made by a post and not yet handed out as an order
+  need:Record<PostId,Amounts>;                  // how badly a post wants a good, 0 to 3: where orders go
+  hubStore:Partial<Record<PostId,Amounts>>;     // goods delivered to a hub, waiting to be passed on in the region
+  bulkStore?:Partial<Record<PostId,Amounts>>;   // fills slowly beside produced; a full lot becomes a bulk order
+  bulkLot?:Partial<Record<PostId,Amounts>>;     // the lot size the next bulk order waits for, 7 to 18
   orders:Order[];
   nextId:number;
-  day:number;
-  bulk?:Partial<Record<PostId,Amounts>>;
-  bulkN?:Partial<Record<PostId,Amounts>>;
+  simulatedTo:number;                           // the last day the market has been run up to
 }
 
 // Milestones of the run; refuel:<body>@<site> marks each depot used once
@@ -37,13 +40,13 @@ export interface DomainState {
   site:string|null;
   ship:ShipId;
   fuel:number;
-  used:number;
+  dvUsed:number;            // delta-v burned so far, m/s
   credits:number;
   visited:Set<string>;
   flags:Flags;
-  target:PlanetId|null;     // the planet the transfer window on the solar system map points at
-  over:boolean;
-  eco:Eco;
+  windowPlanet:PlanetId|null;   // the planet the transfer window on the solar system map points at
+  bankrupt:boolean;
+  market:Market;
   autoFill:boolean;
 }
 
@@ -69,11 +72,11 @@ export function setState(next:GameState){ S=next; }
 
 export const eng = () => SHIPS[S.domain.ship];
 
-export const cargoOrders = ():Order[] => S.domain.eco.orders.filter(o=>o.state==='aboard');
+export const cargoOrders = ():Order[] => S.domain.market.orders.filter(o=>o.state==='aboard');
 
-export const cargoMass = () => cargoOrders().reduce((s,o)=>s+o.n*GOODS[o.good].m,0);
+export const cargoMass = () => cargoOrders().reduce((s,o)=>s+o.containers*GOODS[o.good].m,0);
 
-export const slotsUsed = () => cargoOrders().reduce((s,o)=>s+o.n,0);
+export const slotsUsed = () => cargoOrders().reduce((s,o)=>s+o.containers,0);
 
 export const dvWith = (f:number, cm:number) => eng().isp*G0*Math.log((eng().dry+cm+f)/(eng().dry+cm));
 
@@ -83,7 +86,7 @@ export const dvAvail = () => dvOf(S.domain.fuel);
 
 export function burn(dv:number){
   const cm=cargoMass(), m=(eng().dry+cm+S.domain.fuel)/Math.exp(dv/(eng().isp*G0));
-  S.domain.fuel=Math.max(0,m-eng().dry-cm); S.domain.used+=dv;
+  S.domain.fuel=Math.max(0,m-eng().dry-cm); S.domain.dvUsed+=dv;
 }
 
 export const locOf = (node:NodeId, site:string|null) => node+(site?'@'+site:'');

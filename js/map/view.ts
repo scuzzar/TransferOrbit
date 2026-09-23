@@ -75,7 +75,7 @@ export function onMapClick(e:MouseEvent){
   if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=pk?deeperView(pk):null; if(dv){ setView(dv); return; } }
   lastTap={key,t:now};
   UI.pick=pk;
-  if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.domain.target=best.pick.planet;
+  if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.domain.windowPlanet=best.pick.planet;
   changed();
 }
 

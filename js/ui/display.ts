@@ -25,7 +25,7 @@ export function header(){
   byId('shipname',HTMLElement).textContent=eng().name;
   byId('shipinfo',HTMLElement).textContent=`${eng().drive}, Isp ${eng().isp} s`;
   const cr=byId('credits',HTMLElement); cr.innerHTML=`${Math.round(S.domain.credits).toLocaleString('en-GB')} <small>Cr</small>`; cr.classList.toggle('neg',S.domain.credits<0);
-  const cells:string[]=[]; cargoOrders().forEach(o=>{ for(let i=0;i<o.n;i++) cells.push(`<i style="background:${GOODS[o.good].color}"></i>`); });
+  const cells:string[]=[]; cargoOrders().forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<i style="background:${GOODS[o.good].color}"></i>`); });
   while(cells.length<eng().slots) cells.push('<i></i>');
   byId('mslots',HTMLElement).innerHTML=cells.join('');
   byId('slotinfo',HTMLElement).textContent=`${eng().slots-slotsUsed()} of ${eng().slots} free`;
@@ -51,9 +51,9 @@ export function render(){
   document.body.classList.toggle('panel-open',pv);
   header(); draw(); renderPick(); renderAutobar(); toast();
   byId('mainview',HTMLElement).hidden=pv; byId('panel',HTMLElement).hidden=!pv;
-  byId('used',HTMLElement).textContent=`Total used: ${km(S.domain.used)} km/s`;
-  findAll(document,'[data-wait]',HTMLButtonElement).forEach(b=>b.disabled=S.action.busy||S.domain.over);
-  if(pv){ renderPanel(); findAll(document,'#panel button',HTMLButtonElement).forEach(b=>{ if(S.domain.over && !b.classList.contains('back')) b.disabled=true; }); return; }
+  byId('used',HTMLElement).textContent=`Total used: ${km(S.domain.dvUsed)} km/s`;
+  findAll(document,'[data-wait]',HTMLButtonElement).forEach(b=>b.disabled=S.action.busy||S.domain.bankrupt);
+  if(pv){ renderPanel(); findAll(document,'#panel button',HTMLButtonElement).forEach(b=>{ if(S.domain.bankrupt && !b.classList.contains('back')) b.disabled=true; }); return; }
   renderPlace();
 }
 

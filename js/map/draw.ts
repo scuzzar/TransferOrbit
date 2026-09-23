@@ -27,7 +27,7 @@ function drawSol(){
   ctx.lineWidth=1; ctx.strokeStyle=v('--orbit');
   PLANETS.forEach(k=>{ctx.beginPath(); ctx.arc(c,c,rOf(B[k].a),0,TAU); ctx.stroke();});
   ctx.fillStyle=v('--sun'); ctx.beginPath(); ctx.arc(c,c,6,0,TAU); ctx.fill();
-  const from=homePlanet(), tgt=S.domain.target;
+  const from=homePlanet(), tgt=S.domain.windowPlanet;
   if(from && tgt && tgt!==from){
     const t=transfer(from,tgt,S.domain.day), thA=theta(from,S.domain.day), thG=thA+t.phiStar, rT=rOf(B[tgt].a);
     ctx.strokeStyle=t.d<0.04?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;

@@ -15,7 +15,7 @@ import { btn, openRoute } from './widgets.js';
 export function renderPick(){
   const w = byId('pickcard',HTMLElement); w.innerHTML='';
   const p = UI.pick; if(!p) return;
-  const locked = S.action.busy || S.domain.over, c = document.createElement('div'); c.className='pick';
+  const locked = S.action.busy || S.domain.bankrupt, c = document.createElement('div'); c.className='pick';
   const tag = (cls:string, t:string) => `<span class="mtag ${cls}">${t}</span>`;
   let title='', tags:string[]=[], info='', stats:[string,string][]=[], btns:[string,string,()=>void][]=[];
   const close = `<button type="button" class="x" aria-label="Close the selection">×</button>`;

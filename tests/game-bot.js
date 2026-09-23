@@ -13,17 +13,17 @@ const AI = String.raw`
   const shipAt=(fuel,cm)=>TO.dvWith(fuel,cm);
   // best load from post k (start 'start', fuel 'fuel'): per destination the most valuable orders that fit the hold and the delta-v
   function bestLoad(k,start,fuel){
-    const offers=TO.S.domain.eco.orders.filter(o=>o.state==='open'&&o.from===k.id);
+    const offers=TO.S.domain.market.orders.filter(o=>o.state==='open'&&o.from===k.id);
     const byTo={}; offers.forEach(o=>(byTo[o.to]=byTo[o.to]||[]).push(o));
     let best=null;
     for(const [to,os] of Object.entries(byTo)){
       const tk=TO.POST_BY_ID[to], tgt=TO.kTarget(tk), pl=planFrom(start,tgt); if(!pl) continue;
-      os.sort((a,b)=>b.reward/(b.n*TO.GOODS[b.good].m+2)-a.reward/(a.n*TO.GOODS[a.good].m+2));
+      os.sort((a,b)=>b.reward/(b.containers*TO.GOODS[b.good].m+2)-a.reward/(a.containers*TO.GOODS[a.good].m+2));
       let pick=[], slots=0, cm=0;
-      for(const o of os){ if(slots+o.n>TO.eng().slots) continue; const m=o.n*TO.GOODS[o.good].m;
+      for(const o of os){ if(slots+o.containers>TO.eng().slots) continue; const m=o.containers*TO.GOODS[o.good].m;
         if(shipAt(fuel,cm+m)<pl.dv+60) continue;
         const dl=start.day+TO.legWait(TO.route(TO.POST_BY_ID[o.from],TO.POST_BY_ID[o.to]),start.day)+1.5*o.days+30; if(pl.arrive>dl) continue;
-        pick.push(o); slots+=o.n; cm+=m; }
+        pick.push(o); slots+=o.containers; cm+=m; }
       if(!pick.length) continue;
   // reserve: after delivering there must be enough left to reach the nearest depot
       const m0=TO.eng().dry+cm+fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.eng().isp*TO.G0))-TO.eng().dry-cm);
@@ -60,7 +60,7 @@ const AI = String.raw`
     }
   }
   window.turn=function(){
-    if(TO.S.domain.over){ log('BANKRUPT'); return 'over'; }
+    if(TO.S.domain.bankrupt){ log('BANKRUPT'); return 'over'; }
     // deliver
     const del=TO.deliverables(); if(del.length){ const sum=del.reduce((s,o)=>s+TO.payout(o),0); del.forEach(o=>{ if(TO.payout(o)<o.reward) EV.late++; }); TO.deliverAll(); EV.profit+=sum; log('delivered '+del.length+' orders, '+TO.fmtCr(sum)); }
     if(TO.stranded()){ const r=TO.rescueInfo(); EV.rescues++; EV.rescueCost+=r.cost; log('RESCUE '+(r.local?'credit':'tanker')+' '+TO.fmtCr(r.cost)+' @'+TO.locKey()); TO.rescue(); return 'rescue'; }
@@ -72,7 +72,7 @@ const AI = String.raw`
     // alternative: fly empty to another post and load there
     let alt=null;
     for(const kk of TO.POSTS){ if(k&&kk.id===k.id) continue;
-      if(!TO.S.domain.eco.orders.some(o=>o.state==='open'&&o.from===kk.id)) continue;
+      if(!TO.S.domain.market.orders.some(o=>o.state==='open'&&o.from===kk.id)) continue;
       const t=TO.kTarget(kk), pl=planFrom(start,t); if(!pl||pl.dv>TO.dvAvail()-100) continue;
       const m0=TO.eng().dry+TO.cargoMass()+TO.S.domain.fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.eng().isp*TO.G0))-TO.eng().dry-TO.cargoMass());
       const fuelThere=TO.fuelHere(t.node,t.site||null)?TO.eng().cap:fAfter;
@@ -84,7 +84,7 @@ const AI = String.raw`
     if(here && (!alt || here.score>=alt.score*0.9)){
   // accept
       TO.acceptOrders(here.pick.map(o=>o.id)); EV.orders+=here.pick.length;
-      log('loading '+here.pick.map(o=>o.n+'×'+TO.GOODS[o.good].sh).join(', ')+' for '+here.to.name+' ('+TO.fmtCr(here.rew)+', '+TO.km(here.pl.dv)+' km/s, '+TO.fmtDays(here.pl.days)+')');
+      log('loading '+here.pick.map(o=>o.containers+'×'+TO.GOODS[o.good].sh).join(', ')+' for '+here.to.name+' ('+TO.fmtCr(here.rew)+', '+TO.km(here.pl.dv)+' km/s, '+TO.fmtDays(here.pl.days)+')');
       EV.trips++; const ok=travel(TO.kTarget(here.to)); if(!ok) EV.stuck++;
       return 'trip';
     }
@@ -108,7 +108,7 @@ const AI = String.raw`
     if(i===0||[100,300].includes(i)) await p.screenshot({path:`play3_${i}.png`});
   }
   await p.screenshot({path:'play3_end.png'});
-  const out=await p.evaluate(()=>({EV, LOG, day:Math.round(TO.S.domain.day-TO.START_DAY), cr:Math.round(TO.S.domain.credits), ship:TO.S.domain.ship, used:Math.round(TO.S.domain.used)}));
+  const out=await p.evaluate(()=>({EV, LOG, day:Math.round(TO.S.domain.day-TO.START_DAY), cr:Math.round(TO.S.domain.credits), ship:TO.S.domain.ship, used:Math.round(TO.S.domain.dvUsed)}));
   require('fs').writeFileSync('play_log3.json',JSON.stringify({out,hist,errs,res},null,1));
   console.log('End:',res, 'errors:',errs.slice(0,5));
   console.log(JSON.stringify(out.EV));
