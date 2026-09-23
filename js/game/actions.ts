@@ -1,8 +1,9 @@
 // Which manoeuvres are possible from here. A pure query, changes nothing.
 
-import { B, BANKRUPT, BodyId, LAUNCH_FEE, M, NodeId, ROT, SITES, fmtCr, hasAtm, hasDepot, isMoon, latStr, moonsOf, rotPenalty, siteOf } from './world.js';
-import { HOP_FEE_SHARE, bodyDown, bodyUp, captDv, hopCost } from './physics.js';
+import { B, BANKRUPT, BodyId, LAUNCH_FEE, LandingSite, M, NodeId, ROT, bodyName, fmtCr, hasDepot, isMoon, latStr, rotPenalty, siteOf } from './world.js';
+import { HOP_FEE_SHARE, bodyDown, bodyUp, hopCost } from './physics.js';
 import { S } from './state.js';
+import { connectionsFrom } from './graph.js';
 
 export interface LocalAction {
   label:string; dv:number; days:number; to:NodeId;
@@ -10,58 +11,44 @@ export interface LocalAction {
 }
 type ActionExtra = Omit<LocalAction,'label'|'dv'|'days'|'to'>;
 
+// The manoeuvres from here: every connection out of the ship's node except the transfers to
+// other planets, with what the player reads about it and the fee for the ship as it is now
 export function localActions(): LocalAction[]{
-  const A:LocalAction[]=[], place=S.player.ship.place, ship=S.player.ship;
-  const add=(label:string,dv:number,days:number,to:NodeId,x:ActionExtra={})=>A.push({label,dv,days,to,...x});
-  if(!place) return A;
-  const k=place.body, l=place.level, site=place.site;
-  const landings=(body:BodyId,down:number)=>{
-    (SITES[body]||[]).forEach(st=>{
-      const pen=hasAtm(body)?0:rotPenalty(body,st.lat);
-      const bits=[latStr(st.lat)];
-      if(st.port) bits.push('Spaceport');
-      if(st.depot) bits.push(`Fuel depot (${st.depot} days)`);
-      add(`Land at ${st.name}`,down+pen,0.2,`${body}.surf`,{site:st.id,lat:st.lat,note:bits.join(', ')+(st.note?`. ${st.note}`:'')});
-    });
-  };
+  const place=S.player.ship.place, ship=S.player.ship;
+  if(!place) return [];
+  const mass=ship.def.dry+ship.cargoMass+ship.fuel;
   const launch=(body:BodyId)=>{
-    const st=siteOf(body,site), lat=st?st.lat:0, pen=rotPenalty(body,lat), rot=ROT[body]||0;
+    const st=siteOf(body,place.site), lat=st?st.lat:0, pen=rotPenalty(body,lat), rot=ROT[body]||0;
     const rotNote=rot>=20 ? `Launching at ${latStr(lat)}: ${Math.round(rot-pen)} of ${rot} m/s rotation bonus` : '';
-    return {lat,pen,rotNote};
+    return {lat,rotNote};
   };
-  if(l==='surf' && site) (SITES[k]||[]).forEach(st=>{
-    if(st.id===site) return;
-    const h=hopCost(k,site,st.id), full=bodyUp(k)+bodyDown(k);
-    const fee=h.launcher?Math.round(LAUNCH_FEE*(ship.def.dry+ship.cargoMass+ship.fuel)*HOP_FEE_SHARE):0;
-    add(`${h.launcher?'Suborbital flight':'Ballistic hop'} to ${st.name}`,h.dv,h.days,`${k}.surf`,{site:st.id,lat:st.lat,hop:true,...(fee?{fee}:{}),
-      note:`${Math.round(h.th*180/Math.PI)}° arc${h.launcher?`, fee ${fmtCr(fee)}`:`, ${Math.round((1-h.dv/full)*100)}% cheaper than going via orbit`}`});
-  });
-  if(isMoon(k)){
-    const m=M[k], p=m.parent;
-    if(l==='surf'){ const L=launch(k); add(`Ascend to ${m.orbitName||'orbit around '+m.name}`,m.up+L.pen,0.2,`${k}.orbit`,{note:[m.upNote,L.rotNote].filter(Boolean).join('. '),lat:L.lat}); }
-    else {
-      landings(k,m.down);
-      add(`Back to high orbit of ${B[p].name}`,m.xfer,m.days,`${p}.capt`);
+  return connectionsFrom(place).filter(c=>!c.transferWindow).map(c=>{
+    const to=c.to, k=place.body, add=(label:string,x:ActionExtra={}):LocalAction=>({label,dv:c.dv,days:c.days,to:to.node,...x});
+    if(c.hop && to instanceof LandingSite){
+      const h=hopCost(k,place.site,to.site), full=bodyUp(k)+bodyDown(k);
+      const fee=c.launchFee?Math.round(LAUNCH_FEE*mass*HOP_FEE_SHARE):0;
+      return add(`${c.launchFee?'Suborbital flight':'Ballistic hop'} to ${to.name}`,{site:to.site,lat:to.lat,hop:true,...(fee?{fee}:{}),
+        note:`${Math.round(h.th*180/Math.PI)}° arc${c.launchFee?`, fee ${fmtCr(fee)}`:`, ${Math.round((1-h.dv/full)*100)}% cheaper than going via orbit`}`});
     }
-  } else {
-    const b=B[k], sf=b.surf;
-    if(l==='surf' && sf){
+    if(to instanceof LandingSite){
+      const st=siteOf(to.body,to.site), bits=[latStr(to.lat)];
+      if(to.port) bits.push('Spaceport');
+      if(st?.depot) bits.push(`Fuel depot (${st.depot} days)`);
+      return add(`Land at ${to.name}`,{site:to.site,lat:to.lat,note:bits.join(', ')+(to.note?`. ${to.note}`:'')});
+    }
+    if(place.level==='surf'){
       const L=launch(k);
-      if(sf.launcher){ const fee=Math.round(LAUNCH_FEE*(ship.def.dry+ship.cargoMass+ship.fuel));
-        add('Ride a launcher to orbit',L.pen,1,`${k}.orbit`,{lat:L.lat,fee,note:`Launch fee ${fmtCr(fee)}${fee>S.player.credits?', deferred':''}. The missing rotation bonus comes out of your tank. ${L.rotNote}`}); }
-      else add('Ascend to orbit',sf.up+L.pen,0.2,`${k}.orbit`,{lat:L.lat,note:L.rotNote});
+      if(isMoon(k)){ const m=M[k]; return add(`Ascend to ${m.orbitName||'orbit around '+m.name}`,{note:[m.upNote,L.rotNote].filter(Boolean).join('. '),lat:L.lat}); }
+      if(c.launchFee){ const fee=Math.round(LAUNCH_FEE*mass);
+        return add('Ride a launcher to orbit',{lat:L.lat,fee,note:`Launch fee ${fmtCr(fee)}${fee>S.player.credits?', deferred':''}. The missing rotation bonus comes out of your tank. ${L.rotNote}`}); }
+      return add('Ascend to orbit',{lat:L.lat,note:L.rotNote});
     }
-    if(l==='orbit'){
-      if(b.surf) landings(k,b.surf.down);
-      add('Up to high orbit',captDv(k),1,`${k}.capt`,{note:'Starting point for transfers and for the moons'});
-    }
-    if(l==='capt'){
-      add('Down to low orbit',captDv(k),1,`${k}.orbit`);
-      if(b.atm) add('Aerobrake into low orbit',60,40,`${k}.orbit`,{aero:true, note:'Many passes through the upper atmosphere'});
-      moonsOf(k).forEach(m=>add(`To ${M[m].name==='Moon'?'the Moon':M[m].name}`,M[m].xfer,M[m].days,`${m}.orbit`,{note:`Insertion into orbit around ${M[m].name}`+(hasDepot(m)?', fuel depot on the surface':'')}));
-    }
-  }
-  return A;
+    if(isMoon(k)) return add(`Back to high orbit of ${B[to.planet].name}`);
+    if(place.level==='orbit') return add('Up to high orbit',{note:'Starting point for transfers and for the moons'});
+    if(to.body===k) return c.dv<100 ? add('Aerobrake into low orbit',{aero:true, note:'Many passes through the upper atmosphere'}) : add('Down to low orbit');
+    const m=to.body;
+    return add(`To ${bodyName(m)==='Moon'?'the Moon':bodyName(m)}`,{note:`Insertion into orbit around ${bodyName(m)}`+(hasDepot(m)?', fuel depot on the surface':'')});
+  });
 }
 
 // The launch fee can be deferred: the account may go negative for it, but not into bankruptcy.

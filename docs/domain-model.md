@@ -59,9 +59,9 @@ The code in `js/game/` was written against an earlier model and departs from thi
   and saved, instead of `Good.bulkLot` and a daily test.
 - **Zones of influence** are the `REGION` table (body to hub id); the shipyard opens at any post
   flagged as a hub.
-- **Connections** are computed in `game/actions.ts` and `game/graph.ts` from the body tables;
-  there are no `Connection` objects and no `transferWindow` flag. Bodies are two tables (`B` for
-  planets, `M` for moons) with short field names (`a`, `T`, `L0`, `mu`, `R`, `alt`).
+- **Bodies** are two tables (`B` for planets, `M` for moons) with short field names (`a`, `T`,
+  `L0`, `mu`, `R`, `alt`) and the delta-v of landing and ascent (`up`, `down`, `xfer`), from which
+  the connections are built, instead of `Body` objects.
 - **Transit.** `InTransit` exists only for transfers between planets; every other manoeuvre is
   `busy` plus an animation.
 - **Market.** There is no `Market.advance(day)`; `marketAdvance()` in `game/economy.ts` reads the

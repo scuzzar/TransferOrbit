@@ -25,11 +25,11 @@ const ready = (async () => {
   execFileSync(path.join(root, 'node_modules', '.bin', 'tsc'), ['-p', path.join(root, 'tsconfig.json'), '--noEmit', 'false', '--rootDir', root, '--outDir', out], { stdio: 'inherit' });
   fs.writeFileSync(path.join(out, 'package.json'), '{"type":"module"}');
   const load = m => import(pathToFileURL(path.join(out, 'js', m + '.js')).href);
-  const [world, state, save, commands, economy, actions, basics, events] =
-    await Promise.all(['game/world', 'game/state', 'game/save', 'game/commands', 'game/economy', 'game/actions', 'basics', 'events'].map(load));
+  const [world, state, save, commands, economy, actions, graph, basics, events] =
+    await Promise.all(['game/world', 'game/state', 'game/save', 'game/commands', 'game/economy', 'game/actions', 'game/graph', 'basics', 'events'].map(load));
   basics.ANIM.instant = true;
   const reports = []; events.onReport((text, kind) => reports.push({ text, kind }));
-  return { world, state, save, commands, economy, actions, reports };
+  return { world, state, save, commands, economy, actions, graph, reports };
 })();
 
 // A fresh game with a fixed seed; S is read through the module so it is always the current one
@@ -97,6 +97,23 @@ test('Node labels read like the game has always named places', async () => {
   assert.equal(nodeOf('mars.capt').label, 'High orbit of Mars');
   assert.equal(nodeOf('mars.orbit').label, 'Low orbit of Mars');
   assert.equal(nodeOf('phobos.orbit').label, 'orbit around Phobos');
+});
+
+test('Connections lead from node to node; transfers between planets have a window, launchers a fee', async () => {
+  const m = await ready;
+  const { world: { nodeOf, NODES } } = m, g = m.graph;
+  for (const n of NODES) for (const c of g.connectionsFrom(n)) {
+    assert.equal(c.from, n); assert.ok(c.to instanceof m.world.Node); assert.notEqual(c.to, n);
+    assert.ok(c.dv >= 0 && c.days > 0, `${n.key} > ${c.to.key}`);
+    assert.equal(c.transferWindow, n.level === 'capt' && c.to.level === 'capt', `${n.key} > ${c.to.key}`);
+  }
+  const up = g.connectionsFrom(nodeOf('earth.surf', 'kourou'));
+  assert.ok(up.find(c => c.to === nodeOf('earth.orbit')).launchFee);                  // a launcher lifts you off the Earth
+  assert.ok(up.filter(c => c.hop).every(c => c.launchFee));                           // and flies the suborbital hops
+  assert.ok(!g.connectionsFrom(nodeOf('mars.surf', 'pavonis')).some(c => c.launchFee));
+  const t = g.connectionsFrom(nodeOf('earth.capt')).find(c => c.to === nodeOf('mars.capt'));
+  assert.deepEqual(t.leg, ['earth', 'mars']); assert.equal(t.dv, g.idealTransfer('earth', 'mars').total);
+  assert.equal(g.connectionsFrom(nodeOf('earth.capt')), g.connectionsFrom(nodeOf('earth.capt')));   // built once
 });
 
 // ── Ship ───────────────────────────────────────────────────────────────────

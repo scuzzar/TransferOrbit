@@ -1,6 +1,7 @@
-// The route graph behind pricing: idealised cost between two places.
+// The connections between the places, and the route graph behind pricing: idealised cost
+// between two places.
 
-import { B, BodyId, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, rotPenalty, siteOf, splitNode } from './world.js';
+import { B, BodyId, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf } from './world.js';
 import { popMin } from '../basics.js';
 import { captDv, hopCost, transfer } from './physics.js';
 
@@ -12,15 +13,33 @@ export function idealTransfer(a: PlanetId, b: PlanetId){
   return idealCache[key]={total:t.total, tof:t.tof};
 }
 
-// hop: between two sites of one body; launch: on a launcher (fee); leg: an interplanetary transfer
-export interface Edge { node:NodeId; site:string|null; dv:number; days:number; hop?:boolean; launch?:boolean; leg?:[PlanetId,PlanetId] }
+// A connection: a manoeuvre from one node to another, what it costs and how long it takes.
+// launchFee: a launcher flies it, for a fee (on Earth). transferWindow: a transfer between the
+// high orbits of two planets, whose dv and days are the values in the ideal window; leaving on
+// another day costs more and flies faster (physics.transfer).
+export class Connection {
+  readonly from:Node; readonly to:Node;
+  readonly dv:number; readonly days:number;
+  readonly launchFee:boolean; readonly transferWindow:boolean;
+  constructor(from:Node, to:Node, dv:number, days:number, launchFee=false, transferWindow=false){
+    this.from=from; this.to=to; this.dv=dv; this.days=days; this.launchFee=launchFee; this.transferWindow=transferWindow;
+  }
+  // between two landing sites of one body
+  get hop(){ return this.from.level==='surf' && this.to.level==='surf'; }
+  // the two planets of a transfer
+  get leg():[PlanetId,PlanetId]|null { return this.transferWindow ? [this.from.planet, this.to.planet] : null; }
+}
 
-export function edgesFrom(node: NodeId, site: string|null): Edge[]{
-  const [k,l]=splitNode(node); const E: Edge[]=[];
-  const e=(n:NodeId, s:string|null, dv:number, days:number, x:Pick<Edge,'hop'|'launch'|'leg'>={})=>E.push({node:n,site:s||null,dv,days,...x});
+// The connections that lead out of a node, built once per node. The order matters: it breaks
+// ties in the route searches.
+const OUT = new Map<Node, Connection[]>();
+export function connectionsFrom(from:Node): Connection[]{
+  const hit=OUT.get(from); if(hit) return hit;
+  const k=from.body, l=from.level, site=from.site, E:Connection[]=[];
+  const e=(n:NodeId, s:string|null, dv:number, days:number, launch=false, window=false)=>E.push(new Connection(from, nodeOf(n,s), dv, days, launch, window));
   const lat=(body:BodyId, s:string|null)=>{const st=siteOf(body,s); return st?st.lat:0;};
   const lands=(body:BodyId, down:number)=>(SITES[body]||[]).forEach(st=>e(`${body}.surf`,st.id,down+(hasAtm(body)?0:rotPenalty(body,st.lat)),0.2));
-  if(l==='surf' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(`${k}.surf`,st.id,h.dv,h.days,{hop:true,launch:h.launcher}); });
+  if(l==='surf' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(`${k}.surf`,st.id,h.dv,h.days,h.launcher); });
   if(isMoon(k)){
     const m=M[k];
     if(l==='surf') e(`${k}.orbit`,null,m.up+rotPenalty(k,lat(k,site)),0.2);
@@ -28,42 +47,43 @@ export function edgesFrom(node: NodeId, site: string|null): Edge[]{
   } else {
     const b=B[k];
     const sf=b.surf;
-    if(l==='surf' && sf){ const pen=rotPenalty(k,lat(k,site)); e(`${k}.orbit`,null,sf.launcher?pen:sf.up+pen,sf.launcher?1:0.2,{launch:!!sf.launcher}); }
+    if(l==='surf' && sf){ const pen=rotPenalty(k,lat(k,site)); e(`${k}.orbit`,null,sf.launcher?pen:sf.up+pen,sf.launcher?1:0.2,!!sf.launcher); }
     if(l==='orbit'){ if(b.surf) lands(k,b.surf.down); e(`${k}.capt`,null,captDv(k),1); }
     if(l==='capt'){
       e(`${k}.orbit`,null,captDv(k),1); if(b.atm) e(`${k}.orbit`,null,60,40);
       moonsOf(k).forEach(m=>e(`${m}.orbit`,null,M[m].xfer,M[m].days));
-      PLANETS.filter(p=>p!==k).forEach(p=>{const t=idealTransfer(k,p); e(`${p}.capt`,null,t.total,t.tof,{leg:[k,p]});});
+      PLANETS.filter(p=>p!==k).forEach(p=>{const t=idealTransfer(k,p); e(`${p}.capt`,null,t.total,t.tof,false,true);});
     }
   }
+  OUT.set(from,E);
   return E;
 }
 
-export interface RouteResult { dv:number; days:number; legs:[PlanetId,PlanetId][]; launch:boolean; first:Edge|null }
+// launch: the route rides a launcher up from a surface; first: its first connection
+export interface RouteResult { dv:number; days:number; legs:[PlanetId,PlanetId][]; launch:boolean; first:Connection|null }
 const routeCache: Record<string, RouteResult> = {};
-// Anything route() can start or end at: a trading post, or the ship's place ('@'+key)
+// Anything route() can start or end at: a trading post, or the ship's node ('@'+key)
 export interface RoutePoint { id:string; node:NodeId; site:string|null }
 
 export function route(from: RoutePoint, to: RoutePoint): RouteResult{
   const key=from.id+'>'+to.id, hit=routeCache[key]; if(hit) return hit;
-  const startSite = from.site || (from.node==='earth.surf' ? 'kourou' : null);
-  const sk=(n:NodeId, s:string|null)=>n+'|'+(s||'');
-  const dist=new Map<string, {c:number; dv:number; days:number}>(), prev=new Map<string, {k:string; ed:Edge}>(), done=new Set<string>();
-  const q=[{n:from.node,s:startSite,c:0}]; dist.set(sk(from.node,startSite),{c:0,dv:0,days:0});
-  let goal:string|null=null;
+  const start=nodeOf(from.node, from.site), goalNode=nodeOf(to.node, to.site);
+  const dist=new Map<Node, {c:number; dv:number; days:number}>(), prev=new Map<Node, {n:Node; ed:Connection}>(), done=new Set<Node>();
+  const q=[{n:start,c:0}]; dist.set(start,{c:0,dv:0,days:0});
+  let goal:Node|null=null;
   for(let cur=popMin(q); cur; cur=popMin(q)){
-    const ck=sk(cur.n,cur.s), d=dist.get(ck);
-    if(done.has(ck) || !d) continue; done.add(ck);
-    if(cur.n===to.node && (!to.site || cur.s===to.site)){ goal=ck; break; }
-    for(const ed of edgesFrom(cur.n,cur.s)){
-      const nk=sk(ed.node,ed.site), c=d.dv+ed.dv + (d.days+ed.days)*0.01, old=dist.get(nk);
-      if(!old || c<old.c){ dist.set(nk,{c,dv:d.dv+ed.dv,days:d.days+ed.days}); prev.set(nk,{k:ck,ed}); q.push({n:ed.node,s:ed.site,c}); }
+    const d=dist.get(cur.n);
+    if(done.has(cur.n) || !d) continue; done.add(cur.n);
+    if(cur.n===goalNode){ goal=cur.n; break; }
+    for(const ed of connectionsFrom(cur.n)){
+      const c=d.dv+ed.dv + (d.days+ed.days)*0.01, old=dist.get(ed.to);
+      if(!old || c<old.c){ dist.set(ed.to,{c,dv:d.dv+ed.dv,days:d.days+ed.days}); prev.set(ed.to,{n:cur.n,ed}); q.push({n:ed.to,c}); }
     }
   }
   const end=goal ? dist.get(goal) : undefined;
   if(!goal || !end) return routeCache[key]={dv:Infinity,days:0,legs:[],launch:false,first:null};
-  const legs: [PlanetId,PlanetId][] = []; let launch=false, first: Edge|null = null;
-  for(let p=prev.get(goal); p; p=prev.get(p.k)){ const {ed}=p; if(ed.leg) legs.unshift(ed.leg); if(ed.launch && !ed.hop) launch=true; first=ed; }
+  const legs: [PlanetId,PlanetId][] = []; let launch=false, first: Connection|null = null;
+  for(let p=prev.get(goal); p; p=prev.get(p.n)){ const {ed}=p; if(ed.leg) legs.unshift(ed.leg); if(ed.launchFee && !ed.hop) launch=true; first=ed; }
   return routeCache[key]={dv:end.dv, days:end.days, legs, launch, first};
 }
 
