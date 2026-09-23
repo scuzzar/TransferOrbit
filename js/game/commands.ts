@@ -6,7 +6,7 @@
 
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
-import { BODIES, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
+import { BODIES, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode, postAt } from './world.js';
 import { transfer } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
 import { connectionsFrom, route } from './graph.js';
@@ -165,7 +165,7 @@ export function stranded(){
     // not for an open order from here, and not to reach another post that has orders.
     const key=['k',me.key,Math.round(ship.fuel*10),ship.cargoMass,ship.type,Math.floor(S.day/10)].join('|');
     if(strandCache.key!==key){
-      const dv=ship.dvAvail, k=me.post;
+      const dv=ship.dvAvail, k=postAt(me);
       const cargoOk=ship.hold.length && ship.hold.every(o=>route(me,POST_BY_ID[o.to]).dv<=dv+0.5);
       const hereOk=k && S.market.post(k.id).offers.some(o=>ship.dvWith(ship.fuel,ship.cargoMass+o.mass)>=o.dv);
 // elsewhere: the approach plus the order's route must fit the fuel on board together
@@ -232,11 +232,11 @@ export function doRefuel(amount:number){
 // The most delta-v the cargo on board needs from here
 export function routeNeedHere(){
   const me=S.player.ship.place; if(!me) return 0;
-  const k=me.post;
+  const k=postAt(me);
   return S.player.ship.hold.reduce((mx:number,o:Order)=>Math.max(mx, POST_BY_ID[o.to]===k?0:route(me,POST_BY_ID[o.to]).dv),0);
 }
 
-export const deliverables = () => { const k=S.player.ship.place?.post; return k ? S.player.ship.hold.filter(o=>o.to===k.id) : []; };
+export const deliverables = () => { const p=S.player.ship.place, k=p ? postAt(p) : null; return k ? S.player.ship.hold.filter(o=>o.to===k.id) : []; };
 
 export function deliverAll(){ const list=deliverables(); if(!list.length||!S.canAct) return;
   let sum=0; list.forEach(o=>{ sum+=o.payout(S.day); deliverOrder(o,true); });
@@ -302,7 +302,7 @@ function autoTick(){
   if(S.player.ship.underWay){ autoLater(250); return; }
   if(S.player.bankrupt) return stopAutopilot();
   if(S.player.ship.isAt(A.target)) return stopAutopilot(`Autopilot: target reached, ${A.target.label}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
-  const k=S.player.ship.place?.post;
+  const here=S.player.ship.place, k=here ? postAt(here) : null;
   if(k && S.player.ship.place!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);
   const plan=planRoute(A.target, A.mode);
   const st=plan?.steps[0];

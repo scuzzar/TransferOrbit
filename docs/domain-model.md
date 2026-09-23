@@ -49,8 +49,10 @@ hangs on it. White boxes are value lists.
 - **Starports, hubs and industries** are the same in every game (name, place, what they make and
   need, which hub), yet every game builds its own, owned by its market: the stores, demands and
   offers of that game hang on them, and a starport shared by all games could not say which game's
-  store is meant. Their fixed data comes from the starport table in `game/world.ts`. A node finds
-  its starport through the game's market, hence `/has`.
+  store is meant. Their fixed data comes from the starport table in `game/world.ts`. So every
+  arrow between the game and the world points from the game into the world, never back: a
+  starport knows the node it lies `at`, and which starport lies at a node is a question to the
+  game's market.
 - **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
   no reason to stop. `target` is where it ends.
 

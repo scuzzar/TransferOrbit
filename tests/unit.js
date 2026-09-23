@@ -76,14 +76,14 @@ test('A node knows its body, level and planet; a moon counts as its planet', asy
   assert.equal(nodeOf('mars.surf', 'pavonis').port, true);
 });
 
-test('A node finds the trading post there, by site where the body has several', async () => {
-  const { world: { nodeOf } } = await ready;
-  assert.equal(nodeOf('moon.surf', 'shackleton').post?.id, 'shackleton');
-  assert.equal(nodeOf('moon.surf', 'tranquillitatis').post?.id, 'tranq');
-  assert.equal(nodeOf('earth.surf', 'kourou').post?.id, 'kourou');     // every Earth spaceport is a starport of its own
-  assert.equal(nodeOf('earth.surf', 'plesetsk').post?.id, 'plesetsk');
-  assert.equal(nodeOf('earth.orbit').post?.id, 'shipyard');
-  assert.equal(nodeOf('venus.surf', 'ishtar').post, null);
+test('The starport table finds the starport at a node, by site where the body has several', async () => {
+  const { world: { nodeOf, postAt } } = await ready;
+  assert.equal(postAt(nodeOf('moon.surf', 'shackleton'))?.id, 'shackleton');
+  assert.equal(postAt(nodeOf('moon.surf', 'tranquillitatis'))?.id, 'tranq');
+  assert.equal(postAt(nodeOf('earth.surf', 'kourou'))?.id, 'kourou');     // every Earth spaceport is a starport of its own
+  assert.equal(postAt(nodeOf('earth.surf', 'plesetsk'))?.id, 'plesetsk');
+  assert.equal(postAt(nodeOf('earth.orbit'))?.id, 'shipyard');
+  assert.equal(postAt(nodeOf('venus.surf', 'ishtar')), null);
 });
 
 test('The Earth has four starports, one per spaceport, that together make and need what the Earth did', async () => {

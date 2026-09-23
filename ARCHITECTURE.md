@@ -210,8 +210,11 @@ An order lies at the post it comes from (`post.offers`) until the ship takes it
 aboard (`ship.hold`); where it lies is its state, there is no field for it that
 could disagree. The places are fixed objects in `game/world.ts`: a `Node` is a
 body and a level, on a surface every node is a `LandingSite`, and there is one
-object per place, so `===` compares them. A node knows its planet, its trading
-post, its `Depot` (fuel price and fill time) and its label on screen. Planets and
+object per place, so `===` compares them. A node knows its planet, its `Depot`
+(fuel price and fill time) and its label on screen. It does not point to its
+starport: arrows only lead from the game into the world, so which starport lies
+at a node is a question to the game's market (`market.at(node)`), or to the
+starport table (`postAt(node)`) for its fixed data. Planets and
 moons are `Body` objects, and a `Connection` leads from node to node with its
 delta-v and days (`game/graph.js` builds the ones out of each node once). The
 questions that used to be free functions on `S` are properties now:

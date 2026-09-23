@@ -301,8 +301,6 @@ export class Node {
   get id():string { return '@'+this.key; }
   // the planet it belongs to; a moon counts as its planet
   get planet():PlanetId { const b=this.body; return isMoon(b) ? M[b].parent : b; }
-  // the trading post here, if there is one
-  get post():Post|null { return POSTS.find(k=>k.node===this.node && k.site===this.site) || null; }
   get depot():Depot|null { return DEPOT_AT.get(this.key) ?? null; }
   // how the place is called on screen
   get label():string {
@@ -374,5 +372,9 @@ export const DEPOT_LIST:readonly Depot[] = Object.entries(FUEL_PRICE).map(([key,
   return new Depot(at,price,days);
 });
 const DEPOT_AT = new Map(DEPOT_LIST.map(d=>[d.at.key,d]));
+
+// The starport table's row for the starport at a node, if there is one there: a query on the
+// table, the node itself does not point to its starport
+export function postAt(n: Node): Post|null { return POSTS.find(k=>k.node===n.node && k.site===n.site) || null; }
 
 export function fuelHere(node: NodeId, site: string|null): boolean{ return !!nodeAt(node,site)?.depot; }

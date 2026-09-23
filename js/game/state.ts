@@ -144,8 +144,8 @@ export class Market {
   simulatedTo:number;           // the last day the market has been run up to
   constructor(posts:Record<PostId,Starport>, nextId:number, simulatedTo:number){ this.posts=posts; this.nextId=nextId; this.simulatedTo=simulatedTo; }
   post(id:PostId){ return this.posts[id]; }
-  // the starport at a node in this game, if there is one there
-  at(n:Node):Starport|null { const k=n.post; return k ? this.posts[k.id] : null; }
+  // the starport at a node in this game, if there is one there: the world does not point back
+  at(n:Node):Starport|null { return POSTS.map(k=>this.posts[k.id]).find(p=>p.at===n) ?? null; }
   hub(id:PostId):Hub|null { const p=this.posts[id]; return p instanceof Hub ? p : null; }
   // every open order, in id order
   get offers():Order[] { return POSTS.flatMap(k=>this.posts[k.id].offers).sort((a,b)=>a.id-b.id); }

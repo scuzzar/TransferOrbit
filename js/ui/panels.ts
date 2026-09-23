@@ -2,7 +2,7 @@
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, SHIPS, hubFor, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
+import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, SHIPS, hubFor, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode, postAt } from '../game/world.js';
 import { Order, RouteMode, S } from '../game/state.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
 import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
@@ -14,7 +14,7 @@ import { btn, dots, gchip, ibtn, openRoute, openView, phead, routeLink } from '.
 export function acceptSelected(){ if(acceptOrders(UI.sel)) openView('cargo'); }
 
 function panelPost(p:HTMLElement){
-  const k=(S.player.ship.near?.post??null); if(!k){ openView('main'); return; }
+  const k=(S.player.ship.near ? postAt(S.player.ship.near) : null); if(!k){ openView('main'); return; }
   const post=S.market.post(k.id), locked=!S.canAct, free=S.player.ship.def.slots-S.player.ship.slotsUsed;
   p.appendChild(phead(`${k.name} Trading Post`, `${esc(postPlace(k))}. ${fmtCr(S.player.credits)}, ${free} cargo ${free===1?'slot':'slots'} free.`, k.hub?'Hub':''));
   const del=deliverables();
@@ -85,7 +85,7 @@ function panelPost(p:HTMLElement){
 }
 
 function panelCargo(p:HTMLElement){
-  const locked=!S.canAct, co=S.player.ship.hold, near=S.player.ship.near, hereK=(near?.post??null);
+  const locked=!S.canAct, co=S.player.ship.hold, near=S.player.ship.near, hereK=(near ? postAt(near) : null);
   p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, near?`Currently in ${esc(near.label)}.`:'Under way.', ''));
   const slots=document.createElement('div'); slots.className='bigslots';
   const cells:string[]=[]; co.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].shortName}</b><span>${GOODS[o.good].mass} t</span></div>`); });
@@ -166,7 +166,7 @@ function panelRefuel(p:HTMLElement){
 }
 
 function panelShipyard(p:HTMLElement){
-  const k=(S.player.ship.near?.post??null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
+  const k=(S.player.ship.near ? postAt(S.player.ship.near) : null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
   const locked=!S.canAct, cur=S.player.ship.def;
   p.appendChild(phead('Shipyard', `${esc(postLabel(k))}. Balance ${fmtCr(S.player.credits)}.`, ''));
   const note=document.createElement('p'); note.className='kinfo';
@@ -194,7 +194,7 @@ function panelShipyard(p:HTMLElement){
 
 export function renderPlace(){
   const w=byId('placecard',HTMLElement); w.innerHTML='';
-  const near=S.player.ship.near, k=(near?.post??null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
+  const near=S.player.ship.near, k=(near ? postAt(near) : null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
   const c=document.createElement('div'); c.className='place';
   const tr=S.player.ship.transit, where=near?near.label:tr?`Under way to ${BODIES[tr.to].name}`:'Under way';
   const info = k ? `${k.makes.length?'Produces '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`

@@ -185,7 +185,7 @@ Order --> OrderState : /state
 Node "*" --> "1" Body : on / around
 Node --> Level : level
 Node <|-- LandingSite
-Node "1" --> "0..1" Starport : /has
+Starport "0..1" --> "1" Node : at
 Body "0..1" <-- "*" Body : orbits
 Depot "0..1" --> "1" Node : at
 Connection "*" --> "1" Node : from

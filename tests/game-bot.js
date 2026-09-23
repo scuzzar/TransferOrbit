@@ -50,7 +50,7 @@ const AI = String.raw`
     log('route to '+target.label+' not reached after 40 steps'); return false;
   }
   function tryBuy(){
-    const k=TO.S.player.ship.place?.post; if(!k||!k.hub) return;
+    const pl=TO.S.player.ship.place, k=pl?TO.postAt(pl):null; if(!k||!k.hub) return;
     const order=['hulk','galleon','carrack'];
     for(const id of order.slice().reverse()){
       if(id===TO.S.player.ship.type) return; const sh=TO.SHIPS[id]; if(sh.price<=TO.S.player.ship.def.price) continue;
@@ -67,7 +67,7 @@ const AI = String.raw`
     refuel(); tryBuy();
     if(TO.S.player.ship.type==='carrack') return 'done';
     const start={node:TO.S.player.ship.place.node,site:TO.S.player.ship.place.site,day:TO.S.day};
-    const k=TO.S.player.ship.place?.post;
+    const pl=TO.S.player.ship.place, k=pl?TO.postAt(pl):null;
     let here=k?bestLoad(k,start,TO.S.player.ship.fuel):null;
     // alternative: fly empty to another post and load there
     let alt=null;
