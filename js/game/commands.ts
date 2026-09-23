@@ -6,7 +6,7 @@
 
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
-import { B, BANKRUPT, GOODS, HubId, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
+import { B, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
 import { route } from './graph.js';
@@ -17,7 +17,7 @@ import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
 import { parseSave } from './save.js';
 
 // smallest ship that can carry n containers; none for more than the largest one holds
-export const shipFor = (n:number):ShipDef|undefined => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
+export const shipFor = (n:number):ShipClass|undefined => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
 
 export function newGame(){
   const start=nodeOf('earth.orbit');
@@ -178,14 +178,14 @@ export function stranded(){
   return strandCache.val;
 }
 
-// Emergency refuelling: a tanker brings a full tank to you. Travel time depends on the region.
+// Emergency refuelling: a tanker brings a full tank to you. Travel time depends on the hub's zone.
 const RESCUE_DAYS: Record<HubId, number> = {shipyard:20, pavonis:90, valhalla:200};
 
 export function rescueInfo(){
   const ri=refuelInfo(), ship=S.player.ship, amount=ship.def.cap-ship.fuel;
   if(ri) return {amount, cost:Math.round(2000+ri.price*amount), days:ri.days, lift:false, local:true};
   const cost=Math.round(RESCUE_BASE+RESCUE_PER_T*amount);
-  const b=ship.place?.body, days=b ? RESCUE_DAYS[REGION[b]] : 60;
+  const b=ship.place?.body, days=b ? RESCUE_DAYS[hubFor(b)] : 60;
 // If not even a full tank allows any manoeuvre (the surface of Venus), the tanker lifts the ship into orbit
   const lift=!localActions().some(a=>a.to && a.dv<=ship.dvWith(ship.def.cap)+0.5);
   return {amount,cost,days,lift};

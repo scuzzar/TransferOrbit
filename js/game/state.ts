@@ -2,7 +2,7 @@
 // that relate the way the things in the game do. Never writes anything by itself; the
 // commands decide when a method runs. docs/domain-model.md draws the whole picture.
 
-import { G0, GOODS, GoodId, Node, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, ShipId, byPost, isGood } from './world.js';
+import { BodyId, G0, GOODS, GoodId, Node, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, SHIP_IDS, ShipId, ZONES, byPost, isGood, nodeOf } from './world.js';
 
 export type RouteMode = 'eco'|'now';
 // Amounts per good, as a save writes the stores and demands
@@ -55,7 +55,7 @@ export class Order {
     this.reward=o.reward; this.dv=o.dv; this.days=o.days; this.deadline=o.deadline; this.created=o.created; this.expires=o.expires;
     this.fromHubStore=o.fromHubStore; this.toHub=o.toHub; this.isBulk=o.isBulk===true;
   }
-  get mass(){ return this.containers*GOODS[this.good].m; }
+  get mass(){ return this.containers*GOODS[this.good].mass; }
   lateFactor(day:number){ return lateFactor(this.deadline,day); }
   payout(day:number){ return Math.round(this.reward*this.lateFactor(day)); }
 }
@@ -115,14 +115,23 @@ export class Starport {
   readonly offers:Order[]=[];
   constructor(def:Post, industry:Industry){ this.def=def; this.industry=industry; }
   get id():PostId { return this.def.id; }
+  get name():string { return this.def.name; }
+  // the node the starport lies at
+  get at():Node { return nodeOf(this.def.node, this.def.site); }
   offer(o:Order){ insertById(this.offers,o); }
   withdraw(o:Order){ return removeFrom(this.offers,o); }
 }
 
-// A hub also takes goods for transhipment and passes them on as short orders in its zone
+// A hub also takes goods for transhipment and passes them on as short orders in its zone of
+// influence, and its shipyard sells every class of ship
 export class Hub extends Starport {
   readonly transship:PerGood<Store>;
-  constructor(def:Post, industry:Industry, transship:PerGood<Store>){ super(def,industry); this.transship=transship; }
+  readonly zone:readonly BodyId[];
+  readonly sells:readonly ShipId[]=SHIP_IDS;
+  constructor(def:Post, industry:Industry, transship:PerGood<Store>){
+    super(def,industry); this.transship=transship;
+    if(!def.hub) throw new Error(`${def.id} is no hub`); this.zone=ZONES[def.hub];
+  }
   get stored(){ return totalStock(this.transship); }
 }
 
@@ -154,7 +163,7 @@ export class Ship {
   dock(n:Node){ this.location=new Docked(n); }
   depart(t:InTransit){ this.location=t; }
 
-  get cargoMass(){ return this.hold.reduce((s,o)=>s+o.containers*GOODS[o.good].m,0); }
+  get cargoMass(){ return this.hold.reduce((s,o)=>s+o.containers*GOODS[o.good].mass,0); }
   get slotsUsed(){ return this.hold.reduce((s,o)=>s+o.containers,0); }
   get slotsFree(){ return this.def.slots-this.slotsUsed; }
   // Tsiolkovsky: the delta-v a given tank and cargo allow

@@ -12,8 +12,11 @@ export interface BodySurf { up:number; down:number; launcher?:boolean; note?:str
 export interface Body { name:string; a:number; T:number; L0:number; mu:number; R:number; alt:number; atm:boolean; surf:BodySurf|null; color:string }
 export interface Moon { name:string; parent:PlanetId; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
 export interface Site { id:string; name:string; lat:number; lon:number; port?:boolean; depot?:number; note?:string }
-export interface ShipDef { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
-export interface GoodDef { name:string; sh:string; m:number; w:number; lot:[number,number]; rate:number; color:string }
+// A class of ship: drive, specific impulse (s), dry mass and tank (t), cargo slots, price (Cr)
+export interface ShipClass { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
+// A good: mass per container (t), value per container (Cr), order size (containers), one
+// container made every rate days
+export interface Good { name:string; shortName:string; mass:number; value:number; lot:[number,number]; rate:number; color:string }
 export interface Post { id:PostId; name:string; node:NodeId; site:string|null; makes:GoodId[]; needs:GoodId[]; hub?:HubId }
 
 // Circular orbits with real mean longitudes (J2000) and periods
@@ -139,24 +142,24 @@ const SHIP_TABLE = {
   hulk:   {name:'Hulk',    drive:'hybrid',   isp:600, dry:20, cap:160, slots:12, price:400000},
   galleon:{name:'Galleon', drive:'hybrid',   isp:650, dry:45, cap:280, slots:20, price:900000},
   carrack:{name:'Carrack', drive:'nuclear',  isp:900, dry:30, cap:150, slots:8,  price:1200000},
-} satisfies Record<string, ShipDef>;
+} satisfies Record<string, ShipClass>;
 export type ShipId = keyof typeof SHIP_TABLE;
-export const SHIPS: Record<ShipId, ShipDef> = SHIP_TABLE;
+export const SHIPS: Record<ShipId, ShipClass> = SHIP_TABLE;
 export const SHIP_IDS = keysOf(SHIP_TABLE);
 export const isShip = (x: unknown): x is ShipId => keyOf(SHIPS, x);
 
 const GOOD_TABLE = {
-  he3:  {name:'Helium-3', sh:'He-3',        m:1,  w:8000, lot:[1,2], rate:45, color:'#b78cf0'},
-  elec: {name:'Electronics', sh:'Electronics',   m:1,  w:5000, lot:[1,2], rate:30, color:'#5cc9e0'},
-  hab:  {name:'Habitat modules', sh:'Habitat',  m:10, w:4000, lot:[1,1], rate:30, color:'#e0a15c'},
-  rare: {name:'Rare metals', sh:'Rare met.',    m:4,  w:3000, lot:[1,2], rate:30, color:'#d97fb0'},
-  mach: {name:'Machinery', sh:'Machinery',      m:5,  w:2000, lot:[1,2], rate:20, color:'#9aa7c0'},
-  food: {name:'Food', sh:'Food',                m:3,  w:600,  lot:[1,2], rate:20, color:'#7cc56a'},
-  metal:{name:'Metals', sh:'Metals',            m:8,  w:400,  lot:[1,3], rate:10, color:'#b0a18f'},
-  water:{name:'Water', sh:'Water',              m:8,  w:200,  lot:[1,3], rate:10, color:'#4f8fd8'},
-} satisfies Record<string, GoodDef>;
+  he3:  {name:'Helium-3', shortName:'He-3',        mass:1,  value:8000, lot:[1,2], rate:45, color:'#b78cf0'},
+  elec: {name:'Electronics', shortName:'Electronics',   mass:1,  value:5000, lot:[1,2], rate:30, color:'#5cc9e0'},
+  hab:  {name:'Habitat modules', shortName:'Habitat',  mass:10, value:4000, lot:[1,1], rate:30, color:'#e0a15c'},
+  rare: {name:'Rare metals', shortName:'Rare met.',    mass:4,  value:3000, lot:[1,2], rate:30, color:'#d97fb0'},
+  mach: {name:'Machinery', shortName:'Machinery',      mass:5,  value:2000, lot:[1,2], rate:20, color:'#9aa7c0'},
+  food: {name:'Food', shortName:'Food',                mass:3,  value:600,  lot:[1,2], rate:20, color:'#7cc56a'},
+  metal:{name:'Metals', shortName:'Metals',            mass:8,  value:400,  lot:[1,3], rate:10, color:'#b0a18f'},
+  water:{name:'Water', shortName:'Water',              mass:8,  value:200,  lot:[1,3], rate:10, color:'#4f8fd8'},
+} satisfies Record<string, Good>;
 export type GoodId = keyof typeof GOOD_TABLE;
-export const GOODS: Record<GoodId, GoodDef> = GOOD_TABLE;
+export const GOODS: Record<GoodId, Good> = GOOD_TABLE;
 export const isGood = (x: unknown): x is GoodId => keyOf(GOODS, x);
 
 const post = <I extends string>(id:I, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:HubId) => ({id,name,node,site,makes,needs,...(hub?{hub}:{})});
@@ -198,10 +201,18 @@ export const isPost = (x: unknown): x is PostId => keyOf(POST_BY_ID, x);
 export type HubId = 'shipyard'|'pavonis'|'valhalla';
 export const HUBS: Record<HubId, Post> = {shipyard:POST_BY_ID.shipyard, pavonis:POST_BY_ID.pavonis, valhalla:POST_BY_ID.valhalla};
 
-export const REGION: Record<BodyId, HubId> = {earth:'shipyard',moon:'shipyard',mercury:'shipyard',venus:'shipyard',
-  mars:'pavonis',phobos:'pavonis',deimos:'pavonis',ceres:'pavonis',
-  jupiter:'valhalla',io:'valhalla',europa:'valhalla',ganymede:'valhalla',callisto:'valhalla',
-  saturn:'valhalla',enceladus:'valhalla',titan:'valhalla'};
+// A hub's zone of influence: the bodies it serves. It decides where goods for other zones are
+// transhipped, where the orders from a hub's store go, how long a rescue takes and which fuel
+// prices the refuel panel lists.
+export const ZONES: Record<HubId, readonly BodyId[]> = {
+  shipyard:['earth','moon','mercury','venus'],
+  pavonis:['mars','phobos','deimos','ceres'],
+  valhalla:['jupiter','io','europa','ganymede','callisto','saturn','enceladus','titan'],
+};
+// The hub in whose zone a body lies
+export function hubFor(b: BodyId): HubId {
+  const h=keysOf(ZONES).find(k=>ZONES[k].includes(b)); if(!h) throw new Error(`No hub for ${b}`); return h;
+}
 
 export const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 12000; // no ship manages a longer route
 

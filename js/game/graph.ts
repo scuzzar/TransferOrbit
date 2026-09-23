@@ -88,8 +88,8 @@ export function route(from: RoutePoint, to: RoutePoint): RouteResult{
 }
 
 export function rewardFor(r: {dv:number; days:number; launch:boolean}, good: GoodId, n: number): number{
-  const G=GOODS[good], mass=SHIP_MASS_SHARE+n*G.m;
-  let R = RATE_MASS*mass*(Math.exp(r.dv/V_EXHAUST)-1) + RATE_DAY*r.days + RATE_MASS_DAY*mass*r.days + 0.1*n*G.w;
+  const G=GOODS[good], mass=SHIP_MASS_SHARE+n*G.mass;
+  let R = RATE_MASS*mass*(Math.exp(r.dv/V_EXHAUST)-1) + RATE_DAY*r.days + RATE_MASS_DAY*mass*r.days + 0.1*n*G.value;
   if(r.launch) R += LAUNCH_FEE*(mass+20); // share of the Earth launch fee
   return Math.round(R*rewardLuck()/10)*10;
 }

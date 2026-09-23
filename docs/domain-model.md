@@ -57,8 +57,6 @@ The code in `js/game/` was written against an earlier model and departs from thi
   hub) rather than being fixed objects, and they reach their definition through `def`. Their
   industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random
   and saved, instead of `Good.bulkLot` and a daily test.
-- **Zones of influence** are the `REGION` table (body to hub id); the shipyard opens at any post
-  flagged as a hub.
 - **Bodies** are two tables (`B` for planets, `M` for moons) with short field names (`a`, `T`,
   `L0`, `mu`, `R`, `alt`) and the delta-v of landing and ascent (`up`, `down`, `xfer`), from which
   the connections are built, instead of `Body` objects.
@@ -67,8 +65,9 @@ The code in `js/game/` was written against an earlier model and departs from thi
 - **Market.** There is no `Market.advance(day)`; `marketAdvance()` in `game/economy.ts` reads the
   global `S`. A hub's room (`hubRoom()`) also counts the orders in the ship's hold.
 - **Orders** have no state to read; it is only where they lie.
-- **Reference classes** carry their `world.ts` names: `ShipDef`, `GoodDef` (`m`, `w`, `sh`),
-  `Post`, not `ShipClass`, `Good` and `Industry`.
+- **Starport table.** The fixed data of the starports and their industries sits in rows of the
+  `Post` table in `game/world.ts` (name, node, landing site, makes, needs, hub), which the
+  starports built for each game refer to through `def`.
 - **`Location`** is a TypeScript union, not an abstract class.
 - **Behaviour from outside.** The commands set `ship.busy`, fill a hub's store and change a
   post's need directly instead of asking the objects.

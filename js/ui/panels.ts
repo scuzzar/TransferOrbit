@@ -2,7 +2,7 @@
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { B, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, REGION, SHIPS, SHIP_IDS, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
+import { B, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, SHIPS, hubFor, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
 import { Order, RouteMode, S } from '../game/state.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
 import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
@@ -24,7 +24,7 @@ function panelPost(p:HTMLElement){
     b.appendChild(btn(`Deliver, ${fmtCr(del.reduce((s,o)=>s+o.payout(S.day),0))}`,'go',locked,deliverAll)); p.appendChild(b);
   }
   const sel=post.offers.filter(o=>UI.sel.has(o.id));
-  const selN=sel.reduce((s,o)=>s+o.containers,0), selM=sel.reduce((s,o)=>s+o.containers*GOODS[o.good].m,0), selR=sel.reduce((s,o)=>s+o.reward,0);
+  const selN=sel.reduce((s,o)=>s+o.containers,0), selM=sel.reduce((s,o)=>s+o.containers*GOODS[o.good].mass,0), selR=sel.reduce((s,o)=>s+o.reward,0);
   const offers=post.offers;
   const h=document.createElement('h3'); h.textContent=`Orders from here (${offers.length})`; p.appendChild(h);
   const bigHere=offers.filter(o=>o.containers>S.player.ship.def.slots);
@@ -42,7 +42,7 @@ function panelPost(p:HTMLElement){
   glist.forEach(dest=>{
     const {tk,os,tpl}=dest, dl=freshDeadline(os[0],S.day), lateBy=tpl?tpl.arrive-dl:0;
     const gSel=os.filter(o=>UI.sel.has(o.id));
-    const lightest=os.filter(o=>!UI.sel.has(o.id)).reduce((m,o)=>Math.min(m,o.containers*GOODS[o.good].m),Infinity);
+    const lightest=os.filter(o=>!UI.sel.has(o.id)).reduce((m,o)=>Math.min(m,o.containers*GOODS[o.good].mass),Infinity);
     const after = gSel.length ? S.player.ship.dvWith(S.player.ship.fuel,S.player.ship.cargoMass+selM) : S.player.ship.dvWith(S.player.ship.fuel,S.player.ship.cargoMass+selM+(isFinite(lightest)?lightest:0));
     const short = after < dest.dv;
     const afterFull = gSel.length ? S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass+selM) : S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass+selM+(isFinite(lightest)?lightest:0));
@@ -58,7 +58,7 @@ function panelPost(p:HTMLElement){
       const el=document.createElement('label'); el.className='orow'+(on?' on':'')+(fits?'':' dis');
       const tooBig=o.containers>S.player.ship.def.slots, need=tooBig?shipFor(o.containers):null;
       const why = fits ? '' : tooBig ? `, needs ${o.containers} slots: ${need?need.name+' or larger':'no ship is large enough'}` : `, needs ${o.containers} ${o.containers>1?'slots':'slot'}`;
-      el.innerHTML=`<input type="checkbox" ${on?'checked':''} ${(!fits||locked)?'disabled':''}>${gchip(o.good)}<span class="ot"><b>${o.containers} × ${Gd.name}${o.isBulk?' <span class="mtag post">Bulk order</span>':''}</b><small>${tons(o.containers*Gd.m)}${why}</small></span><span class="num">${fmtCr(o.reward)}</span>`;
+      el.innerHTML=`<input type="checkbox" ${on?'checked':''} ${(!fits||locked)?'disabled':''}>${gchip(o.good)}<span class="ot"><b>${o.containers} × ${Gd.name}${o.isBulk?' <span class="mtag post">Bulk order</span>':''}</b><small>${tons(o.containers*Gd.mass)}${why}</small></span><span class="num">${fmtCr(o.reward)}</span>`;
       const cb=find(el,'input',HTMLInputElement); cb.onchange=()=>{ cb.checked?UI.sel.add(o.id):UI.sel.delete(o.id); changed(); };
       grp.appendChild(el);
     });
@@ -88,7 +88,7 @@ function panelCargo(p:HTMLElement){
   const locked=!S.canAct, co=S.player.ship.hold, hereK=(S.player.ship.place?.post??null);
   p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, S.player.ship.place?`Currently in ${esc(S.player.ship.place.label)}.`:'Under way.', ''));
   const slots=document.createElement('div'); slots.className='bigslots';
-  const cells:string[]=[]; co.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].sh}</b><span>${GOODS[o.good].m} t</span></div>`); });
+  const cells:string[]=[]; co.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].shortName}</b><span>${GOODS[o.good].mass} t</span></div>`); });
   while(cells.length<S.player.ship.def.slots) cells.push('<div class="free">free</div>');
   slots.innerHTML=cells.join(''); p.appendChild(slots);
   const tot=S.player.ship.def.dry+S.player.ship.cargoMass+S.player.ship.fuel, pct=(x:number)=>(x/tot*100).toFixed(1)+'%';
@@ -108,7 +108,7 @@ function panelCargo(p:HTMLElement){
     const span=Math.max(1,o.deadline-(o.created??(o.deadline-60))), frac=Math.max(0,Math.min(1,left/span));
     const el=document.createElement('div'); el.className='order';
     el.innerHTML=`<div class="o-top">${gchip(o.good)}<b>${o.containers} × ${G.name} to ${esc(postLabel(to))}</b><span class="num">${fmtCr(pay)}</span></div>
-      <div class="o-meta"><span>${tons(o.containers*G.m)}</span><span>Route ${km(o.dv)} km/s</span>${o.toHub?'<span class="tag">Transhipment</span>':''}</div>
+      <div class="o-meta"><span>${tons(o.containers*G.mass)}</span><span>Route ${km(o.dv)} km/s</span>${o.toHub?'<span class="tag">Transhipment</span>':''}</div>
       <div class="due"><div class="row"><span>Due ${dateStr(o.deadline)}</span><span class="${left>=0?'ok':'late'}">${left>=0?fmtDays(left)+' left':fmtDays(-left)+' overdue, '+Math.round(o.lateFactor(S.day)*100)+'%'}</span></div>
       <div class="fbar"><i style="width:${(frac*100).toFixed(0)}%;background:${left>=0?(frac>0.25?'var(--good)':'var(--warn)'):'var(--bad)'}"></i></div></div>`;
     const row=document.createElement('div'); row.className='o-btns';
@@ -155,7 +155,7 @@ function panelRefuel(p:HTMLElement){
     <p>Cost ${fmtCr(cost)}.${needDv?` Your cargo needs up to ${km(needDv)} km/s from here, ${dvA>=needDv?'which is enough':'which is not enough yet'}.`:''}</p>`;
   p.appendChild(cmp);
   const h=document.createElement('h3'); h.textContent='Prices in this region'; p.appendChild(h);
-  const reg=REGION[place.body], rows=DEPOT_LIST.filter(d=>REGION[d.at.body]===reg).sort((a,b)=>a.fuelPrice-b.fuelPrice);
+  const zone=hubFor(place.body), rows=DEPOT_LIST.filter(d=>hubFor(d.at.body)===zone).sort((a,b)=>a.fuelPrice-b.fuelPrice);
   const lst=document.createElement('div'); lst.className='pricelist';
   lst.innerHTML=rows.map(d=>{ const me=d.at===place;
     return `<div class="${me?'me':''}"><span>${esc(depotLabel(d.at.key))}${me?' (here)':''}</span><span>${d.fuelPrice} Cr/t</span></div>`; }).join('');
@@ -166,7 +166,7 @@ function panelRefuel(p:HTMLElement){
 }
 
 function panelShipyard(p:HTMLElement){
-  const k=(S.player.ship.place?.post??null); if(!k||!k.hub){ openView('main'); return; }
+  const k=(S.player.ship.place?.post??null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
   const locked=!S.canAct, cur=S.player.ship.def;
   p.appendChild(phead('Shipyard', `${esc(postLabel(k))}. Balance ${fmtCr(S.player.credits)}.`, ''));
   const note=document.createElement('p'); note.className='kinfo';
@@ -175,7 +175,7 @@ function panelShipyard(p:HTMLElement){
   const list=document.createElement('div'); list.className='acts';
   const dvFull=(sh:{isp:number;dry:number;cap:number;slots:number})=>sh.isp*G0*Math.log((sh.dry+sh.cap+8*sh.slots)/(sh.dry+8*sh.slots));
   const dvEmpty=(sh:{isp:number;dry:number;cap:number})=>sh.isp*G0*Math.log((sh.dry+sh.cap)/sh.dry);
-  SHIP_IDS.forEach(id=>{ const sh=SHIPS[id];
+  hub.sells.forEach(id=>{ const sh=SHIPS[id];
     const mine=id===S.player.ship.type, net=sh.price-0.7*cur.price, fits=S.player.ship.slotsUsed<=sh.slots, diff=sh.slots-cur.slots;
     const el=document.createElement('div'); el.className='shipcard'+(mine?' mine':'');
     el.innerHTML=`<div class="row"><div><b class="big">${sh.name}</b><div class="muted">${sh.drive}, Isp ${sh.isp} s</div></div>
@@ -284,7 +284,7 @@ function panelRoute(p:HTMLElement){
     <p class="kinfo">${deadl.length?(late.length?`${late.length} ${late.length>1?'orders arrive':'order arrives'} after the deadline.`:`${deadl.length>1?'All '+deadl.length+' orders':'The order'} for this destination ${deadl.length>1?'arrive':'arrives'} before the deadline.`):''}${plan.fee?` Launch fee ${fmtCr(plan.fee)}.`:''} ${ok?'The autopilot stops wherever cargo can be delivered on the way.':S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass)<plan.dv?`Loaded too heavily: even with a full tank you would only have ${km(S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass))} km/s. Return an order or pick another destination.`:'Refuel first, or pick a different route.'}</p>`;
   if(ok){
     const cm=S.player.ship.cargoMass, m0=S.player.ship.def.dry+cm+S.player.ship.fuel, fAfter=Math.max(0, m0/Math.exp(plan.dv/(S.player.ship.def.isp*G0))-S.player.ship.def.dry-cm);
-    const cmAfter=cm-deadl.reduce((s,o)=>s+o.containers*GOODS[o.good].m,0), rest=S.player.ship.dvWith(fAfter,cmAfter);
+    const cmAfter=cm-deadl.reduce((s,o)=>s+o.containers*GOODS[o.good].mass,0), rest=S.player.ship.dvWith(fAfter,cmAfter);
     const nf=nearestFuel({node:R.target.node, site:R.target.site??null, day:plan.arrive});
     if(nf.dv>rest+0.5){ R.strand=true;
       const w=document.createElement('p'); w.className='o-warn bad';

@@ -1,7 +1,7 @@
 // The order board: creating orders, ageing them, deadlines, bulk cargo.
 
 import { randInt } from '../basics.js';
-import { BULK, GOODS, GoodId, HUBS, HUB_CAP, POST_BY_ID, POSTS, MAX_OPEN, MAX_ROUTE_DV, REGION, START_DAY, Post, bodyOf, byPost } from './world.js';
+import { BULK, GOODS, GoodId, HUBS, HUB_CAP, hubFor, POST_BY_ID, POSTS, MAX_OPEN, MAX_ROUTE_DV, START_DAY, Post, bodyOf, byPost } from './world.js';
 import { transfer } from './physics.js';
 import { S, Demand, Hub, Industry, Market, Order, PerGood, Starport, Store, stockOf, storeOf } from './state.js';
 import { rewardFor, route, RouteResult } from './graph.js';
@@ -42,13 +42,13 @@ function makeOrder(k:Post, g:GoodId, fromHubStore:boolean, day:number){
   const market=S.market, G=GOODS[g], store=fromHubStore?market.hub(k.id)?.transship:post(k).industry.stores, have=store?stockOf(store,g):0;
   if(!store || have<G.lot[0] || openCount(k,g)>=MAX_OPEN) return;
   const cand = POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && need(c,g)>0 &&
-    (fromHubStore ? REGION[bodyOf(c)]===k.hub : bodyOf(c)!==bodyOf(k)) && route(k,c).dv<=MAX_ROUTE_DV);
+    (fromHubStore ? hubFor(bodyOf(c))===k.hub : bodyOf(c)!==bodyOf(k)) && route(k,c).dv<=MAX_ROUTE_DV);
   if(!nonEmpty(cand)) return;
   const n=randInt(G.lot[0], Math.min(G.lot[1], Math.floor(have)));
   let to=pickWeighted(cand,c=>need(c,g)), toHub=false;
   if(!fromHubStore){
-    const reg=REGION[bodyOf(to)];
-    if(reg!==REGION[bodyOf(k)] && Math.random()<0.6){
+    const reg=hubFor(bodyOf(to));
+    if(reg!==hubFor(bodyOf(k)) && Math.random()<0.6){
       const h=HUBS[reg];
       if(h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(h)>=n){ to=h; toHub=true; }
     }

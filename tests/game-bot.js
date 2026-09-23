@@ -18,9 +18,9 @@ const AI = String.raw`
     let best=null;
     for(const [to,os] of Object.entries(byTo)){
       const tk=TO.POST_BY_ID[to], tgt=TO.kTarget(tk), pl=planFrom(start,tgt); if(!pl) continue;
-      os.sort((a,b)=>b.reward/(b.containers*TO.GOODS[b.good].m+2)-a.reward/(a.containers*TO.GOODS[a.good].m+2));
+      os.sort((a,b)=>b.reward/(b.containers*TO.GOODS[b.good].mass+2)-a.reward/(a.containers*TO.GOODS[a.good].mass+2));
       let pick=[], slots=0, cm=0;
-      for(const o of os){ if(slots+o.containers>TO.S.player.ship.def.slots) continue; const m=o.containers*TO.GOODS[o.good].m;
+      for(const o of os){ if(slots+o.containers>TO.S.player.ship.def.slots) continue; const m=o.containers*TO.GOODS[o.good].mass;
         if(shipAt(fuel,cm+m)<pl.dv+60) continue;
         const dl=start.day+TO.legWait(TO.route(TO.POST_BY_ID[o.from],TO.POST_BY_ID[o.to]),start.day)+1.5*o.days+30; if(pl.arrive>dl) continue;
         pick.push(o); slots+=o.containers; cm+=m; }
@@ -84,7 +84,7 @@ const AI = String.raw`
     if(here && (!alt || here.score>=alt.score*0.9)){
   // accept
       TO.acceptOrders(here.pick.map(o=>o.id)); EV.orders+=here.pick.length;
-      log('loading '+here.pick.map(o=>o.containers+'×'+TO.GOODS[o.good].sh).join(', ')+' for '+here.to.name+' ('+TO.fmtCr(here.rew)+', '+TO.km(here.pl.dv)+' km/s, '+TO.fmtDays(here.pl.days)+')');
+      log('loading '+here.pick.map(o=>o.containers+'×'+TO.GOODS[o.good].shortName).join(', ')+' for '+here.to.name+' ('+TO.fmtCr(here.rew)+', '+TO.km(here.pl.dv)+' km/s, '+TO.fmtDays(here.pl.days)+')');
       EV.trips++; const ok=travel(TO.kTarget(here.to)); if(!ok) EV.stuck++;
       return 'trip';
     }

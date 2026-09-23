@@ -119,7 +119,7 @@ test('Connections lead from node to node; transfers between planets have a windo
 // ── Ship ───────────────────────────────────────────────────────────────────
 
 test('Ship: delta-v follows Tsiolkovsky with dry mass, cargo and propellant', async () => {
-  const { state: { Ship, Docked }, world: { nodeOf }, world: { SHIPS, G0 } } = await ready;
+  const { state: { Ship, Docked }, world: { nodeOf, SHIPS, G0 } } = await ready;
   const s = new Ship('cog', 80, new Docked(nodeOf('earth.orbit')));
   const d = SHIPS.cog;
   near(s.dvAvail, d.isp * G0 * Math.log((d.dry + 80) / d.dry));
@@ -210,6 +210,16 @@ test('Market: every order lies at the post it comes from, ids are unique and bel
   }
   const ids = S.market.offers.map(o => o.id);
   assert.deepEqual(ids, [...ids].sort((a, b) => a - b));
+});
+
+test('Every body lies in the zone of influence of exactly one hub; every hub sells every ship', async () => {
+  const { state, world } = await fresh();
+  for (const b of [...world.PLANETS, ...world.MOONS])
+    assert.equal(Object.values(world.ZONES).filter(z => z.includes(b)).length, 1, b);
+  assert.equal(world.hubFor('titan'), 'valhalla'); assert.equal(world.hubFor('ceres'), 'pavonis'); assert.equal(world.hubFor('moon'), 'shipyard');
+  const h = state.S.market.hub('pavonis');
+  assert.deepEqual(h.zone, world.ZONES.pavonis); assert.deepEqual(h.sells, world.SHIP_IDS);
+  assert.equal(h.name, 'Pavonis Mons'); assert.equal(h.at, world.nodeOf('mars.surf', 'pavonis'));
 });
 
 test('Market: only hubs are hubs, and they start with goods in store', async () => {
