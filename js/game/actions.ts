@@ -11,7 +11,7 @@ export interface LocalAction {
 type ActionExtra = Omit<LocalAction,'label'|'dv'|'days'|'to'>;
 
 export function localActions(): LocalAction[]{
-  const A:LocalAction[]=[], place=S.ship.place, ship=S.ship;
+  const A:LocalAction[]=[], place=S.player.ship.place, ship=S.player.ship;
   const add=(label:string,dv:number,days:number,to:NodeId,x:ActionExtra={})=>A.push({label,dv,days,to,...x});
   if(!place) return A;
   const k=place.body, l=place.level, site=place.site;

@@ -20,7 +20,7 @@ export function renderPick(){
   let title='', tags:string[]=[], info='', stats:[string,string][]=[], btns:[string,string,()=>void][]=[];
   const close = `<button type="button" class="x" aria-label="Close the selection">×</button>`;
   if(p.type==='planet'){
-    const k = p.planet, hp = (S.ship.place?.planet??null), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
+    const k = p.planet, hp = (S.player.ship.place?.planet??null), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
     const n = cargoTo(x=>planetOfBody(bodyOf(x))===k).length;
     title = B[k].name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);
@@ -40,7 +40,7 @@ export function renderPick(){
     info = st.length ? `${st.length} landing ${st.length>1?'sites':'site'}: ${st.map((s:Site)=>s.name).join(', ')}.` : 'No solid surface.';
     if(st.length){ stats.push(['Landing from orbit',`from ${km(bodyDown(b))} km/s`]); stats.push(['Getting back up',launcherAt(b)?'Launcher':`from ${km(bodyUp(b))} km/s`]); }
     if(st.length) btns.push(['Show the landing sites','',()=>setView({level:'body',planet:planetOfBody(b),body:b})]);
-    const t = pickTarget(p); if(!S.ship.isAt(t)) btns.push([`Route: ${st.length?'orbit':'high orbit'}`,'go',()=>openRoute(t,null)]);
+    const t = pickTarget(p); if(!S.player.ship.isAt(t)) btns.push([`Route: ${st.length?'orbit':'high orbit'}`,'go',()=>openRoute(t,null)]);
   } else {
     const t = pickTarget(p), nd = p.node, [b,l] = splitNode(nd), post = POSTS.find(x=>x.node===nd && (!x.site||x.site===p.site));
     title = targetName(t).replace(/ \(.*\)$/,'');
@@ -60,9 +60,9 @@ export function renderPick(){
       if(fuelHere(nd,null)) tags.push(tag('toward',`Fuel depot, ${FUEL_PRICE[nd]} Cr/t`));
       if(post) info+=` ${post.name}: ${post.makes.length?'produces '+post.makes.map(g=>GOODS[g].name).join(', ')+', ':''}needs ${post.needs.map(g=>GOODS[g].name).join(', ')}.`;
     }
-    if(!S.ship.isAt(t)) btns.push([p.site?'Route to here':'Plan a route','go',()=>openRoute(t,null)]);
+    if(!S.player.ship.isAt(t)) btns.push([p.site?'Route to here':'Plan a route','go',()=>openRoute(t,null)]);
   }
-  const hereNow = (p.type!=='planet') && S.ship.isAt(pickTarget(p));
+  const hereNow = (p.type!=='planet') && S.player.ship.isAt(pickTarget(p));
   if(hereNow) tags.push(tag('here','You are here'));
   c.innerHTML=`<div class="row"><b class="big">${esc(title)}</b>${close}</div>${tags.length?`<div class="mtags">${tags.join('')}</div>`:''}
     ${info?`<p class="kinfo">${esc(info)}</p>`:''}${stats.length?`<div class="pstats">${stats.map(([a,b])=>`<div><span class="muted">${a}</span><b>${b}</b></div>`).join('')}</div>`:''}`;

@@ -19,16 +19,16 @@ export function speedHint(){ const h=$('speedhint'); if(!h) return;
 export function header(){
   byId('date',HTMLElement).textContent=dateStr(S.day);
   byId('mday',HTMLElement).textContent=`Day ${Math.floor(S.day-START_DAY)}`;
-  const dv=S.ship.dvAvail, max=S.ship.dvWith(S.ship.def.cap);
+  const dv=S.player.ship.dvAvail, max=S.player.ship.dvWith(S.player.ship.def.cap);
   byId('dv',HTMLElement).innerHTML=`${km(dv)} <small>km/s</small>`;
   byId('gauge',HTMLElement).style.width=`${Math.max(0,Math.min(100,dv/max*100))}%`;
-  byId('shipname',HTMLElement).textContent=S.ship.def.name;
-  byId('shipinfo',HTMLElement).textContent=`${S.ship.def.drive}, Isp ${S.ship.def.isp} s`;
+  byId('shipname',HTMLElement).textContent=S.player.ship.def.name;
+  byId('shipinfo',HTMLElement).textContent=`${S.player.ship.def.drive}, Isp ${S.player.ship.def.isp} s`;
   const cr=byId('credits',HTMLElement); cr.innerHTML=`${Math.round(S.player.credits).toLocaleString('en-GB')} <small>Cr</small>`; cr.classList.toggle('neg',S.player.credits<0);
-  const cells:string[]=[]; S.ship.hold.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<i style="background:${GOODS[o.good].color}"></i>`); });
-  while(cells.length<S.ship.def.slots) cells.push('<i></i>');
+  const cells:string[]=[]; S.player.ship.hold.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<i style="background:${GOODS[o.good].color}"></i>`); });
+  while(cells.length<S.player.ship.def.slots) cells.push('<i></i>');
   byId('mslots',HTMLElement).innerHTML=cells.join('');
-  byId('slotinfo',HTMLElement).textContent=`${S.ship.def.slots-S.ship.slotsUsed} of ${S.ship.def.slots} free`;
+  byId('slotinfo',HTMLElement).textContent=`${S.player.ship.def.slots-S.player.ship.slotsUsed} of ${S.player.ship.def.slots} free`;
   byId('autofill',HTMLButtonElement).setAttribute('aria-pressed',String(!!S.player.autoFill));
   byId('cargotile',HTMLButtonElement).classList.toggle('on',UI.view==='cargo');
 }
@@ -51,7 +51,7 @@ export function render(){
   document.body.classList.toggle('panel-open',pv);
   header(); draw(); renderPick(); renderAutobar(); toast();
   byId('mainview',HTMLElement).hidden=pv; byId('panel',HTMLElement).hidden=!pv;
-  byId('used',HTMLElement).textContent=`Total used: ${km(S.ship.dvUsed)} km/s`;
+  byId('used',HTMLElement).textContent=`Total used: ${km(S.player.ship.dvUsed)} km/s`;
   findAll(document,'[data-wait]',HTMLButtonElement).forEach(b=>b.disabled=!S.canAct);
   if(pv){ renderPanel(); findAll(document,'#panel button',HTMLButtonElement).forEach(b=>{ if(S.player.bankrupt && !b.classList.contains('back')) b.disabled=true; }); return; }
   renderPlace();
@@ -59,8 +59,8 @@ export function render(){
 
 function renderAutobar(){
   const w=byId('autobar',HTMLElement);
-  w.innerHTML=''; w.hidden=!S.ship.autopilot;
-  const A=S.ship.autopilot; if(!A) return;
+  w.innerHTML=''; w.hidden=!S.player.ship.autopilot;
+  const A=S.player.ship.autopilot; if(!A) return;
   const plan=planRoute(A.target,A.mode), nx=plan&&plan.steps[0];
   w.innerHTML=`<div><b>Autopilot</b> to ${esc(targetName(A.target))}${nx?`<br><span class="muted">Now: ${esc(nx.label)}</span>`:''}</div>`;
   w.appendChild(btn('Stop','',false,()=>stopAutopilot('Autopilot stopped.')));

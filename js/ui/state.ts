@@ -20,10 +20,11 @@ export interface UIState {
   route:{ target:Target; mode:RouteMode; strand?:boolean }|null;   // the route panel
   mapView:ViewLevel|null; mapKey:string|null;                      // a map level chosen by hand, and for which place
   msg:string|null; rmsg:boolean;      // the last message, and whether the route panel shows it too
+  windowPlanet:PlanetId|null;         // where the transfer window on the solar system map points
 }
 
 const fresh = (msg:string|null):UIState => ({view:'main', back:null, sel:new Set<number>(), tank:null, pick:null, route:null,
-  mapView:null, mapKey:null, msg, rmsg:false});
+  mapView:null, mapKey:null, msg, rmsg:false, windowPlanet:null});
 
 export const UI:UIState = fresh(null);
 

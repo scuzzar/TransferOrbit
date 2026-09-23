@@ -188,7 +188,7 @@ the first one is `S`:
 |---|---|---|---|
 | `game/state.js` | `S` | The game: the day, the player with their ship, the market with its trading posts and their orders. Everything a save holds, plus what is under way right now (busy, the transfer, the autopilot), which is never saved. | commands |
 | `map/geometry.js` | `SCENE` | The map animation's caches: the manoeuvre being drawn, the ship's orbit, the time-lapse window. Never saved. | commands (they play the animation), the map |
-| `ui/state.js` | `UI` | The open panel and where "back" leads, ticked orders, the refuel slider, the map selection and level, the last message. Never saved. | the interface only |
+| `ui/state.js` | `UI` | The open panel and where "back" leads, ticked orders, the refuel slider, the map selection and level, the last message, where the transfer window on the solar system map points. Never saved. | the interface only |
 
 ### The game as objects
 
@@ -198,12 +198,11 @@ leads: the code follows it, and where it does not yet, the file says so.
 
 ```
 S.day                      days since 1 January 2000
-S.player                   credits, bankrupt, autoFill, log (the Logbook: places, deliveries, milestones, depots)
-S.ship                     type, fuel, dvUsed, location, hold, autopilot, busy
-S.ship.location            Docked (at a Place) or InTransit (between two planets)
-S.ship.place               the Place it is docked at; null in transit
+S.player                   credits, bankrupt, autoFill, and the ship they own
+S.player.ship              type, fuel, dvUsed, location, hold, autopilot, busy
+S.player.ship.location     Docked (at a Place) or InTransit (between two planets)
+S.player.ship.place        the Place it is docked at; null in transit
 S.market.posts[id]         a TradingPost: produced, need, bulk store, the orders it offers; a Hub also has a store
-S.windowPlanet             where the transfer window on the solar system map points
 ```
 
 An order lies at the post it comes from (`post.offers`) until the ship takes it
@@ -211,13 +210,13 @@ aboard (`ship.hold`); where it lies is its state, there is no field for it that
 could disagree. A `Place` is a value — node and landing site — that knows its
 body, planet, trading post, fuel price and name; a ship that moves gets a new
 one. The questions that used to be free functions on `S` are properties now:
-`eng()` is `S.ship.def`, `dvAvail()` is `S.ship.dvAvail`, `postAt()` is
-`S.ship.place?.post`, `payout(o)` is `o.payout(S.day)`, and
+`eng()` is `S.player.ship.def`, `dvAvail()` is `S.player.ship.dvAvail`, `postAt()` is
+`S.player.ship.place?.post`, `payout(o)` is `o.payout(S.day)`, and
 `S.action.busy || S.domain.bankrupt` is `!S.canAct`.
 
 The split of the work: the objects do each change and keep it consistent —
 `ship.burn(dv)` takes the propellant Tsiolkovsky asks for, `ship.load(order)`
-keeps the hold in order, `player.log.visit(place)` notes the Mars landing. The
+keeps the hold in order, `post.offer(order)` keeps the offers in order. The
 commands decide *when*: they check that a move is allowed, play its animation
 and report it. The order board is made in `game/economy.js`, which works on the
 market's posts; it sits above `game/graph.js`, which the objects must not import.
@@ -302,8 +301,7 @@ result: it maps the German ids that saves from before the translation carry —
 ship ids (`kogge` → `cog`, `holk` → `hulk`, `hulk` → `galleon`,
 `karacke` → `carrack`), site ids (`nordpol` → `northpole`,
 `tigerstreifen` → `tigerstripes`) and trading post ids (`erde` → `earth`,
-`werft` → `shipyard`, …) in the visited set, in the orders and in the three
-market tables, and the landing sites inside the `refuel:` flags. It also moves
+`werft` → `shipyard`, …) in the orders and in the three market tables. It also moves
 the field names that saves from before the renaming carry to the current ones
 (`OLD_FIELDS`: `eco` → `market`, `stock` → `produced`, `demand` → `need`,
 `fwd` → `hubStore`, `n` → `containers`, `transship` → `toHub`, …). Everything
@@ -320,9 +318,10 @@ from, orders aboard into the ship's hold.
 
 ### What a save holds
 
-A save is what `S.toSave()` writes: the objects flattened into one JSON object,
-with `visited` as an array. The format is the same as before the state became
-objects; empty rows are left out.
+A save is what `S.toSave()` writes: the objects flattened into one JSON object.
+Empty rows are left out. What older saves also kept — the places visited, the
+milestones and depots used (`visited`, `flags`) and where the transfer window
+pointed (`windowPlanet`) — is no longer part of the game and is ignored on loading.
 
 | Field | Meaning |
 |---|---|
@@ -330,8 +329,6 @@ objects; empty rows are left out.
 | `node`, `site` | Where the ship is: `<body>.<surf\|orbit\|capt>` and, on a surface, the landing site |
 | `ship`, `fuel`, `credits` | Ship type, tonnes of propellant, money |
 | `dvUsed` | Delta-v burned so far, m/s |
-| `visited`, `flags` | Places seen; milestones, and `refuel:<body>@<site>` per depot used |
-| `windowPlanet` | The planet the transfer window on the solar system map points at |
 | `bankrupt`, `autoFill` | The run is over; "always fill up" is on |
 | `market.orders` | The order board. Per order: `good`, `containers`, `from`, `to`, `reward`, route `dv` (m/s) and `days`, `deadline`, `created`, `expires`, `state` (`open` or `aboard`); `toHub` if it ends at a hub, `fromHubStore` if a hub made it from its store, `isBulk` for bulk orders |
 | `market.produced` | Per post and good: made and not yet handed out as an order |

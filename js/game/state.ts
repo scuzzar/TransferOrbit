@@ -136,38 +136,6 @@ export class Market {
   get offers():Order[] { return POSTS.flatMap(k=>this.posts[k.id].offers).sort((a,b)=>a.id-b.id); }
 }
 
-export type Milestone = 'marsLanded'|'marsReturn'|'hubDelivery'|'bought';
-export const MILESTONES: readonly Milestone[] = ['marsLanded','marsReturn','hubDelivery','bought'];
-
-// What the player has done so far
-export class Logbook {
-  readonly visited:Set<string>;       // nodes, and body@site for landing sites
-  delivered:number;
-  readonly milestones:Set<Milestone>;
-  readonly depots:Set<string>;        // body@site of every depot used once
-  constructor(visited:Iterable<string>=[], delivered=0, milestones:Iterable<Milestone>=[], depots:Iterable<string>=[]){
-    this.visited=new Set(visited); this.delivered=delivered; this.milestones=new Set(milestones); this.depots=new Set(depots);
-  }
-  visit(p:Place){
-    this.visited.add(p.node);
-    if(p.site) this.visited.add(p.body+'@'+p.site);
-    if(p.node==='mars.surf') this.milestones.add('marsLanded');
-    if(this.milestones.has('marsLanded') && p.node.startsWith('earth.')) this.milestones.add('marsReturn');
-  }
-  refuelled(p:Place){ this.depots.add(`${p.body}@${p.site}`); }
-}
-
-export class Player {
-  credits:number;
-  bankrupt=false;
-  autoFill=false;               // "always fill up" at every depot
-  readonly log:Logbook;
-  constructor(credits:number, log:Logbook=new Logbook()){ this.credits=credits; this.log=log; }
-  pay(n:number){ this.credits+=n; }
-  charge(n:number){ this.credits-=n; }
-  canAfford(n:number){ return n<=this.credits; }
-}
-
 export class Ship {
   type:ShipId;
   fuel:number;                  // tonnes of propellant
@@ -203,11 +171,18 @@ export class Ship {
   unload(o:Order){ return removeFrom(this.hold,o); }
 }
 
-// Milestones of the run in a save; refuel:<body>@<site> marks each depot used once
-export interface Flags {
-  delivered:number; marsLanded?:boolean; marsReturn?:boolean; hubDelivery?:boolean; bought?:boolean;
-  [refuel:`refuel:${string}`]:boolean;
+// The player and the ship they own
+export class Player {
+  credits:number;
+  bankrupt=false;
+  autoFill=false;               // "always fill up" at every depot
+  readonly ship:Ship;
+  constructor(credits:number, ship:Ship){ this.credits=credits; this.ship=ship; }
+  pay(n:number){ this.credits+=n; }
+  charge(n:number){ this.credits-=n; }
+  canAfford(n:number){ return n<=this.credits; }
 }
+
 export interface SaveOrder extends Omit<OrderSpec,'isBulk'> { state:'open'|'aboard'; isBulk?:boolean }
 export interface SaveMarket {
   produced:Record<PostId,Amounts>; need:Record<PostId,Amounts>; hubStore:Partial<Record<PostId,Amounts>>;
@@ -217,7 +192,7 @@ export interface SaveMarket {
 // A save as written; game/save.ts reads it back
 export interface SaveObj {
   day:number; node:NodeId; site:string|null; ship:ShipId; fuel:number; dvUsed:number; credits:number;
-  visited:string[]; flags:Flags; windowPlanet:PlanetId|null; bankrupt:boolean; autoFill:boolean; market:SaveMarket;
+  bankrupt:boolean; autoFill:boolean; market:SaveMarket;
 }
 
 const saveOrder = (o:Order, state:SaveOrder['state']):SaveOrder => ({id:o.id, good:o.good, containers:o.containers, from:o.from, to:o.to,
@@ -229,32 +204,25 @@ const saveOrder = (o:Order, state:SaveOrder['state']):SaveOrder => ({id:o.id, go
 export class Game {
   day:number;                   // days since 1 January 2000
   readonly player:Player;
-  readonly ship:Ship;
   readonly market:Market;
-  windowPlanet:PlanetId|null;   // the planet the transfer window on the solar system map points at
-  constructor(day:number, player:Player, ship:Ship, market:Market, windowPlanet:PlanetId|null){
-    this.day=day; this.player=player; this.ship=ship; this.market=market; this.windowPlanet=windowPlanet;
-  }
+  constructor(day:number, player:Player, market:Market){ this.day=day; this.player=player; this.market=market; }
   // nothing under way and not bankrupt: the player may give an order
-  get canAct(){ return !this.ship.busy && !this.player.bankrupt; }
+  get canAct(){ return !this.player.ship.busy && !this.player.bankrupt; }
   // the trading post the ship is docked at
-  get postHere():TradingPost|null { const k=this.ship.place?.post; return k ? this.market.post(k.id) : null; }
+  get postHere():TradingPost|null { const k=this.player.ship.place?.post; return k ? this.market.post(k.id) : null; }
   // every order in the game, open or aboard, in id order
-  get orders():Order[] { return [...this.market.offers, ...this.ship.hold].sort((a,b)=>a.id-b.id); }
-  arrive(p:Place){ this.ship.dock(p); this.player.log.visit(p); }
+  get orders():Order[] { return [...this.market.offers, ...this.player.ship.hold].sort((a,b)=>a.id-b.id); }
 
   toSave():SaveObj {
-    const p=this.ship.place; if(!p) throw new Error('Saving while in transit');
-    const m=this.market, log=this.player.log, flags:Flags={delivered:log.delivered};
-    log.milestones.forEach(k=>{ flags[k]=true; });
-    log.depots.forEach(d=>{ flags[`refuel:${d}`]=true; });
+    const ship=this.player.ship, p=ship.place; if(!p) throw new Error('Saving while in transit');
+    const m=this.market;
     // a table of the posts that have something in it; an empty row is left out, as it always was
     const rows=(f:(t:TradingPost)=>Amounts|null)=>{ const r:Partial<Record<PostId,Amounts>>={};
       POSTS.forEach(k=>{ const a=f(m.posts[k.id]); if(a && Object.keys(a).length) r[k.id]=a; }); return r; };
     const bulkStore=rows(t=>t.bulkStore), bulkLot=rows(t=>t.bulkLot);
-    const orders=[...m.offers.map(o=>saveOrder(o,'open')), ...this.ship.hold.map(o=>saveOrder(o,'aboard'))].sort((a,b)=>a.id-b.id);
-    return {day:this.day, node:p.node, site:p.site, ship:this.ship.type, fuel:this.ship.fuel, dvUsed:this.ship.dvUsed, credits:this.player.credits,
-      visited:[...log.visited], flags, windowPlanet:this.windowPlanet, bankrupt:this.player.bankrupt, autoFill:this.player.autoFill,
+    const orders=[...m.offers.map(o=>saveOrder(o,'open')), ...ship.hold.map(o=>saveOrder(o,'aboard'))].sort((a,b)=>a.id-b.id);
+    return {day:this.day, node:p.node, site:p.site, ship:ship.type, fuel:ship.fuel, dvUsed:ship.dvUsed, credits:this.player.credits,
+      bankrupt:this.player.bankrupt, autoFill:this.player.autoFill,
       market:{produced:byPost(k=>m.posts[k.id].produced), need:byPost(k=>m.posts[k.id].need), hubStore:rows(t=>t instanceof Hub ? t.store : null), orders,
         nextId:m.nextId, simulatedTo:m.simulatedTo,
         // a market that has never been run has no bulk tables yet

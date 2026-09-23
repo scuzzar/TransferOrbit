@@ -41,7 +41,7 @@ export function isPick(p:Pick){
   return p.type==='node' && q.node===p.node && (q.site||null)===(p.site||null);
 }
 
-export const cargoTo = (test:(p:Post)=>boolean) => S.ship.hold.filter(o=>test(POST_BY_ID[o.to]));
+export const cargoTo = (test:(p:Post)=>boolean) => S.player.ship.hold.filter(o=>test(POST_BY_ID[o.to]));
 
 export function prep(canvas:HTMLCanvasElement,g:CanvasRenderingContext2D,W:number,H:number){ const dpr=window.devicePixelRatio||1;
   if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }

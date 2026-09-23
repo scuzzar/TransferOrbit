@@ -50,9 +50,6 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
-- **Game and player.** `Game` holds the ship directly (`S.ship`); here the player owns it.
-  `Logbook` and the milestones still exist and are saved; the model has neither.
-  `Game.windowPlanet` is still game state and saved.
 - **Places.** A `Place` is a value of node and landing site, and the autopilot's target is a
   `Target`; here a `Node` is a fixed object and a `LandingSite` is a `Node`. The autopilot's
   `start` is a key string, may be missing and is cleared after the first step.

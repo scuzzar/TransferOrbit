@@ -20,10 +20,10 @@ const DAY_COST: Record<RouteMode, number> = {eco:0.01, now:100};
 export interface StepHint { node:NodeId; site:string|null; dv:number; name:string; n:number; final:boolean }
 export function cargoHints(){
   const H:{step:StepHint[]; transfer:Partial<Record<PlanetId,string[]>>}={step:[], transfer:{}};
-  const me=S.ship.place; if(!me) return H;
+  const me=S.player.ship.place; if(!me) return H;
   const hereK=me.post;
   const byDest: Partial<Record<PostId, number>> = {};
-  S.ship.hold.forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
+  S.player.ship.hold.forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
   Object.entries(byDest).forEach(([id,n])=>{
     if(!isPost(id) || !n) return;
     const dest=POST_BY_ID[id], r=route(me,dest); if(!r.first) return;
@@ -48,7 +48,7 @@ interface RNode { n:NodeId; s:string|null; c:number; dv:number; days:number }
 interface PlanEdge extends Edge { wait?:number }
 
 export function planRoute(target:Target, mode:RouteMode, start?:Start|null): PlanResult|null{
-  const p=S.ship.place;
+  const p=S.player.ship.place;
   start = start || (p ? {node:p.node, site:p.site, day:S.day} : null);
   if(!start) return null;
   const dayCost = DAY_COST[mode];
@@ -79,7 +79,7 @@ export function planRoute(target:Target, mode:RouteMode, start?:Start|null): Pla
   path.forEach(({from,ed})=>{
     if(ed.leg && ed.wait){ steps.push({kind:'wait', leg:ed.leg, dv:0, days:ed.wait, label:`Wait for the window to ${toName(ed.leg[1])}`, until:day+ed.wait}); day+=ed.wait; }
     const days=ed.days-(ed.wait||0), label=stepLabel(from,ed);
-    if(ed.launch) fee+=Math.round(LAUNCH_FEE*(S.ship.def.dry+S.ship.cargoMass+S.ship.fuel)*(ed.hop?HOP_FEE_SHARE:1));
+    if(ed.launch) fee+=Math.round(LAUNCH_FEE*(S.player.ship.def.dry+S.player.ship.cargoMass+S.player.ship.fuel)*(ed.hop?HOP_FEE_SHARE:1));
     if(ed.leg) steps.push({kind:'leg', node:ed.node, site:ed.site, leg:ed.leg, dv:ed.dv, days, label});
     else steps.push({kind:'move', node:ed.node, site:ed.site, dv:ed.dv, days, label});
     day+=days;
@@ -110,7 +110,7 @@ export function nearestFuel(start:Start):{dv:number; spot:FuelSpot|null}{
 
 export function stepBlocker(st:PlanStep){
   if(st.kind==='wait') return 'Waiting for the transfer window.';
-  const p=S.ship.place, dv=S.ship.dvAvail;
+  const p=S.player.ship.place, dv=S.player.ship.dvAvail;
   if(st.kind==='leg'){ if(!p || p.node!==`${p.planet}.capt`) return 'Transfers start from high orbit.';
     return `The transfer currently costs ${km(transfer(p.planet,st.leg[1],S.day).total)} km/s, you have ${km(dv)}.`; }
   const a=localActions().find(a2=>a2.to===st.node && (a2.site||null)===(st.site||null));

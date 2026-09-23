@@ -19,15 +19,15 @@ const { chromium } = require('playwright');
   await f.evaluate(()=>{ TO.openRoute({node:'moon.surf',site:'tranquillitatis'}); });
   console.log('Buttons on the stranding warning:', await f.evaluate(()=>[...document.querySelectorAll('#panel .two button')].map(b=>b.textContent).join(' | ')));
   // the credit trap: Pavonis with no money, half a tank, orders available
-  await f.evaluate(()=>{ TO.openView('main'); TO.S.ship.dock(new TO.Place('mars.surf','pavonis')); TO.S.player.credits=0; TO.S.ship.fuel=45; TO.strandCache.key=null; TO.changed(); });
+  await f.evaluate(()=>{ TO.openView('main'); TO.S.player.ship.dock(new TO.Place('mars.surf','pavonis')); TO.S.player.credits=0; TO.S.player.ship.fuel=45; TO.strandCache.key=null; TO.changed(); });
   console.log('Stranded at 0 Cr, 45 t on Pavonis:', await f.evaluate(()=>TO.stranded()));
-  await f.evaluate(()=>{ TO.S.ship.fuel=1; TO.strandCache.key=null; TO.changed(); });
+  await f.evaluate(()=>{ TO.S.player.ship.fuel=1; TO.strandCache.key=null; TO.changed(); });
   console.log('Stranded at 0 Cr, 1 t on Pavonis:', await f.evaluate(()=>TO.stranded()), '| box:', (await f.textContent('#rescue')).slice(0,60));
   // the two route modes have to offer a real choice: "economical" takes the 40-day
   // aerobraking step into low Earth orbit, "leave now" pays for the direct burn instead
   const modes=await f.evaluate(()=>{
     TO.newGame();
-    TO.S.ship.dock(new TO.Place('moon.surf','shackleton')); TO.S.ship.fuel=TO.S.ship.def.cap;
+    TO.S.player.ship.dock(new TO.Place('moon.surf','shackleton')); TO.S.player.ship.fuel=TO.S.player.ship.def.cap;
     const tgt={node:'earth.surf', site:'kourou'}, r={};
     for(const m of ['eco','now']){ const pl=TO.planRoute(tgt,m);
       r[m]={dv:+(pl.dv/1000).toFixed(2), days:Math.round(pl.days), brake:pl.steps.map(s=>s.label).find(l=>/low orbit/.test(l))}; }

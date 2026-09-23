@@ -1,8 +1,8 @@
 // Reading a save back: old ids and field names are mapped first, then the JSON is checked
 // and rebuilt, object by object, into a Game. Writing is Game.toSave() in game/state.ts.
 
-import { PostId, byPost, isGood, isNode, isPlanet, isPost, isShip } from './world.js';
-import { Amounts, Docked, Game, Hub, Logbook, MILESTONES, Market, Milestone, Order, Place, Player, Ship, TradingPost } from './state.js';
+import { PostId, byPost, isGood, isNode, isPost, isShip } from './world.js';
+import { Amounts, Docked, Game, Hub, Market, Order, Place, Player, Ship, TradingPost } from './state.js';
 
 // Saves written before the code was translated carry the old German ids, and saves
 // written before the state got readable names carry the old field names. One lookup
@@ -14,7 +14,7 @@ const OLD_IDS: Record<'ship'|'site'|'post', Record<string,string>> = {
   post: {erde:'earth', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
 };
 const OLD_FIELDS: Record<'domain'|'market'|'order', Record<string,string>> = {
-  domain: {used:'dvUsed', target:'windowPlanet', over:'bankrupt', eco:'market'},
+  domain: {used:'dvUsed', over:'bankrupt', eco:'market'},
   market: {stock:'produced', demand:'need', fwd:'hubStore', bulk:'bulkStore', bulkN:'bulkLot', day:'simulatedTo'},
   order: {n:'containers', fwdOrder:'fromHubStore', transship:'toHub', bulk:'isBulk'},
 };
@@ -37,9 +37,6 @@ function migrate(o:Raw){
   const site = (s:string) => OLD_IDS.site[s] || s, post = (p:string) => OLD_IDS.post[p] || p;
   if(isStr(o.ship)) o.ship = OLD_IDS.ship[o.ship] || o.ship;
   if(isStr(o.site)) o.site = site(o.site);
-  if(Array.isArray(o.visited)) o.visited = o.visited.filter(isStr).map(v=>{
-    const i = v.indexOf('@'); return i<0 ? v : v.slice(0,i+1) + site(v.slice(i+1)); });
-  if(isObj(o.flags)) o.flags = Object.fromEntries(Object.entries(o.flags).map(([k,v])=>[k.startsWith('refuel:') ? k.replace(/@(.*)$/,(_,s:string)=>'@'+site(s)) : k, v]));
   const market = o.market; if(!isObj(market)) return o;
   if(Array.isArray(market.orders)) market.orders.forEach(x=>{ if(isObj(x) && isStr(x.from) && isStr(x.to)){ x.from = post(x.from); x.to = post(x.to); } });
   for(const field of ['produced','need','hubStore']){ const m=market[field]; if(isObj(m))
@@ -88,19 +85,14 @@ function parseMarket(e:unknown):{market:Market; aboard:Order[]}|null{
 
 // Unchecked JSON from localStorage -> a game, or null if it isn't a usable save. Fields
 // added after a save was written get their defaults; old ids and field names are mapped first.
+// What older saves kept beyond the game (visited places, milestones, the window planet) is left.
 export function parseSave(raw:unknown):Game|null{
   if(!isObj(raw)) return null;
   const o=migrate(raw), m=parseMarket(o.market);
   if(!m || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
-  const f=isObj(o.flags)?o.flags:{}, milestones:Milestone[]=[], depots:string[]=[];
-  for(const [k,v] of Object.entries(f)) if(v===true){
-    if(k.startsWith('refuel:')) depots.push(k.slice(7));
-    else { const ms=MILESTONES.find(x=>x===k); if(ms) milestones.push(ms); }
-  }
-  const log=new Logbook(Array.isArray(o.visited)?o.visited.filter(isStr):[], isNum(f.delivered)?f.delivered:0, milestones, depots);
-  const player=new Player(o.credits, log); player.bankrupt=o.bankrupt===true; player.autoFill=o.autoFill===true;
   const ship=new Ship(o.ship, o.fuel, new Docked(new Place(o.node, isStr(o.site)?o.site:null)));
   ship.dvUsed=isNum(o.dvUsed)?o.dvUsed:0;
   m.aboard.forEach(x=>ship.load(x));
-  return new Game(o.day, player, ship, m.market, isPlanet(o.windowPlanet)?o.windowPlanet:null);
+  const player=new Player(o.credits, ship); player.bankrupt=o.bankrupt===true; player.autoFill=o.autoFill===true;
+  return new Game(o.day, player, m.market);
 }
