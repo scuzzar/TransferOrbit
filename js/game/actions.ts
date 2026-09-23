@@ -36,7 +36,7 @@ export function localActions(): LocalAction[]{
       if(st?.depot) bits.push(`Fuel depot (${st.depot} days)`);
       return add(`Land at ${to.name}`,{site:to.site,lat:to.lat,note:bits.join(', ')+(to.note?`. ${to.note}`:'')});
     }
-    if(place.level==='surf'){
+    if(place.level==='surface'){
       const L=launch(k);
       if(isMoon(k)){ const m=M[k]; return add(`Ascend to ${m.orbitName||'orbit around '+m.name}`,{note:[m.upNote,L.rotNote].filter(Boolean).join('. '),lat:L.lat}); }
       if(c.launchFee){ const fee=Math.round(LAUNCH_FEE*mass);
@@ -44,7 +44,7 @@ export function localActions(): LocalAction[]{
       return add('Ascend to orbit',{lat:L.lat,note:L.rotNote});
     }
     if(isMoon(k)) return add(`Back to high orbit of ${BODIES[to.planet].name}`);
-    if(place.level==='orbit') return add('Up to high orbit',{note:'Starting point for transfers and for the moons'});
+    if(place.level==='lowOrbit') return add('Up to high orbit',{note:'Starting point for transfers and for the moons'});
     if(to.body===k) return c.dv<100 ? add('Aerobrake into low orbit',{aero:true, note:'Many passes through the upper atmosphere'}) : add('Down to low orbit');
     const m=to.body;
     return add(`To ${bodyName(m)==='Moon'?'the Moon':bodyName(m)}`,{note:`Insertion into orbit around ${bodyName(m)}`+(hasDepot(m)?', fuel depot on the surface':'')});

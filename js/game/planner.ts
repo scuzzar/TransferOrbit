@@ -90,12 +90,12 @@ const toName = (p:PlanetId) => BODIES[p].name;
 function stepLabel(from:Node, e:Connection){
   const leg=e.leg; if(leg) return `Transfer to ${toName(leg[1])}`;
   const fk=from.body, fl=from.level, tk=e.to.body, tl=e.to.level;
-  if(tl==='surf'){ const st=siteOf(tk,e.to.site); if(fl==='surf') return `${e.launchFee?'Suborbital flight':'Hop'} to ${st?st.name:bodyName(tk)}`; return `Land at ${st?st.name:bodyName(tk)}`; }
-  if(fl==='surf') return e.launchFee?'Ride a launcher to orbit':`Ascend to orbit${isMoon(fk)?' around '+BODIES[fk].name:''}`;
-  if(fl==='orbit' && tl==='capt') return 'Up to high orbit';
-  if(fl==='capt' && tk===fk) return e.dv<100?'Aerobrake into low orbit':'Down to low orbit';
-  if(fl==='capt' && isMoon(tk)) return tk==='moon'?'To the Moon':`To ${BODIES[tk].name}`;
-  if(isMoon(fk) && tl==='capt') return `Back to high orbit of ${bodyName(tk)}`;
+  if(tl==='surface'){ const st=siteOf(tk,e.to.site); if(fl==='surface') return `${e.launchFee?'Suborbital flight':'Hop'} to ${st?st.name:bodyName(tk)}`; return `Land at ${st?st.name:bodyName(tk)}`; }
+  if(fl==='surface') return e.launchFee?'Ride a launcher to orbit':`Ascend to orbit${isMoon(fk)?' around '+BODIES[fk].name:''}`;
+  if(fl==='lowOrbit' && tl==='highOrbit') return 'Up to high orbit';
+  if(fl==='highOrbit' && tk===fk) return e.dv<100?'Aerobrake into low orbit':'Down to low orbit';
+  if(fl==='highOrbit' && isMoon(tk)) return tk==='moon'?'To the Moon':`To ${BODIES[tk].name}`;
+  if(isMoon(fk) && tl==='highOrbit') return `Back to high orbit of ${bodyName(tk)}`;
   return e.to.label;
 }
 

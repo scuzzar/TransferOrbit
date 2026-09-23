@@ -55,13 +55,13 @@ test('There is one node per place; on a surface every node is a landing site', a
   assert.equal(nodeAt('venus.surf', null), undefined);                                     // no surface without a landing site
   assert.equal(nodeAt('moon.capt'), undefined); assert.equal(nodeAt('jupiter.surf', 'x'), undefined);
   assert.throws(() => nodeOf('mars.surf', 'atlantis'));
-  for (const n of NODES) { assert.ok(n instanceof Node); assert.equal(n.level === 'surf', n instanceof LandingSite, n.key); }
+  for (const n of NODES) { assert.ok(n instanceof Node); assert.equal(n.level === 'surface', n instanceof LandingSite, n.key); }
 });
 
 test('A node knows its body, level and planet; a moon counts as its planet', async () => {
   const { world: { nodeOf } } = await ready;
   const p = nodeOf('titan.surf', 'kraken');
-  assert.equal(p.body, 'titan'); assert.equal(p.level, 'surf'); assert.equal(p.planet, 'saturn');
+  assert.equal(p.body, 'titan'); assert.equal(p.level, 'surface'); assert.equal(p.planet, 'saturn');
   assert.equal(nodeOf('mars.capt').planet, 'mars');
   assert.equal(p.key, 'titan.surf@kraken'); assert.equal(p.id, '@titan.surf@kraken'); assert.equal(p.site, 'kraken');
   assert.equal(nodeOf('earth.orbit').key, 'earth.orbit'); assert.equal(nodeOf('earth.capt').site, null);
@@ -114,7 +114,7 @@ test('Connections lead from node to node; transfers between planets have a windo
   for (const n of NODES) for (const c of g.connectionsFrom(n)) {
     assert.equal(c.from, n); assert.ok(c.to instanceof m.world.Node); assert.notEqual(c.to, n);
     assert.ok(c.dv >= 0 && c.days > 0, `${n.key} > ${c.to.key}`);
-    assert.equal(c.transferWindow, n.level === 'capt' && c.to.level === 'capt', `${n.key} > ${c.to.key}`);
+    assert.equal(c.transferWindow, n.level === 'highOrbit' && c.to.level === 'highOrbit', `${n.key} > ${c.to.key}`);
   }
   const up = g.connectionsFrom(nodeOf('earth.surf', 'kourou'));
   assert.ok(up.find(c => c.to === nodeOf('earth.orbit')).launchFee);                  // a launcher lifts you off the Earth
@@ -269,6 +269,15 @@ test('An order that expires gives its goods back to the post: none are lost, non
 });
 
 // ── Commands on the objects ────────────────────────────────────────────────
+
+test('Where an order lies is its state: offered at its starport, aboard in the hold, then gone', async () => {
+  const { state, commands } = await fresh();
+  const S = state.S, o = S.postHere.offers.find(x => x.containers <= 2);
+  assert.equal(S.stateOf(o), 'offered');
+  commands.acceptOrders([o.id]); assert.equal(S.stateOf(o), 'aboard');
+  commands.abortOrder(o); assert.equal(S.stateOf(o), null);
+  assert.ok(S.player.ship.location instanceof state.Location && S.player.ship.location instanceof state.Docked);
+});
 
 test('Accepting moves orders from the post into the hold with a fresh deadline; all or none', async () => {
   const { state, commands } = await fresh();

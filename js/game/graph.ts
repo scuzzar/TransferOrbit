@@ -25,7 +25,7 @@ export class Connection {
     this.from=from; this.to=to; this.dv=dv; this.days=days; this.launchFee=launchFee; this.transferWindow=transferWindow;
   }
   // between two landing sites of one body
-  get hop(){ return this.from.level==='surf' && this.to.level==='surf'; }
+  get hop(){ return this.from.level==='surface' && this.to.level==='surface'; }
   // the two planets of a transfer
   get leg():[PlanetId,PlanetId]|null { return this.transferWindow ? [this.from.planet, this.to.planet] : null; }
 }
@@ -39,17 +39,17 @@ export function connectionsFrom(from:Node): Connection[]{
   const e=(n:NodeId, s:string|null, dv:number, days:number, launch=false, window=false)=>E.push(new Connection(from, nodeOf(n,s), dv, days, launch, window));
   const lat=(body:BodyId, s:string|null)=>{const st=siteOf(body,s); return st?st.lat:0;};
   const lands=(body:BodyId, down:number)=>(SITES[body]||[]).forEach(st=>e(`${body}.surf`,st.id,down+(hasAtm(body)?0:rotPenalty(body,st.lat)),0.2));
-  if(l==='surf' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(`${k}.surf`,st.id,h.dv,h.days,h.launcher); });
+  if(l==='surface' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(`${k}.surf`,st.id,h.dv,h.days,h.launcher); });
   if(isMoon(k)){
     const m=M[k];
-    if(l==='surf') e(`${k}.orbit`,null,m.up+rotPenalty(k,lat(k,site)),0.2);
+    if(l==='surface') e(`${k}.orbit`,null,m.up+rotPenalty(k,lat(k,site)),0.2);
     else { lands(k,m.down); e(`${m.parent}.capt`,null,m.xfer,m.days); }
   } else {
     const b=B[k];
     const sf=b.surf;
-    if(l==='surf' && sf){ const pen=rotPenalty(k,lat(k,site)); e(`${k}.orbit`,null,sf.launcher?pen:sf.up+pen,sf.launcher?1:0.2,!!sf.launcher); }
-    if(l==='orbit'){ if(b.surf) lands(k,b.surf.down); e(`${k}.capt`,null,captDv(k),1); }
-    if(l==='capt'){
+    if(l==='surface' && sf){ const pen=rotPenalty(k,lat(k,site)); e(`${k}.orbit`,null,sf.launcher?pen:sf.up+pen,sf.launcher?1:0.2,!!sf.launcher); }
+    if(l==='lowOrbit'){ if(b.surf) lands(k,b.surf.down); e(`${k}.capt`,null,captDv(k),1); }
+    if(l==='highOrbit'){
       e(`${k}.orbit`,null,captDv(k),1); if(b.atm) e(`${k}.orbit`,null,60,40);
       moonsOf(k).forEach(m=>e(`${m}.orbit`,null,M[m].xfer,M[m].days));
       PLANETS.filter(p=>p!==k).forEach(p=>{const t=idealTransfer(k,p); e(`${p}.capt`,null,t.total,t.tof,false,true);});

@@ -57,7 +57,7 @@ export function doAction(a:LocalAction){
   const mv=planMove(a); SCENE.move=mv;
   changed();
   const [tb,tl]=splitNode(a.to);
-  if(isMoon(tb) && tl==='orbit' && here.level!=='surf' || isMoon(here.body) && tl==='capt') showMap();
+  if(isMoon(tb) && tl==='orbit' && here.level!=='surface' || isMoon(here.body) && tl==='capt') showMap();
   const ms = mv.sys ? (mv.aero ? 3400 : 2400) : mv.path ? (a.to.endsWith('.surf')&&!a.hop ? 2600 : 1900) : Math.max(800, Math.min(1500, 400+a.days*20));
   animateTo(S.day+a.days, ms*SLOW, ()=>{
     const pth=mv.path, spl=mv.sys; SCENE.move=null;

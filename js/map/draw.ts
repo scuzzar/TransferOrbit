@@ -198,7 +198,7 @@ function drawBody(b:BodyId){
     glPath('spur',trail,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
     shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn??null; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
     soon=pa.at(Math.min(1,t+0.06)).burn??null; att=q.att?{mode:q.att,up:0}:null;
-  } else if(mine && l==='orbit'){
+  } else if(mine && l==='lowOrbit'){
     shipAt=orbitPos(b,orb,orb.u,R_ORB); const a=P(orbitPos(b,orb,orb.u-0.02,R_ORB)), c=P(orbitPos(b,orb,orb.u+0.02,R_ORB)); shipDir=[c.x-a.x,c.y-a.y];
   }
   let shipLast:(()=>void)|null=null;
@@ -267,7 +267,7 @@ function drawBody(b:BodyId){
     g.shadowColor='rgba(0,0,0,0.8)'; g.shadowBlur=3; g.fillText(name,x+(left?-10:10),y); g.shadowBlur=0; g.globalAlpha=1;
     HITS.push({canvas:cv,x,y,r:22,pick:pk});
 // a landed ship: upright, pointing away from the body
-    if(mine && !SCENE.move && l==='surf' && place?.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
+    if(mine && !SCENE.move && l==='surface' && place?.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
       setRocketMode(hid ? 'flat' : 'gl'); // faded on the far side but still visible, like the marker itself
       drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},zPad);

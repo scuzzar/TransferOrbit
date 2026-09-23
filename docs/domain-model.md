@@ -51,8 +51,6 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
 - **Autopilot.** `start` may be missing and is cleared after the first step.
-- **Levels** are called `surf`, `orbit` and `capt` in the code, the short forms the place ids
-  (`mars.surf`) use, not `surface`, `lowOrbit` and `highOrbit`.
 - **Starports** are built for each game from the `Post` table (name, node, site, makes, needs,
   hub) rather than being fixed objects, and they reach their definition through `def`. Their
   industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random
@@ -63,10 +61,8 @@ The code in `js/game/` was written against an earlier model and departs from thi
   `busy` plus an animation.
 - **Market.** There is no `Market.advance(day)`; `marketAdvance()` in `game/economy.ts` reads the
   global `S`. A hub's room (`hubRoom()`) also counts the orders in the ship's hold.
-- **Orders** have no state to read; it is only where they lie.
 - **Starport table.** The fixed data of the starports and their industries sits in rows of the
   `Post` table in `game/world.ts` (name, node, landing site, makes, needs, hub), which the
   starports built for each game refer to through `def`.
-- **`Location`** is a TypeScript union, not an abstract class.
 - **Behaviour from outside.** The commands set `ship.busy`, fill a hub's store and change a
   post's need directly instead of asking the objects.

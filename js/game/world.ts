@@ -55,17 +55,20 @@ export const MOONS = keysOf(MOON_TABLE);
 
 // Places are "<body>.<level>": earth.surf, earth.orbit (low), earth.capt (high orbit)
 export type BodyId = PlanetId|MoonId;
-export type Level = 'surf'|'orbit'|'capt';
-export type NodeId = `${BodyId}.${Level}`;
+// A node's level, and the short form of it that place ids ("mars.surf") and saves use
+export type Level = 'surface'|'lowOrbit'|'highOrbit';
+export type LevelCode = 'surf'|'orbit'|'capt';
+export const LEVEL: Record<LevelCode, Level> = {surf:'surface', orbit:'lowOrbit', capt:'highOrbit'};
+export type NodeId = `${BodyId}.${LevelCode}`;
 
 // Checks for ids from outside (a save, the console); they take anything
 const keyOf = (t: object, x: unknown) => typeof x==='string' && Object.hasOwn(t, x);
 export const isPlanet = (b: unknown): b is PlanetId => keyOf(B, b);
 export const isMoon = (b: unknown): b is MoonId => keyOf(M, b);
 export const isBody = (b: unknown): b is BodyId => isPlanet(b) || isMoon(b);
-export const isLevel = (l: unknown): l is Level => l==='surf' || l==='orbit' || l==='capt';
+export const isLevel = (l: unknown): l is LevelCode => l==='surf' || l==='orbit' || l==='capt';
 export const isNode = (n: unknown): n is NodeId => { if(typeof n!=='string') return false; const [b,l,x]=n.split('.'); return x===undefined && isBody(b) && isLevel(l); };
-export const splitNode = (n: NodeId) => n.split('.') as [BodyId, Level];
+export const splitNode = (n: NodeId) => n.split('.') as [BodyId, LevelCode];
 
 export const moonsOf = (p: BodyId): MoonId[] => MOONS.filter(m=>BODIES[m].orbits?.id===p);
 
@@ -136,7 +139,7 @@ export const hasAtm = (body: BodyId): boolean => BODIES[body].atmosphere;
 
 export const latStr = (lat: number): string => `${Math.abs(lat).toLocaleString('en-GB',{maximumFractionDigits:1})}° ${lat>=0?'N':'S'}`;
 
-export const LVL: Record<Level, string> = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
+export const LVL: Record<LevelCode, string> = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
 
 const SHIP_TABLE = {
   cog:    {name:'Cog',     drive:'chemical', isp:450, dry:12, cap:80,  slots:6,  price:150000},
@@ -295,9 +298,9 @@ export function planetOrbit(k:PlanetId):{orbitRadius:number; period:number; mean
 export class Node {
   readonly body:BodyId;
   readonly level:Level;
-  readonly node:NodeId;              // "<body>.<level>", the id the tables and saves use
+  readonly node:NodeId;              // "<body>.<level code>", the id the tables and saves use
   readonly site:string|null;         // the landing site's id; null off the surface
-  constructor(body:BodyId, level:Level, site:string|null=null){ this.body=body; this.level=level; this.node=`${body}.${level}`; this.site=site; }
+  constructor(body:BodyId, code:LevelCode, site:string|null=null){ this.body=body; this.level=LEVEL[code]; this.node=`${body}.${code}`; this.site=site; }
   // "<body>.<level>", and "@<site>" on a surface
   get key():string { return this.site ? `${this.node}@${this.site}` : this.node; }
   // the place as a start for route()
@@ -309,7 +312,7 @@ export class Node {
   get depot():Depot|null { return DEPOT_AT.get(this.key) ?? null; }
   // how the place is called on screen
   get label():string {
-    const b=this.body, l=this.level;
+    const b=this.body, [,l]=splitNode(this.node);
     if(isMoon(b)) return l==='surf' ? (M[b].surfName||`the surface of ${BODIES[b].name}`) : (M[b].orbitName||`orbit around ${BODIES[b].name}`);
     return `${LVL[l]} of ${BODIES[b].name}`;
   }
@@ -336,7 +339,7 @@ export class Depot {
 const NODE_BY_KEY = new Map<string,Node>();
 for(const b of [...PLANETS, ...MOONS]){
   (SITES[b]||[]).forEach(st=>{ const n=new LandingSite(b,st); NODE_BY_KEY.set(n.key,n); });
-  const levels:Level[] = isPlanet(b) ? ['orbit','capt'] : ['orbit'];
+  const levels:LevelCode[] = isPlanet(b) ? ['orbit','capt'] : ['orbit'];
   levels.forEach(l=>{ const n=new Node(b,l); NODE_BY_KEY.set(n.key,n); });
 }
 export const NODES:readonly Node[] = [...NODE_BY_KEY.values()];

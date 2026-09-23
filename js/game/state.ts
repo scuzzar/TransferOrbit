@@ -9,19 +9,19 @@ export type RouteMode = 'eco'|'now';
 export type Amounts = Partial<Record<GoodId,number>>;
 
 // Where the ship is: docked at a node, or on an interplanetary transfer between two planets
-export class Docked {
+export abstract class Location {}
+export class Docked extends Location {
   readonly at:Node;
-  constructor(at:Node){ this.at=at; }
+  constructor(at:Node){ super(); this.at=at; }
 }
-export class InTransit {
+export class InTransit extends Location {
   readonly from:PlanetId; readonly to:PlanetId;
   readonly dep:number; readonly arr:number;     // departure and arrival day
   readonly th0:number; readonly th1:number;     // the two planets' angles then, for drawing the arc
   constructor(t:{from:PlanetId; to:PlanetId; dep:number; arr:number; th0:number; th1:number}){
-    this.from=t.from; this.to=t.to; this.dep=t.dep; this.arr=t.arr; this.th0=t.th0; this.th1=t.th1;
+    super(); this.from=t.from; this.to=t.to; this.dep=t.dep; this.arr=t.arr; this.th0=t.th0; this.th1=t.th1;
   }
 }
-export type Location = Docked|InTransit;
 
 export class Autopilot {
   readonly target:Node;
@@ -40,7 +40,8 @@ export interface OrderSpec {
 }
 
 // An order lies at the post it comes from until the ship takes it aboard. Where it lies is
-// its state: in a post's offers it is open, in the ship's hold it is aboard.
+// its state: in a post's offers it is offered, in the ship's hold it is aboard (Game.stateOf).
+export type OrderState = 'offered'|'aboard';
 export class Order {
   readonly id:number; readonly good:GoodId; readonly containers:number;
   readonly from:PostId; readonly to:PostId;
@@ -220,8 +221,13 @@ export class Game {
   get canAct(){ return !this.player.ship.busy && !this.player.bankrupt; }
   // the trading post the ship is docked at
   get postHere():Starport|null { const k=this.player.ship.place?.post; return k ? this.market.post(k.id) : null; }
-  // every order in the game, open or aboard, in id order
+  // every order in the game, offered or aboard, in id order
   get orders():Order[] { return [...this.market.offers, ...this.player.ship.hold].sort((a,b)=>a.id-b.id); }
+  // where an order lies is its state; null for one that is no longer in the game
+  stateOf(o:Order):OrderState|null {
+    if(this.player.ship.hold.includes(o)) return 'aboard';
+    return this.market.post(o.from).offers.includes(o) ? 'offered' : null;
+  }
 
   toSave():SaveObj {
     const ship=this.player.ship, p=ship.place; if(!p) throw new Error('Saving while in transit');
