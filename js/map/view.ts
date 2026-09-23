@@ -64,7 +64,8 @@ export function renderCrumbs(v:ViewLevel){
 }
 
 export function onMapClick(e:MouseEvent){
-  const t=e.currentTarget as HTMLElement, r=t.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  const t=e.currentTarget; if(!(t instanceof HTMLElement)) return;
+  const r=t.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
   let best:Hit|null=null, bd=Infinity;
   for(const h of HITS){ if(h.canvas===t){ const d=Math.hypot(h.x-x,h.y-y); if(d<h.r && d<bd){ bd=d; best=h; } } }
   const pk=best?best.pick:null, key=pk?JSON.stringify(pk):null, now=performance.now();

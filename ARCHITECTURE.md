@@ -260,9 +260,13 @@ their tables, so a typo in `'earht'` is a compile error. A place is a `NodeId`,
 has its own. Ids from outside (a save, the console) go through the guards
 `isPlanet`, `isMoon`, `isNode`, `isShip`, `isGood` and `isPost`.
 
-`tsconfig.json` runs `strict` plus `noUncheckedIndexedAccess`: a lookup in a
-table that does not cover every key (`SITES`, `ROT`, `FUEL_PRICE`, the economy
-rows) is `undefined`-able and has to be checked. three.js is typed through
+`tsconfig.json` runs `strict` plus `noUncheckedIndexedAccess` and
+`exactOptionalPropertyTypes`: a lookup in a table that does not cover every key
+(`SITES`, `ROT`, `FUEL_PRICE`, the economy rows) is `undefined`-able and has to
+be checked, and an optional field is either there or left out, never
+`undefined`. The code has no `!` assertions and no casts to DOM types: elements
+come from `byId`, `find` and `findAll` in `basics.ts`, which check the type and
+throw if `index.html` and the code disagree. three.js is typed through
 `@types/three`, pinned to the version `start.ts` loads from the CDN.
 
 ## What the split changed

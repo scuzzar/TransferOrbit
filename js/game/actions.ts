@@ -43,12 +43,12 @@ export function localActions(): LocalAction[]{
       add(`Back to high orbit of ${B[p].name}`,m.xfer,m.days,`${p}.capt`);
     }
   } else {
-    const b=B[k];
-    if(l==='surf'){
+    const b=B[k], sf=b.surf;
+    if(l==='surf' && sf){
       const L=launch(k);
-      if(b.surf!.launcher){ const fee=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.domain.fuel));
+      if(sf.launcher){ const fee=Math.round(LAUNCH_FEE*(eng().dry+cargoMass()+S.domain.fuel));
         add('Ride a launcher to orbit',L.pen,1,`${k}.orbit`,{lat:L.lat,fee,note:`Launch fee ${fmtCr(fee)}${fee>S.domain.credits?', deferred':''}. The missing rotation bonus comes out of your tank. ${L.rotNote}`}); }
-      else add('Ascend to orbit',b.surf!.up+L.pen,0.2,`${k}.orbit`,{lat:L.lat,note:L.rotNote});
+      else add('Ascend to orbit',sf.up+L.pen,0.2,`${k}.orbit`,{lat:L.lat,note:L.rotNote});
     }
     if(l==='orbit'){
       if(b.surf) landings(k,b.surf.down);

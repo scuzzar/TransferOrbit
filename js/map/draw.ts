@@ -90,9 +90,9 @@ function drawSys(p:PlanetId){
 
 // position of the ship for a given state
   const shipW=(node:NodeId):Vec3|null=>{ const [b,ll]=splitNode(node);
-    if(isMoon(b)){ const c=moonW(b,S.domain.day); return ll==='surf' ? ([c[0],c[1]+7,c[2]] as Vec3) : vadd(c,ringPt(rMo,st.moonU)); }
+    if(isMoon(b)){ const c=moonW(b,S.domain.day); return ll==='surf' ? [c[0],c[1]+7,c[2]] : vadd(c,ringPt(rMo,st.moonU)); }
     if(b!==p) return null;
-    return ll==='capt'?ringPt(rH,st.capU):ll==='orbit'?ringPt(rLow,st.lowU):([0,Rp+5,0] as Vec3); };
+    return ll==='capt'?ringPt(rH,st.capU):ll==='orbit'?ringPt(rLow,st.lowU):[0,Rp+5,0]; };
 // path of a manoeuvre: position at fraction t
   let path:((t:number)=>{q:Vec3; burn?:Burn; glow?:boolean})|null=null;
   if(mine && S.render.move && S.render.move.sys){
@@ -115,7 +115,7 @@ function drawSys(p:PlanetId){
   if(mine && S.domain.node){
     if(path){ const t=moveProg(), c=path(t), a=P(path(Math.max(0,t-0.01)).q), b=P(path(Math.min(1,t+0.01)).q);
       const tr:Vec3[]=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly('spur',tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
-      ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn??null, glow:c.glow, soon:path(Math.min(1,t+0.06)).burn??null}; }
+      ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn??null, glow:!!c.glow, soon:path(Math.min(1,t+0.06)).burn??null}; }
     else { const w=shipW(S.render.move?S.render.move.from.node:S.domain.node); if(w){ const [bb,nd]=splitNode(S.domain.node); let dir:[number,number]=[1,0];
         if(!S.render.move && nd!=='surf'){ const moon=isMoon(bb), base:Vec3=isMoon(bb)?moonW(bb,S.domain.day):[0,0,0], rr=moon?rMo:(nd==='capt'?rH:rLow), uu=moon?st.moonU:(nd==='capt'?st.capU:st.lowU);
           const a=P(vadd(base,ringPt(rr,uu-0.05))), c=P(vadd(base,ringPt(rr,uu+0.05))); dir=[c.x-a.x,c.y-a.y]; }
@@ -200,14 +200,14 @@ function drawBody(b:BodyId){
     shipAt=orbitPos(b,orb,orb.u,R_ORB); const a=P(orbitPos(b,orb,orb.u-0.02,R_ORB)), c=P(orbitPos(b,orb,orb.u+0.02,R_ORB)); shipDir=[c.x-a.x,c.y-a.y];
   }
   let shipLast:(()=>void)|null=null;
-  if(shipAt){
-    const sp=P(shipAt);
+  if(shipAt && shipDir){
+    const sp=P(shipAt), dir=shipDir;
 // close to the surface the rocket stands on the site (as when landed), not in the middle of the marker
     let shipZ=sp.z*R;
     { const rr=Math.hypot(...shipAt), kk=Math.max(0,Math.min(1,1-(rr-1)/0.07)); if(kk>0){ const dx=sp.x-cx, dy=sp.y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       sp.x+=ux*17*kk; sp.y+=uy*17*kk; shipZ=shipZ+kk*(zPad-shipZ); } } // eased forward on touchdown
 // when hidden only the rear layer draws it (and three.js leaves the rocket out), otherwise the front one.
-    const drawShip=(c:CanvasRenderingContext2D)=>{ const ang=Math.atan2(-shipDir![1],shipDir![0]);
+    const drawShip=(c:CanvasRenderingContext2D)=>{ const ang=Math.atan2(-dir[1],dir[0]);
       c.globalAlpha=fade;
       if(glow){ const gr=c.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,14); gr.addColorStop(0,'rgba(255,190,120,0.9)'); gr.addColorStop(1,'rgba(255,120,40,0)'); c.fillStyle=gr; c.beginPath(); c.arc(sp.x,sp.y,14,0,TAU); c.fill(); }
       drawRocket(c,'body',sp.x,sp.y,ang,burn,soon,att,shipZ,fade);
@@ -245,7 +245,7 @@ function drawBody(b:BodyId){
     HITS.push({canvas:cv,x:p.x,y:p.y,r:22,pick:pk}); };
 // rightmost visible point of the orbit, for the marker
   const frontOf=(o:Plane,r:number)=>{ let best:ReturnType<typeof P>|null=null; for(let j=0;j<72;j++){ const p=P(orbitPos(b,o,j/72*TAU,r)); if(p.z<0) continue; if(!best||p.x>best.x) best=p; } return best; };
-  marker(frontOf(orb,R_ORB)!,`${b}.orbit`,'Low orbit','left');
+  const fp=frontOf(orb,R_ORB); if(fp) marker(fp,`${b}.orbit`,'Low orbit','left');
   if(showHigh){ const hp=P(orbitPos(b,defaultOrb(b),40*D2R,R_HIGH)); if(hp) marker(hp,`${b}.capt`,'High orbit','left'); }
 
 // landing sites (faded on the far side, still tappable)
@@ -282,7 +282,7 @@ export function idleLoop(ts:number){
   requestAnimationFrame(idleLoop);
   if(reduce || !S || S.action.busy || document.hidden || ts-idleT<40){ if(ts-idleT>=40) idleT=ts; return; }
   const dt=Math.min(0.1,(ts-idleT)/1000); idleT=ts;
-  if(!S.domain.node || $('stage')!.clientWidth<1) return;
+  if(!S.domain.node || ($('stage')?.clientWidth??0)<1) return;
   const vw=mapView(), [b,nd]=splitNode(S.domain.node);
 // system view: keep circling in low orbit, at a moon, or in high orbit
   if(vw.level==='sys' && !sc.hidden && vw.planet===planetOfBody(b) && nd!=='surf'){

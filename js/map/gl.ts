@@ -3,7 +3,7 @@
 
 import type * as THREE from 'three';
 import { tick } from '../events.js';
-import { TAU } from '../basics.js';
+import { TAU, ctx2d } from '../basics.js';
 import { BodyId, bodyColor } from '../game/world.js';
 import { D2R, bodyLon0 } from './geometry.js';
 import { CAPS, DESERT, EARTH_LAND, LAND, LIGHT, WATER } from './surface.js';
@@ -35,13 +35,12 @@ interface Scene3D {
   mat:Partial<Record<BodyId, THREE.MeshLambertMaterial>>; mesh:Partial<Record<BodyId, THREE.Mesh>>; path:Record<string, Ribbon>; ring:THREE.Mesh|null;
 }
 let G: Scene3D|null = null;
-const glcEl:HTMLCanvasElement = glc as HTMLCanvasElement;
 
 export function glOff(why:string){
   if(GL.state==='off') return;
   GL.state='off'; GL.on=false; G=null; GL.why=why||'';
   console.warn('3D view off:', why);
-  glcEl.hidden=true; cvb.hidden=true;
+  glc.hidden=true; cvb.hidden=true;
   try{ tick(); }catch(e){}
 }
 
@@ -124,7 +123,7 @@ function texBands(g:CanvasRenderingContext2D){
 function glSurface({T,aniso}:Scene3D,b:BodyId){
   const caps=CAPS[b]||[], gas=b==='jupiter'||b==='saturn', earth=b==='earth';
   if(!caps.length && !gas && !earth) return null;
-  const col=bodyColor(b), cn=texCanvas(TEX_W,TEX_H), g=cn.getContext('2d')!;
+  const col=bodyColor(b), cn=texCanvas(TEX_W,TEX_H), g=ctx2d(cn);
   g.fillStyle=col; g.fillRect(0,0,TEX_W,TEX_H);
   if(earth){
     LAND.forEach((pts,i)=>texPoly(g,pts,EARTH_LAND(i)));
@@ -139,7 +138,7 @@ function glSurface({T,aniso}:Scene3D,b:BodyId){
 // Saturn's ring: bands across the radius, transparent at the inner and outer edge. The Cassini
 // division sits at just under two thirds, as it does in nature.
 function glRingTexture({T,aniso}:Scene3D){
-  const N=512, cn=texCanvas(N,N), g=cn.getContext('2d')!, c=N/2;
+  const N=512, cn=texCanvas(N,N), g=ctx2d(cn), c=N/2;
   const inner=0.614; // 1.35 of 2.2 Saturn radii: the ring does not start at the planet
   const band=(r0:number,r1:number,fill:string)=>{ g.beginPath(); g.arc(c,c,r1*c,0,TAU); g.arc(c,c,r0*c,0,TAU,true);
     g.fillStyle=fill; g.fill('evenodd'); };
@@ -155,12 +154,12 @@ function glRingTexture({T,aniso}:Scene3D){
 
 export function glInit(T:Three){
   let r:THREE.WebGLRenderer;
-  try{ r=new T.WebGLRenderer({canvas:glcEl, alpha:true, antialias:true, powerPreference:'low-power'}); }
+  try{ r=new T.WebGLRenderer({canvas:glc, alpha:true, antialias:true, powerPreference:'low-power'}); }
   catch(e){ glOff('no WebGL context'); return; }
   r.setClearAlpha(0);
   r.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); // on mobile: at most 2
   r.autoClear=false;
-  glcEl.addEventListener('webglcontextlost', (e:Event)=>{ e.preventDefault(); glOff('WebGL context lost'); });
+  glc.addEventListener('webglcontextlost', (e:Event)=>{ e.preventDefault(); glOff('WebGL context lost'); });
 
   const scene=new T.Scene(), cam=new T.OrthographicCamera(-1,1,1,-1,1,4000);
   cam.position.set(0,0,2000);
@@ -216,8 +215,8 @@ export function glSaturnRing(d:number){
 // scale is the number of pixels per unit inside the group (drawBody: R, drawSys: 1).
 export function glBegin(W:number,H:number,cx:number,cy:number,scale:number,el:number){
   if(!G) return false;
-  glcEl.hidden=false; cvb.hidden=false;
-  layFor(glcEl,W,H);
+  glc.hidden=false; cvb.hidden=false;
+  layFor(glc,W,H);
   G.r.setSize(W,H,false);
   const c=G.cam; c.left=-W/2; c.right=W/2; c.top=H/2; c.bottom=-H/2; c.updateProjectionMatrix();
   G.root.position.set(cx-W/2, H/2-cy, 0);
@@ -304,4 +303,4 @@ export function glRocket(x:number,y:number,z:number,a:number,key:string,alpha?:n
 
 export function glEnd(){ if(!G) return; G.r.clear(); G.r.render(G.scene, G.cam); }
 
-export function glHide(){ glcEl.hidden=true; cvb.hidden=true; }
+export function glHide(){ glc.hidden=true; cvb.hidden=true; }

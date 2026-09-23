@@ -2,7 +2,7 @@
 // Sits in the main view next to the location card from ui/panels.js.
 
 import { changed } from '../events.js';
-import { $, esc, fmtDays, km } from '../basics.js';
+import { esc, fmtDays, km, byId, find } from '../basics.js';
 import { B, FUEL_PRICE, GOODS, POSTS, M, ROT, SITES, Site, bodyName, bodyOf, fuelHere, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
 import { bodyDown, bodyUp, transfer } from '../game/physics.js';
 import { S, ViewLevel, atTarget, homePlanet, pickTarget, targetName } from '../game/state.js';
@@ -12,7 +12,7 @@ import { setView } from '../map/view.js';
 import { btn, openRoute } from './widgets.js';
 
 export function renderPick(){
-  const w = $('pickcard') as HTMLElement; w.innerHTML='';
+  const w = byId('pickcard',HTMLElement); w.innerHTML='';
   const p = S.ui.pick; if(!p) return;
   const locked = S.action.busy || S.domain.over, c = document.createElement('div'); c.className='pick';
   const tag = (cls:string, t:string) => `<span class="mtag ${cls}">${t}</span>`;
@@ -46,8 +46,9 @@ export function renderPick(){
     const n = post?cargoTo(x=>x.id===post.id).length:0;
     if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     if(post) tags.push(tag('post',post.hub?'Hub':'Trading post'));
-    if(p.site){
-      const st = siteOf(b,p.site)!, fp = FUEL_PRICE[nd+'@'+p.site]??FUEL_PRICE[nd];
+    const st = p.site ? siteOf(b,p.site) : null;
+    if(st){
+      const fp = FUEL_PRICE[nd+'@'+st.id]??FUEL_PRICE[nd];
       if(st.depot && fp!==undefined) tags.push(tag('toward',`Fuel depot, ${fp} Cr/t`));
       info = `${latStr(st.lat)}, ${bodyName(b)}.${post?(post.makes.length?' Produces '+post.makes.map(g=>GOODS[g].name).join(', ')+'.':'')+' Needs '+post.needs.map(g=>GOODS[g].name).join(', ')+'.':''}${st.note?' '+st.note+'.':''}`;
       const pen = rotPenalty(b,st.lat), rot = ROT[b]||0, down = bodyDown(b)+(hasAtm(b)?0:pen), up = bodyUp(b)+pen;
@@ -64,8 +65,8 @@ export function renderPick(){
   if(hereNow) tags.push(tag('here','You are here'));
   c.innerHTML=`<div class="row"><b class="big">${esc(title)}</b>${close}</div>${tags.length?`<div class="mtags">${tags.join('')}</div>`:''}
     ${info?`<p class="kinfo">${esc(info)}</p>`:''}${stats.length?`<div class="pstats">${stats.map(([a,b])=>`<div><span class="muted">${a}</span><b>${b}</b></div>`).join('')}</div>`:''}`;
-  (c.querySelector('.x') as HTMLButtonElement).onclick = ()=>{ S.ui.pick=null; changed(); };
+  find(c,'.x',HTMLButtonElement).onclick = ()=>{ S.ui.pick=null; changed(); };
   if(btns.length){ const g = document.createElement('div'); g.className='two';
-    btns.forEach(([t,cls,fn])=>g.appendChild(btn(t,cls,cls==='go'&&locked,fn))); if(btns.length===1) (g.firstElementChild as HTMLElement).classList.add('span2'); c.appendChild(g); }
+    btns.forEach(([t,cls,fn])=>g.appendChild(btn(t,cls,cls==='go'&&locked,fn))); if(btns.length===1) g.firstElementChild?.classList.add('span2'); c.appendChild(g); }
   w.appendChild(c);
 }

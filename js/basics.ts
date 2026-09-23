@@ -1,4 +1,4 @@
-// Small helpers that know nothing about the game: formatting, angles, a DOM shorthand.
+// Small helpers that know nothing about the game: formatting, angles, DOM shorthands.
 
 export const VERSION = '45'; // shown in the menu so a stale copy from the browser cache is easy to spot
 
@@ -24,6 +24,19 @@ export const SLOW = 2.3, FAST = 6;
 export const ANIM = {active:false, fast:false, long:false, instant:false};
 
 export const $ = (id: string) => document.getElementById(id);
+
+// Elements the code relies on, checked against the expected type. Missing or of the wrong
+// kind means index.html and the code disagree, so that throws instead of failing later.
+export function checked<T extends Element>(e: Element|null|undefined, type: new()=>T, what: string): T{
+  if(e instanceof type) return e; throw new Error(`Expected ${type.name} for ${what}`);
+}
+export const byId = <T extends Element>(id: string, type: new()=>T) => checked($(id), type, '#'+id);
+export const find = <T extends Element>(root: ParentNode, sel: string, type: new()=>T) => checked(root.querySelector(sel), type, sel);
+export const findAll = <T extends Element>(root: ParentNode, sel: string, type: new()=>T) => [...root.querySelectorAll(sel)].map(e=>checked(e, type, sel));
+export function ctx2d(c: HTMLCanvasElement){ const g=c.getContext('2d'); if(!g) throw new Error('No 2D canvas'); return g; }
+
+// Dijkstra queue step: take the cheapest entry
+export function popMin<T extends {c:number}>(q: T[]): T|undefined { q.sort((a,b)=>a.c-b.c); return q.shift(); }
 
 const ESC: Record<string, string> = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'};
 export const esc = (s: unknown) => String(s).replace(/[&<>"]/g, c => ESC[c] ?? c);

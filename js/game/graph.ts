@@ -1,6 +1,7 @@
 // The route graph behind pricing: idealised cost between two places.
 
 import { B, BodyId, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, rotPenalty, siteOf, splitNode } from './world.js';
+import { popMin } from '../basics.js';
 import { captDv, hopCost, transfer } from './physics.js';
 import { S, Order } from './state.js';
 
@@ -27,7 +28,8 @@ export function edgesFrom(node: NodeId, site: string|null): Edge[]{
     else { lands(k,m.down); e(`${m.parent}.capt`,null,m.xfer,m.days); }
   } else {
     const b=B[k];
-    if(l==='surf'){ const sf=b.surf!; const pen=rotPenalty(k,lat(k,site)); e(`${k}.orbit`,null,sf.launcher?pen:sf.up+pen,sf.launcher?1:0.2,{launch:!!sf.launcher}); }
+    const sf=b.surf;
+    if(l==='surf' && sf){ const pen=rotPenalty(k,lat(k,site)); e(`${k}.orbit`,null,sf.launcher?pen:sf.up+pen,sf.launcher?1:0.2,{launch:!!sf.launcher}); }
     if(l==='orbit'){ if(b.surf) lands(k,b.surf.down); e(`${k}.capt`,null,captDv(k),1); }
     if(l==='capt'){
       e(`${k}.orbit`,null,captDv(k),1); if(b.atm) e(`${k}.orbit`,null,60,40);
@@ -49,8 +51,8 @@ export function route(from: Place, to: Place): RouteResult{
   const dist=new Map<string, {c:number; dv:number; days:number}>(), prev=new Map<string, {k:string; ed:Edge}>(), done=new Set<string>();
   const q=[{n:from.node,s:startSite,c:0}]; dist.set(sk(from.node,startSite),{c:0,dv:0,days:0});
   let goal:string|null=null;
-  while(q.length){
-    q.sort((a,b)=>a.c-b.c); const cur=q.shift()!, ck=sk(cur.n,cur.s), d=dist.get(ck);
+  for(let cur=popMin(q); cur; cur=popMin(q)){
+    const ck=sk(cur.n,cur.s), d=dist.get(ck);
     if(done.has(ck) || !d) continue; done.add(ck);
     if(cur.n===to.node && (!to.site || cur.s===to.site)){ goal=ck; break; }
     for(const ed of edgesFrom(cur.n,cur.s)){

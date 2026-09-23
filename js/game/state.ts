@@ -129,11 +129,16 @@ export function burn(dv:number){
   S.domain.fuel=Math.max(0,m-eng().dry-cm); S.domain.used+=dv;
 }
 
-export const locKey = ():string|null => S.domain.node ? S.domain.node+(S.domain.site?'@'+S.domain.site:'') : null;
+export const locOf = (node:NodeId, site:string|null) => node+(site?'@'+site:'');
+
+export const locKey = ():string|null => S.domain.node ? locOf(S.domain.node,S.domain.site) : null;
+
+// The ship's place as a start for route(); null while under way
+export const shipPlace = () => { const n=S.domain.node; return n ? {id:'@'+locOf(n,S.domain.site), node:n, site:S.domain.site} : null; };
 
 export const postAt = ():Post|null => S.domain.node ? POSTS.find(k=>k.node===S.domain.node && (!k.site || k.site===S.domain.site)) || null : null;
 
-export const fuelPrice = ():number|undefined => { const n=S.domain.node; return n ? (FUEL_PRICE[locKey()!] ?? FUEL_PRICE[n]) : undefined; };
+export const fuelPrice = ():number|undefined => { const n=S.domain.node; return n ? (FUEL_PRICE[locOf(n,S.domain.site)] ?? FUEL_PRICE[n]) : undefined; };
 
 export const here = () => S.domain.node ? splitNode(S.domain.node) : [null,null] as const;
 

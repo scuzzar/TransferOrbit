@@ -5,7 +5,7 @@ import { changed, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, isDesk, km, reduce, tons } from '../basics.js';
 import { B, BANKRUPT, DEPOTS, G0, GOODS, HubId, NodeId, POST_BY_ID, POSTS, PlanetId, PostId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, byPost, fmtCr, isGood, isMoon, isNode, isPlanet, isPost, isShip, planetOfBody, siteOf, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, Amounts, DomainState, Eco, Flags, View, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName, Order } from './state.js';
+import { S, Amounts, DomainState, Eco, Flags, View, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, shipPlace, setState, slotsUsed, targetName, Order } from './state.js';
 import { payout, route } from './graph.js';
 import { econAdvance, freshDeadline, newEconomy } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
@@ -32,7 +32,7 @@ export function newGame(){
   S.domain.eco.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
 }
 
-export function arrive(node:NodeId, site:string){
+export function arrive(node:NodeId, site:string|null){
   S.domain.node=node; S.domain.visited.add(node);
   S.domain.site = node.endsWith('.surf') ? site : null;
   if(site) S.domain.visited.add(splitNode(node)[0]+'@'+site);
@@ -42,7 +42,7 @@ export function arrive(node:NodeId, site:string){
 
 // Scroll the map into view if it is currently off screen
 function showMap(el?:Element){
-  const t = (el || document.querySelector('.maptabs')) as HTMLElement;
+  const t = el || document.querySelector('.maptabs'); if(!t) return;
   const r=t.getBoundingClientRect();
   const visible = r.top>=0 && r.top < window.innerHeight*0.5;
   if(!visible) t.scrollIntoView({behavior: reduce?'auto':'smooth', block:'start'});
@@ -51,7 +51,7 @@ function showMap(el?:Element){
 // The move an action sets off: path around the body, system orbit, time window.
 // doAction then plays it out; anyone who only wants the picture sets it themselves.
 export function planMove(a:LocalAction):Move{
-  const node=S.domain.node!, orb=S.render.orb;
+  const node=S.domain.node, orb=S.render.orb; if(!node) throw new Error('planMove while under way');
   const spec:MoveSpec={from:{node, site:S.domain.site}, to:{node:a.to, site:a.site||null}, d0:S.domain.day, d1:S.domain.day+a.days, aero:!!a.aero,
     orb: orb?.body===splitNode(node)[0] ? {...orb} : null};
   return {...spec, path:bodyPath(spec), sys:sysPlan(spec)};
@@ -64,15 +64,15 @@ export function doAction(a:LocalAction){
 // remember the move so the system and body views can show the ship under way
   const mv=planMove(a); S.render.move=mv;
   changed();
-  const [tb,tl]=splitNode(a.to), [hb]=here();
-  if(isMoon(tb) && tl==='orbit' && !S.domain.node!.endsWith('.surf') || hb && isMoon(hb) && tl==='capt') showMap();
+  const [tb,tl]=splitNode(a.to), [hb,hl]=here();
+  if(isMoon(tb) && tl==='orbit' && hl!=='surf' || hb && isMoon(hb) && tl==='capt') showMap();
   const ms = mv.sys ? (mv.aero ? 3400 : 2400) : mv.path ? (a.to.endsWith('.surf')&&!a.hop ? 2600 : 1900) : Math.max(800, Math.min(1500, 400+a.days*20));
   animateTo(S.domain.day+a.days, ms*SLOW, ()=>{
     const pth=mv.path, spl=mv.sys; S.render.move=null;
     if(spl) Object.assign(sysState(planetOfBody(tb)), spl.final);
 // orbit state for the 3D view: the launch orbit after lift-off, otherwise equatorial and in front
     if(tl==='orbit') S.render.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); else if(tl==='surf') S.render.orb=null;
-    arrive(a.to,a.site as string); S.ui.msg=`${a.label}: ${km(a.dv)} km/s used. Now: ${nodeName(a.to)}.`;
+    arrive(a.to,a.site??null); S.ui.msg=`${a.label}: ${km(a.dv)} km/s used. Now: ${nodeName(a.to)}.`;
     S.action.busy=false; changed(); autoFill();
   });
 }
@@ -85,7 +85,7 @@ export function doTransfer(b:PlanetId){
   S.action.transit={a,b,dep,arr,th0:theta(a,dep),th1:theta(b,arr)};
   S.domain.node=null; S.action.busy=true; S.ui.mapView=null; S.ui.msg=`Under way to ${B[b].name}. Arrival on ${dateStr(arr)}.`; changed(); showMap();
   animateTo(arr, 2800*SLOW, ()=>{
-    S.action.transit=null; arrive(`${b}.capt`,'');
+    S.action.transit=null; arrive(`${b}.capt`,null);
     S.ui.msg=`Arrived: high orbit of ${B[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`;
     S.action.busy=false; changed(); autoFill();
   });
@@ -158,7 +158,7 @@ export function buyShip(id:ShipId){
 export const strandCache:{key:string|null,val:boolean}={key:null,val:false};
 
 export function stranded(){
-  if(S.action.busy||S.domain.over||!S.domain.node) return false;
+  const me=shipPlace(); if(S.action.busy||S.domain.over||!me) return false;
   const ri=refuelInfo();
   if(ri){ // a depot here, but no money
     if(!(ri.need>1 && ri.max<Math.min(ri.need,5)) || deliverables().length) return false;
@@ -166,7 +166,7 @@ export function stranded(){
     // not for an open order from here, and not to reach another post that has orders.
     const key=['k',locKey(),Math.round(S.domain.fuel*10),cargoMass(),S.domain.ship,Math.floor(S.domain.day/10)].join('|');
     if(strandCache.key!==key){
-      const dv=dvAvail(), k=postAt(), me={id:'@'+locKey()!, node:S.domain.node, site:S.domain.site};
+      const dv=dvAvail(), k=postAt();
       const cargoOk=cargoOrders().length && cargoOrders().every(o=>route(me,POST_BY_ID[o.to]).dv<=dv+0.5);
       const hereOk=k && S.domain.eco.orders.some(o=>o.state==='open' && o.from===k.id && dvWith(S.domain.fuel,cargoMass()+o.n*GOODS[o.good].m)>=o.dv);
 // elsewhere: the approach plus the order's route must fit the fuel on board together
@@ -177,7 +177,7 @@ export function stranded(){
     return strandCache.val;
   }
   const key=[locKey(),Math.round(S.domain.fuel*10),cargoMass(),S.domain.ship,Math.floor(S.domain.day/30)].join('|');
-  if(strandCache.key!==key){ strandCache.key=key; strandCache.val=nearestFuel({node:S.domain.node, site:S.domain.site, day:S.domain.day}).dv > dvAvail()+0.5; }
+  if(strandCache.key!==key){ strandCache.key=key; strandCache.val=nearestFuel({node:me.node, site:me.site, day:S.domain.day}).dv > dvAvail()+0.5; }
   return strandCache.val;
 }
 
@@ -213,8 +213,8 @@ export function openView(v:View, back?:View|null){ S.ui.rmsg=false; S.ui.back = 
   if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
 
 export function refuelInfo(){
-  if(!S.domain.node) return null;
-  const [k,l]=here(), site=l==='surf'?S.domain.site:null, st=site?siteOf(k!,site):null, days=st?st.depot:DEPOTS[S.domain.node], price=fuelPrice();
+  const node=S.domain.node; if(!node) return null;
+  const [k,l]=splitNode(node), site=l==='surf'?S.domain.site:null, st=site?siteOf(k,site):null, days=st?st.depot:DEPOTS[node], price=fuelPrice();
   if(days===undefined || price===undefined) return null;
   const need=Math.max(0,eng().cap-S.domain.fuel), afford=Math.max(0,S.domain.credits)/price;
   return {days, price, need, max:Math.min(need,afford), source: st?(k==='earth'?'Refuelling at the spaceport':'Propellant from local ice'):'Orbital fuel depot'};
@@ -226,15 +226,14 @@ export function doRefuel(amount:number, keepView?:boolean){
   const cost=Math.round(amount*r.price);
   S.action.busy=true; if(!keepView){ const back=S.ui.view==='refuel'?S.ui.back:null; S.ui.view=back||'main'; S.ui.back=null; } changed();
   animateTo(S.domain.day+r.days, Math.min(1200,300+r.days*15), ()=>{
-    S.domain.fuel=Math.min(eng().cap,S.domain.fuel+amount); S.domain.credits-=cost; S.domain.flags[`refuel:${here()[0]!}@${S.domain.site}`]=true;
+    S.domain.fuel=Math.min(eng().cap,S.domain.fuel+amount); S.domain.credits-=cost; const [k]=here(); if(k) S.domain.flags[`refuel:${k}@${S.domain.site}`]=true;
     S.ui.msg=`Fuelled: ${tons(amount)} for ${fmtCr(cost)}. ${km(dvAvail())} km/s available.`; S.action.busy=false; changed();
   });
 }
 
 // The most delta-v the cargo on board needs from here
 export function routeNeedHere(){
-  if(!S.domain.node) return 0;
-  const me={id:'@'+locKey()!, node:S.domain.node, site:S.domain.site};
+  const me=shipPlace(); if(!me) return 0;
   return cargoOrders().reduce((mx:number,o:Order)=>Math.max(mx, POST_BY_ID[o.to]===postAt()?0:route(me,POST_BY_ID[o.to]).dv),0);
 }
 
@@ -329,7 +328,7 @@ export function parseSave(raw:unknown):DomainState|null{
   if(!eco || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
   const f=isObj(o.flags)?o.flags:{}, flags:Flags={delivered:isNum(f.delivered)?f.delivered:0};
   for(const [k,v] of Object.entries(f)) if(v===true){
-    if(k.startsWith('refuel:')) flags[k as `refuel:${string}`]=true;
+    if(k.startsWith('refuel:')) flags[`refuel:${k.slice(7)}`]=true;
     else if(k==='marsLanded'||k==='marsReturn'||k==='hubDelivery'||k==='bought') flags[k]=true;
   }
   return {day:o.day, node:o.node, site:isStr(o.site)?o.site:null, ship:o.ship, fuel:o.fuel, used:isNum(o.used)?o.used:0, credits:o.credits,
@@ -391,7 +390,8 @@ function autoTick(){
   if(S.action.busy){ setTimeout(autoTick,250); return; }
   if(S.domain.over) return stopAutopilot();
   if(atTarget(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
-  if(locKey()!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${postAt()!.name}.`,true);
+  const k=postAt();
+  if(k && locKey()!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);
   const plan=planRoute(A.target, A.mode);
   const st=plan?.steps[0];
   if(!st) return stopAutopilot('Autopilot: no route found.');

@@ -13,6 +13,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
     "useDefineForClassFields": true
   },
   "include": ["js/**/*.ts", "globals.d.ts"]

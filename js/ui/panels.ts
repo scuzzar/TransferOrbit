@@ -1,7 +1,7 @@
 // The panels: trading post, cargo hold, refuelling, shipyard, route.
 
 import { changed } from '../events.js';
-import { $, dateStr, esc, fmtDays, km, tons } from '../basics.js';
+import { dateStr, esc, fmtDays, km, tons, byId, find } from '../basics.js';
 import { B, FUEL_PRICE, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, REGION, SHIPS, SHIP_IDS, bodyName, fmtCr, isNode, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
 import { Order, RouteMode, S, atTarget, cargoMass, cargoOrders, dvAvail, dvWith, eng, here, postAt, locKey, nodeName, slotsUsed, targetName } from '../game/state.js';
 import { lateFactor, payout } from '../game/graph.js';
@@ -47,16 +47,16 @@ function panelPost(p:HTMLElement){
     const nDel=cargoOrders().filter(o=>o.to===tk.id).length;
     grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(postLabel(tk))}</b>${tk.hub?' <span class="tag">Hub</span>':''}${nDel?` <span class="mtag deliver">${nDel} already on board</span>`:''}</div>
       <div class="og-meta"><span class="${short?'badc':''}">${km(dest.dv)} km/s</span><span>${fmtDays(dest.days)}</span><span class="${lateBy>0?'badc':''}">Due ${dateStr(dl)}</span></div>
-      ${lateBy>0?`<div class="o-warn bad">The deadline cannot be met: earliest arrival ${dateStr(tpl!.arrive)}.</div>`:
+      ${tpl&&lateBy>0?`<div class="o-warn bad">The deadline cannot be met: earliest arrival ${dateStr(tpl.arrive)}.</div>`:
         short?`<div class="o-warn">${gSel.length?'With your selection':'Even with the lightest order'} you would have ${km(after)} km/s left. ${afterFull<dest.dv?`Too heavy: even with a full tank it would only be ${km(afterFull)} km/s.`:'Refuel first.'}</div>`:''}</div>`;
-    const rl=routeLink(tk,'post'); rl.style.marginLeft='auto'; (grp.querySelector('.og-meta') as HTMLElement).appendChild(rl);
+    const rl=routeLink(tk,'post'); rl.style.marginLeft='auto'; find(grp,'.og-meta',HTMLElement).appendChild(rl);
     os.forEach(o=>{
       const Gd=GOODS[o.good], on=S.ui.sel.has(o.id), fits=on || slotsUsed()+selN+o.n<=eng().slots;
       const el=document.createElement('label'); el.className='orow'+(on?' on':'')+(fits?'':' dis');
       const tooBig=o.n>eng().slots, need=tooBig?shipFor(o.n):null;
       const why = fits ? '' : tooBig ? `, needs ${o.n} slots: ${need?need.name+' or larger':'no ship is large enough'}` : `, needs ${o.n} ${o.n>1?'slots':'slot'}`;
       el.innerHTML=`<input type="checkbox" ${on?'checked':''} ${(!fits||locked)?'disabled':''}>${gchip(o.good)}<span class="ot"><b>${o.n} × ${Gd.name}${o.bulk?' <span class="mtag post">Bulk order</span>':''}</b><small>${tons(o.n*Gd.m)}${why}</small></span><span class="num">${fmtCr(o.reward)}</span>`;
-      (el.querySelector('input') as HTMLInputElement).onchange=(e)=>{ (e.target as HTMLInputElement).checked?S.ui.sel.add(o.id):S.ui.sel.delete(o.id); changed(); };
+      const cb=find(el,'input',HTMLInputElement); cb.onchange=()=>{ cb.checked?S.ui.sel.add(o.id):S.ui.sel.delete(o.id); changed(); };
       grp.appendChild(el);
     });
     list.appendChild(grp);
@@ -127,16 +127,16 @@ function depotLabel(key:string){
 }
 
 function panelRefuel(p:HTMLElement){
-  const r=refuelInfo(); if(!r){ openView('main'); return; }
+  const r=refuelInfo(), node=S.domain.node; if(!r||!node){ openView('main'); return; }
   const locked=S.action.busy||S.domain.over;
-  p.appendChild(phead(`Refuel`, `${esc(nodeName(S.domain.node!))}. ${r.source}, ${r.price} Cr per t, takes ${fmtDays(r.days)}.`, ''));
+  p.appendChild(phead(`Refuel`, `${esc(nodeName(node))}. ${r.source}, ${r.price} Cr per t, takes ${fmtDays(r.days)}.`, ''));
   if(S.ui.tank===null) S.ui.tank=+r.max.toFixed(1);
   const amt=Math.min(S.ui.tank,r.max), cost=Math.round(amt*r.price);
   const box=document.createElement('div'); box.className='tankbox';
   box.innerHTML=`<div class="row"><label for="tankamt"><b>Amount</b></label><b class="big">${tons(amt)}</b></div>
     <input id="tankamt" type="range" min="0" max="${r.max.toFixed(1)}" step="0.5" value="${amt}" ${locked||r.max<0.1?'disabled':''}>
     <div class="row muted"><span>Tank ${tons(S.domain.fuel)}</span><span>full ${tons(eng().cap)}</span></div>`;
-  (box.querySelector('input') as HTMLInputElement).oninput=(e)=>{ S.ui.tank=+((e.target as HTMLInputElement).value); changed(); document.getElementById('tankamt')?.focus(); };
+  const range=find(box,'input',HTMLInputElement); range.oninput=()=>{ S.ui.tank=+range.value; changed(); document.getElementById('tankamt')?.focus(); };
   const quick=document.createElement('div'); quick.className='two';
   const needDv=routeNeedHere();
   const forRoute=Math.max(0,Math.min(r.max, fuelFor(needDv,cargoMass())*1.03-S.domain.fuel));
@@ -153,8 +153,8 @@ function panelRefuel(p:HTMLElement){
   const [hb]=here(), reg=hb && REGION[hb], inReg=(key:string)=>{ const [n]=key.split('@'); return isNode(n) && REGION[splitNode(n)[0]]===reg; };
   const rows=Object.entries(FUEL_PRICE).filter(([key])=>inReg(key)).sort((a,b)=>a[1]-b[1]);
   const lst=document.createElement('div'); lst.className='pricelist';
-  const me=locKey();
-  lst.innerHTML=rows.map(([key,pr])=>`<div class="${key===me||key===S.domain.node&&!FUEL_PRICE[me!]?'me':''}"><span>${esc(depotLabel(key))}${key===me||key===S.domain.node&&!FUEL_PRICE[me!]?' (here)':''}</span><span>${pr} Cr/t</span></div>`).join('');
+  const me=locKey(), isMe=(key:string)=>key===me || key===S.domain.node && !(me && FUEL_PRICE[me]);
+  lst.innerHTML=rows.map(([key,pr])=>`<div class="${isMe(key)?'me':''}"><span>${esc(depotLabel(key))}${isMe(key)?' (here)':''}</span><span>${pr} Cr/t</span></div>`).join('');
   p.appendChild(lst);
   const f=document.createElement('div'); f.className='pfoot';
   f.appendChild(btn(amt>=0.1?`Take on ${tons(amt)} for ${fmtCr(cost)}`:(r.need<0.05?'The tank is full':'No money for fuel'),'go wide',locked||amt<0.1,()=>doRefuel(amt)));
@@ -189,10 +189,10 @@ function panelShipyard(p:HTMLElement){
 }
 
 export function renderPlace(){
-  const w=$('placecard') as HTMLElement; w.innerHTML='';
+  const w=byId('placecard',HTMLElement); w.innerHTML='';
   const k=postAt(), r=refuelInfo(), del=deliverables(), locked=S.action.busy||S.domain.over;
   const c=document.createElement('div'); c.className='place';
-  const where=S.domain.node?nodeName(S.domain.node):`Under way to ${B[S.action.transit!.b].name}`;
+  const tr=S.action.transit, where=S.domain.node?nodeName(S.domain.node):tr?`Under way to ${B[tr.b].name}`:'Under way';
   const info = k ? `${k.makes.length?'Produces '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`
     : r ? `Fuel depot, ${r.price} Cr/t.` : '';
   c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Location</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${k.hub?'Hub':'Trading post'}</span>`:''}</div>`;
@@ -206,7 +206,7 @@ export function renderPlace(){
   if(g.children.length) c.appendChild(g);
   w.appendChild(c);
 
-  const rs=$('rescue') as HTMLElement; rs.innerHTML=''; rs.className='';
+  const rs=byId('rescue',HTMLElement); rs.innerHTML=''; rs.className='';
   if(S.domain.over){ rs.className='rescue'; rs.innerHTML=`<p>${esc(S.ui.msg)}</p>`; rs.appendChild(btn('Start over','go',false,resetGame)); return; }
   if(stranded()){
     rs.className='rescue';
@@ -217,7 +217,7 @@ export function renderPlace(){
 }
 
 export function renderPanel(){
-  const p=$('panel') as HTMLElement; p.innerHTML='';
+  const p=byId('panel',HTMLElement); p.innerHTML='';
   const v=S.ui.view;
   if(v==='post') panelPost(p); else if(v==='cargo') panelCargo(p);
   else if(v==='refuel') panelRefuel(p); else if(v==='shipyard') panelShipyard(p); else if(v==='route') panelRoute(p);
@@ -227,8 +227,9 @@ function panelRoute(p:HTMLElement){
   const R=S.ui.route; if(!R){ openView('main'); return; }
   const locked=S.action.busy||S.domain.over;
   const autoBtn=()=>{ const g=document.createElement('div'); g.className='pfoot'; g.appendChild(btn('Stop the autopilot','wide',false,()=>stopAutopilot('Autopilot stopped.'))); return g; };
+  const tr=S.action.transit;
   if(!S.domain.node){
-    p.appendChild(phead(`Route: ${targetName(R.target)}`, `Under way to ${B[S.action.transit!.b].name}, arriving ${dateStr(S.action.transit!.arr)}.`, ''));
+    p.appendChild(phead(`Route: ${targetName(R.target)}`, tr?`Under way to ${B[tr.b].name}, arriving ${dateStr(tr.arr)}.`:'Under way.', ''));
     const h=document.createElement('p'); h.className='hint'; h.textContent='The schedule is recalculated once you arrive.'; p.appendChild(h);
     if(S.ui.auto) p.appendChild(autoBtn());
     return;
@@ -303,7 +304,7 @@ function panelRoute(p:HTMLElement){
     else {
       tg.appendChild(btn(`${full?'Fill up':'As much as affordable'}: ${tons(rf.max)}, ${fmtCr(rf.max*rf.price)} → ${km(dvFull)} km/s`,'',locked,()=>doRefuel(rf.max,true)));
       if(forRoute>0.5 && forRoute<rf.max-0.5) tg.appendChild(btn(`Enough for the route: ${tons(forRoute)}, ${fmtCr(forRoute*rf.price)}`,'',locked,()=>doRefuel(forRoute,true)));
-      else (tg.firstElementChild as HTMLElement).classList.add('span2');
+      else tg.firstElementChild?.classList.add('span2');
     }
     box.appendChild(tg);
     const more=document.createElement('button'); more.type='button'; more.className='linkbtn'; more.textContent='Choose a different amount';

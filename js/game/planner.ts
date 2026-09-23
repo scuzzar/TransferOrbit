@@ -1,9 +1,9 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
-import { km } from '../basics.js';
+import { km, popMin } from '../basics.js';
 import { B, FUEL_SPOTS, POST_BY_ID, LAUNCH_FEE, M, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, siteOf, splitNode } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
-import { S, RouteMode, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, locKey, targetName, Target } from './state.js';
+import { S, RouteMode, cargoMass, cargoOrders, dvAvail, eng, homePlanet, postAt, shipPlace, targetName, Target } from './state.js';
 import { edgesFrom, idealTransfer, route, Edge } from './graph.js';
 import { feeBlocked, localActions } from './actions.js';
 
@@ -17,10 +17,11 @@ export interface FuelSpot { node:NodeId; site:string|null }
 const DAY_COST: Record<RouteMode, number> = {eco:0.01, now:100};
 
 // Markers for manoeuvres: delivery targets, the way towards the cargo, posts with orders
+export interface StepHint { node:NodeId; site:string|null; dv:number; name:string; n:number; final:boolean }
 export function cargoHints(){
-  const H={step:[] as {node:NodeId;site:string|null;dv:number;name:string;n:number;final:boolean}[], transfer:{} as Partial<Record<PlanetId,string[]>>};
-  if(!S.domain.node) return H;
-  const me={id:'@'+locKey()!, node:S.domain.node, site:S.domain.site}, hereK=postAt();
+  const H:{step:StepHint[]; transfer:Partial<Record<PlanetId,string[]>>}={step:[], transfer:{}};
+  const me=shipPlace(); if(!me) return H;
+  const hereK=postAt();
   const byDest: Partial<Record<PostId, number>> = {};
   cargoOrders().forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
   Object.entries(byDest).forEach(([id,n])=>{
@@ -56,8 +57,8 @@ export function planRoute(target:Target, mode:RouteMode, start?:Start|null): Pla
   const done=new Set<string>();
   const first:RNode={n:start.node,s:start.site,c:0,dv:0,days:0}, q=[first]; best.set(key(start.node,start.site),first);
   let goal:RNode|null=null;
-  while(q.length){
-    q.sort((a,b)=>a.c-b.c); const cur=q.shift()!, ck=key(cur.n,cur.s);
+  for(let cur=popMin(q); cur; cur=popMin(q)){
+    const ck=key(cur.n,cur.s);
     if(done.has(ck)) continue; done.add(ck);
     if(cur.n===target.node && (!target.site || cur.s===target.site)){ goal=cur; break; }
     for(const ed0 of edgesFrom(cur.n,cur.s)){
@@ -99,9 +100,9 @@ function stepLabel(from:RNode, e:Edge){
   return targetName({node:e.node});
 }
 
-export function nearestFuel(start:Start){
-  if(fuelHere(start.node,start.site)) return {dv:0, spot:null as FuelSpot|null};
-  let best={dv:Infinity, spot:null as FuelSpot|null};
+export function nearestFuel(start:Start):{dv:number; spot:FuelSpot|null}{
+  if(fuelHere(start.node,start.site)) return {dv:0, spot:null};
+  let best:{dv:number; spot:FuelSpot|null}={dv:Infinity, spot:null};
   FUEL_SPOTS.forEach(t=>{ const pl=planRoute(t,'eco',start); if(pl && pl.dv<best.dv) best={dv:pl.dv, spot:t}; });
   return best;
 }
@@ -113,6 +114,6 @@ export function stepBlocker(st:PlanStep){
   const a=localActions().find(a2=>a2.to===st.node && (a2.site||null)===(st.site||null));
   if(!a) return 'That manoeuvre is not possible from here.';
   if(a.dv>dvAvail()+0.5) return `It needs ${km(a.dv)} km/s, you have ${km(dvAvail())}.`;
-  if(feeBlocked(a)) return `The launch fee of ${fmtCr(a.fee!)} would bankrupt you.`;
+  if(a.fee && feeBlocked(a)) return `The launch fee of ${fmtCr(a.fee)} would bankrupt you.`;
   return 'Unknown reason.';
 }

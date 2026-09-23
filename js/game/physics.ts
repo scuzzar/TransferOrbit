@@ -7,9 +7,10 @@ import { AU, B, BodyId, M, MU_SUN, PlanetId, hasAtm, isMoon, launcherAt, siteOf 
 const VSURF: Partial<Record<BodyId, number>> = {mercury:3005, venus:7326, earth:7910, mars:3555, ceres:365, moon:1680, phobos:8, deimos:4,
   io:1810, europa:1430, ganymede:1950, callisto:1730, enceladus:170, titan:1870};
 
-export const bodyUp = (b: BodyId): number => isMoon(b) ? M[b].up : B[b].surf!.up;
+// Surface to low orbit and back; a body without a surface cannot be reached at all
+export const bodyUp = (b: BodyId): number => isMoon(b) ? M[b].up : B[b].surf?.up ?? Infinity;
 
-export const bodyDown = (b: BodyId): number => isMoon(b) ? M[b].down : B[b].surf!.down;
+export const bodyDown = (b: BodyId): number => isMoon(b) ? M[b].down : B[b].surf?.down ?? Infinity;
 
 // Central angle between two landing sites (great circle)
 function siteAngle(b: BodyId, s1: string|null, s2: string|null): number{

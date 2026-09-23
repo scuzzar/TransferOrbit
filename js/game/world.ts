@@ -159,7 +159,7 @@ export type GoodId = keyof typeof GOOD_TABLE;
 export const GOODS: Record<GoodId, GoodDef> = GOOD_TABLE;
 export const isGood = (x: unknown): x is GoodId => keyOf(GOODS, x);
 
-const post = <I extends string>(id:I, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:HubId) => ({id,name,node,site,makes,needs,hub});
+const post = <I extends string>(id:I, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:HubId) => ({id,name,node,site,makes,needs,...(hub?{hub}:{})});
 
 const POST_LIST = [
   post('earth','Earth','earth.surf',null,['food','mach','elec','hab'],['he3','rare']),

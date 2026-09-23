@@ -1,6 +1,6 @@
 // Small pieces of HTML: button, icon, chip, panel heading.
 
-import { esc } from '../basics.js';
+import { esc, find } from '../basics.js';
 import { GOODS, GoodId, postLabel, Post } from '../game/world.js';
 import { S, Target, View } from '../game/state.js';
 import { openView } from '../game/commands.js';
@@ -18,7 +18,7 @@ export function phead(title: string, sub: string, tag: string){
   const d = document.createElement('div'); d.className = 'phead';
   d.innerHTML = `<button type="button" class="back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>${BACK_LABEL[S.ui.back||'main']}</button>
     <h2 class="ptitle">${esc(title)}${tag?` <span class="tag">${tag}</span>`:''}</h2>${sub?`<p class="kinfo">${sub}</p>`:''}`;
-  (d.querySelector('.back') as HTMLButtonElement).onclick = () => openView(S.ui.back||'main');
+  find(d,'.back',HTMLButtonElement).onclick = () => openView(S.ui.back||'main');
   return d;
 }
 
@@ -39,4 +39,4 @@ export function openRoute(target: Target, back: View|null){ S.ui.route = {target
 export const kTarget = (k: Post): Target => ({node: k.node, site: k.site||null});
 
 export function routeLink(k: Post, back: View|null){ const b = document.createElement('button'); b.type = 'button'; b.className = 'olink';
-  b.innerHTML = `${icon('route',15)}Route`; b.title = `Plan a route to ${postLabel(k)}`; b.onclick = (e) => { (e as MouseEvent).preventDefault(); (e as MouseEvent).stopPropagation(); openRoute(kTarget(k), back); }; return b; }
+  b.innerHTML = `${icon('route',15)}Route`; b.title = `Plan a route to ${postLabel(k)}`; b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openRoute(kTarget(k), back); }; return b; }

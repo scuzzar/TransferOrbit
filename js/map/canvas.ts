@@ -1,17 +1,16 @@
 // The three drawing layers (2D behind, three.js, 2D in front) and their helpers.
 
-import { $, isDesk } from '../basics.js';
+import { byId, ctx2d, isDesk } from '../basics.js';
 import { POST_BY_ID, Post } from '../game/world.js';
 import { S, Pick, cargoOrders } from '../game/state.js';
 
-const el = (id:string) => $(id) as HTMLCanvasElement;
-const stageEl = (id:string) => $(id) as HTMLElement;
+const el = (id:string) => byId(id,HTMLCanvasElement);
 
-export const cv=el('cv'), ctx=cv.getContext('2d') as CanvasRenderingContext2D;
+export const cv=el('cv'), ctx=ctx2d(cv);
 
-export const sc=el('sys'), sctx=sc.getContext('2d') as CanvasRenderingContext2D;
+export const sc=el('sys'), sctx=ctx2d(sc);
 
-export const cvb=el('cvb'), bctx=cvb.getContext('2d') as CanvasRenderingContext2D, glc=$('glc') as HTMLCanvasElement | null; // the rear 2D layer and the three.js layer
+export const cvb=el('cvb'), bctx=ctx2d(cvb), glc=el('glc'); // the rear 2D layer and the three.js layer
 
 export interface Hit { canvas:HTMLCanvasElement; x:number; y:number; r:number; pick:Pick }
 export const HITS:Hit[]=[];
@@ -23,7 +22,7 @@ export function clearHits(layer?:HTMLCanvasElement){
 
 // Fit the canvas to the space: full width on mobile, on desktop as large as width and window height allow
 export function fitCanvas(canvas:HTMLCanvasElement, aspect:number):[number,number]{
-  const st=stageEl('stage'); let W=st.clientWidth;
+  const st=byId('stage',HTMLElement); let W=st.clientWidth;
   if(W<1){ const cw=parseFloat(canvas.style.width)||0; return [cw, cw/aspect]; } // hidden: keep the size
   if(isDesk()){ const h=st.clientHeight; if(h>60) W=Math.min(W, h*aspect); }
   W=Math.max(0,Math.floor(W)); const H=Math.floor(W/aspect);

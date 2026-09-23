@@ -25,7 +25,7 @@ export function hubRoom(h:Post){
 
 function pickWeighted<T>(list:[T,...T[]], w:(x:T)=>number):T{
   const tot=list.reduce((s,x)=>s+w(x),0); let r=Math.random()*tot;
-  for(const x of list){ r-=w(x); if(r<=0) return x; } return list[list.length-1]!;
+  let pick=list[0]; for(const x of list){ pick=x; r-=w(x); if(r<=0) break; } return pick;
 }
 const nonEmpty = <T,>(a:T[]):a is [T,...T[]] => a.length>0;
 const need = (k:Post, g:GoodId) => S.domain.eco.demand[k.id][g]??0;
