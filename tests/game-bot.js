@@ -4,29 +4,29 @@ const AI = String.raw`
   // run animations instantly so the bot plays fast
   TO.ANIM.instant=true;
   window.LOG=[]; window.EV={trips:0,profit:0,fuel:0,rescues:0,rescueCost:0,fees:0,ships:[],late:0,warnings:[],stuck:0,orders:0,waitDays:0};
-  const log=(t)=>LOG.push('T'+Math.round(TO.S.domain.day-TO.START_DAY)+' '+t+' | '+Math.round(TO.S.domain.credits)+' Cr');
-  const priceHere=()=>TO.fuelPrice()??220;
+  const log=(t)=>LOG.push('T'+Math.round(TO.S.day-TO.START_DAY)+' '+t+' | '+Math.round(TO.S.player.credits)+' Cr');
+  const priceHere=()=>TO.S.ship.place?.fuelPrice??220;
   window.refuel=function(){ const r=TO.refuelInfo(); if(!r||r.need<0.5||r.max<0.5) return; const c=Math.round(r.max*r.price); EV.fuel+=c; TO.doRefuel(r.max); };
   // route from an arbitrary start: delta-v, days, arrival
   const planFrom=(start,target)=>TO.planRoute(target,'eco',start);
   const reserveAt=(t,day)=>{ const nf=TO.nearestFuel({node:t.node,site:t.site,day}); return nf.dv; };
-  const shipAt=(fuel,cm)=>TO.dvWith(fuel,cm);
+  const shipAt=(fuel,cm)=>TO.S.ship.dvWith(fuel,cm);
   // best load from post k (start 'start', fuel 'fuel'): per destination the most valuable orders that fit the hold and the delta-v
   function bestLoad(k,start,fuel){
-    const offers=TO.S.domain.market.orders.filter(o=>o.state==='open'&&o.from===k.id);
+    const offers=TO.S.market.post(k.id).offers;
     const byTo={}; offers.forEach(o=>(byTo[o.to]=byTo[o.to]||[]).push(o));
     let best=null;
     for(const [to,os] of Object.entries(byTo)){
       const tk=TO.POST_BY_ID[to], tgt=TO.kTarget(tk), pl=planFrom(start,tgt); if(!pl) continue;
       os.sort((a,b)=>b.reward/(b.containers*TO.GOODS[b.good].m+2)-a.reward/(a.containers*TO.GOODS[a.good].m+2));
       let pick=[], slots=0, cm=0;
-      for(const o of os){ if(slots+o.containers>TO.eng().slots) continue; const m=o.containers*TO.GOODS[o.good].m;
+      for(const o of os){ if(slots+o.containers>TO.S.ship.def.slots) continue; const m=o.containers*TO.GOODS[o.good].m;
         if(shipAt(fuel,cm+m)<pl.dv+60) continue;
         const dl=start.day+TO.legWait(TO.route(TO.POST_BY_ID[o.from],TO.POST_BY_ID[o.to]),start.day)+1.5*o.days+30; if(pl.arrive>dl) continue;
         pick.push(o); slots+=o.containers; cm+=m; }
       if(!pick.length) continue;
   // reserve: after delivering there must be enough left to reach the nearest depot
-      const m0=TO.eng().dry+cm+fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.eng().isp*TO.G0))-TO.eng().dry-cm);
+      const m0=TO.S.ship.def.dry+cm+fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.S.ship.def.isp*TO.G0))-TO.S.ship.def.dry-cm);
       const res=reserveAt(tgt,pl.arrive); if(shipAt(fAfter,0)<res+100) continue;
       const rew=pick.reduce((s,o)=>s+o.reward,0), burned=fuel-fAfter, cost=burned*priceHere();
       const val=rew-cost, score=val/(pl.days+3);
@@ -36,49 +36,49 @@ const AI = String.raw`
   }
   function travel(target){
     for(let i=0;i<40;i++){
-      if(TO.atTarget(target)) return true;
+      if(TO.S.ship.isAt(target)) return true;
       const pl=TO.planRoute(target,'eco'); if(!pl||!pl.steps.length){ log('no route to '+TO.targetName(target)); return false; }
       const st=pl.steps[0];
-      if(st.kind!=='wait' && st.dv>TO.dvAvail()+0.5){ log('not enough delta-v for '+st.label+' ('+TO.km(st.dv)+' > '+TO.km(TO.dvAvail())+')'); return false; }
+      if(st.kind!=='wait' && st.dv>TO.S.ship.dvAvail+0.5){ log('not enough delta-v for '+st.label+' ('+TO.km(st.dv)+' > '+TO.km(TO.S.ship.dvAvail)+')'); return false; }
       if(st.kind==='wait') EV.waitDays+=st.days;
       if(!TO.execStep(st)){ log('step failed: '+st.label+' - '+TO.stepBlocker(st)); return false; }
       if(TO.stranded()) return false;
-      if(TO.S.action.busy){ log('still busy after a step?!'); }
+      if(TO.S.ship.busy){ log('still busy after a step?!'); }
       // refuel automatically on the way, if there is a depot
-      if(!TO.atTarget(target)) { const r=TO.refuelInfo(); if(r && r.need>5) refuel(); }
+      if(!TO.S.ship.isAt(target)) { const r=TO.refuelInfo(); if(r && r.need>5) refuel(); }
     }
     log('route to '+TO.targetName(target)+' not reached after 40 steps'); return false;
   }
   function tryBuy(){
-    const k=TO.postAt(); if(!k||!k.hub) return;
+    const k=TO.S.ship.place?.post; if(!k||!k.hub) return;
     const order=['hulk','galleon','carrack'];
     for(const id of order.slice().reverse()){
-      if(id===TO.S.domain.ship) return; const sh=TO.SHIPS[id]; if(sh.price<=TO.eng().price) continue;
-      const net=sh.price-0.7*TO.eng().price;
+      if(id===TO.S.ship.type) return; const sh=TO.SHIPS[id]; if(sh.price<=TO.S.ship.def.price) continue;
+      const net=sh.price-0.7*TO.S.ship.def.price;
       const buffer= id==='carrack'?0:60000;
-      if(TO.S.domain.credits>=net+buffer && TO.slotsUsed()<=sh.slots){ TO.buyShip(id); EV.ships.push({ship:id,day:Math.round(TO.S.domain.day-TO.START_DAY),credits:Math.round(TO.S.domain.credits)}); log('BOUGHT '+sh.name+' for '+TO.fmtCr(net)); refuel(); return; }
+      if(TO.S.player.credits>=net+buffer && TO.S.ship.slotsUsed<=sh.slots){ TO.buyShip(id); EV.ships.push({ship:id,day:Math.round(TO.S.day-TO.START_DAY),credits:Math.round(TO.S.player.credits)}); log('BOUGHT '+sh.name+' for '+TO.fmtCr(net)); refuel(); return; }
     }
   }
   window.turn=function(){
-    if(TO.S.domain.bankrupt){ log('BANKRUPT'); return 'over'; }
+    if(TO.S.player.bankrupt){ log('BANKRUPT'); return 'over'; }
     // deliver
-    const del=TO.deliverables(); if(del.length){ const sum=del.reduce((s,o)=>s+TO.payout(o),0); del.forEach(o=>{ if(TO.payout(o)<o.reward) EV.late++; }); TO.deliverAll(); EV.profit+=sum; log('delivered '+del.length+' orders, '+TO.fmtCr(sum)); }
-    if(TO.stranded()){ const r=TO.rescueInfo(); EV.rescues++; EV.rescueCost+=r.cost; log('RESCUE '+(r.local?'credit':'tanker')+' '+TO.fmtCr(r.cost)+' @'+TO.locKey()); TO.rescue(); return 'rescue'; }
+    const del=TO.deliverables(); if(del.length){ const sum=del.reduce((s,o)=>s+o.payout(TO.S.day),0); del.forEach(o=>{ if(o.payout(TO.S.day)<o.reward) EV.late++; }); TO.deliverAll(); EV.profit+=sum; log('delivered '+del.length+' orders, '+TO.fmtCr(sum)); }
+    if(TO.stranded()){ const r=TO.rescueInfo(); EV.rescues++; EV.rescueCost+=r.cost; log('RESCUE '+(r.local?'credit':'tanker')+' '+TO.fmtCr(r.cost)+' @'+TO.S.ship.place?.key); TO.rescue(); return 'rescue'; }
     refuel(); tryBuy();
-    if(TO.S.domain.ship==='carrack') return 'done';
-    const start={node:TO.S.domain.node,site:TO.S.domain.site,day:TO.S.domain.day};
-    const k=TO.postAt();
-    let here=k?bestLoad(k,start,TO.S.domain.fuel):null;
+    if(TO.S.ship.type==='carrack') return 'done';
+    const start={node:TO.S.ship.place.node,site:TO.S.ship.place.site,day:TO.S.day};
+    const k=TO.S.ship.place?.post;
+    let here=k?bestLoad(k,start,TO.S.ship.fuel):null;
     // alternative: fly empty to another post and load there
     let alt=null;
     for(const kk of TO.POSTS){ if(k&&kk.id===k.id) continue;
-      if(!TO.S.domain.market.orders.some(o=>o.state==='open'&&o.from===kk.id)) continue;
-      const t=TO.kTarget(kk), pl=planFrom(start,t); if(!pl||pl.dv>TO.dvAvail()-100) continue;
-      const m0=TO.eng().dry+TO.cargoMass()+TO.S.domain.fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.eng().isp*TO.G0))-TO.eng().dry-TO.cargoMass());
-      const fuelThere=TO.fuelHere(t.node,t.site||null)?TO.eng().cap:fAfter;
+      if(!TO.S.market.post(kk.id).offers.length) continue;
+      const t=TO.kTarget(kk), pl=planFrom(start,t); if(!pl||pl.dv>TO.S.ship.dvAvail-100) continue;
+      const m0=TO.S.ship.def.dry+TO.S.ship.cargoMass+TO.S.ship.fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.S.ship.def.isp*TO.G0))-TO.S.ship.def.dry-TO.S.ship.cargoMass);
+      const fuelThere=TO.fuelHere(t.node,t.site||null)?TO.S.ship.def.cap:fAfter;
       if(!TO.fuelHere(t.node,t.site||null) && shipAt(fAfter,0)<reserveAt(t,pl.arrive)+100) continue;
       const b=bestLoad(kk,{node:t.node,site:t.site||(t.node==='earth.surf'?'kourou':null),day:pl.arrive},fuelThere); if(!b) continue;
-      const score=(b.val-(TO.S.domain.fuel-fAfter)*priceHere())/(pl.days+b.pl.days+3);
+      const score=(b.val-(TO.S.ship.fuel-fAfter)*priceHere())/(pl.days+b.pl.days+3);
       if(!alt||score>alt.score) alt={kk,t,pl,b,score};
     }
     if(here && (!alt || here.score>=alt.score*0.9)){
@@ -90,7 +90,7 @@ const AI = String.raw`
     }
     if(alt){ log('empty run to '+alt.kk.name+' ('+TO.km(alt.pl.dv)+' km/s, '+TO.fmtDays(alt.pl.days)+')'); const ok=travel(alt.t); if(!ok) EV.stuck++; return 'move'; }
   // nothing possible: head for the nearest depot, or wait
-    if(!TO.refuelInfo()){ const nf=TO.nearestFuel({node:TO.S.domain.node,site:TO.S.domain.site,day:TO.S.domain.day}); if(nf.spot && nf.dv<=TO.dvAvail()){ log('heading for the depot '+TO.targetName(nf.spot)); travel(nf.spot); return 'fuel'; } }
+    if(!TO.refuelInfo()){ const nf=TO.nearestFuel(start); if(nf.spot && nf.dv<=TO.S.ship.dvAvail){ log('heading for the depot '+TO.targetName(nf.spot)); travel(nf.spot); return 'fuel'; } }
     log('waiting 30 days (nothing worthwhile)'); EV.waitDays+=30; TO.waitDays(30); return 'wait';
   };
 })();`;
@@ -102,13 +102,13 @@ const AI = String.raw`
   await p.evaluate(AI);
   const hist=[]; let res;
   for(let i=0;i<4000;i++){
-    res=await p.evaluate(()=>{ let r; try{ r=turn(); }catch(e){ r='ERR '+e.message+' '+e.stack.split('\n')[1]; } TO.changed(); return {r, day:Math.round(TO.S.domain.day-TO.START_DAY), cr:Math.round(TO.S.domain.credits), ship:TO.S.domain.ship}; });
+    res=await p.evaluate(()=>{ let r; try{ r=turn(); }catch(e){ r='ERR '+e.message+' '+e.stack.split('\n')[1]; } TO.changed(); return {r, day:Math.round(TO.S.day-TO.START_DAY), cr:Math.round(TO.S.player.credits), ship:TO.S.ship.type}; });
     if(i%10===0) hist.push(res);
     if(res.r==='done'||res.r==='over'||res.r.startsWith('ERR')||res.day>365*80) break;
     if(i===0||[100,300].includes(i)) await p.screenshot({path:`play3_${i}.png`});
   }
   await p.screenshot({path:'play3_end.png'});
-  const out=await p.evaluate(()=>({EV, LOG, day:Math.round(TO.S.domain.day-TO.START_DAY), cr:Math.round(TO.S.domain.credits), ship:TO.S.domain.ship, used:Math.round(TO.S.domain.dvUsed)}));
+  const out=await p.evaluate(()=>({EV, LOG, day:Math.round(TO.S.day-TO.START_DAY), cr:Math.round(TO.S.player.credits), ship:TO.S.ship.type, used:Math.round(TO.S.ship.dvUsed)}));
   require('fs').writeFileSync('play_log3.json',JSON.stringify({out,hist,errs,res},null,1));
   console.log('End:',res, 'errors:',errs.slice(0,5));
   console.log(JSON.stringify(out.EV));

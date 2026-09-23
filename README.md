@@ -38,7 +38,7 @@ The only things that stay flat are the top-down view of the solar system (`drawS
 | Path | Contents |
 |---|---|
 | `index.html` | markup and CSS, plus one line: `<script type="module" src="./js/start.js">` |
-| `js/` | the game in 24 ES modules. The browser loads them itself, there is nothing to build |
+| `js/` | the game in 26 ES modules. The browser loads them itself, there is nothing to build |
 | `ARCHITECTURE.md` | how the modules are cut and which two rules hold them together, with a component diagram |
 | `CHANGELOG.md` | the change log of every version |
 | `art/` | models, textures and images from [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), see `art/README.md` |
@@ -55,10 +55,12 @@ npm install            # Playwright
 npx playwright install chromium
 npm run serve          # in a second terminal: server on port 8765 (with the CORS header)
 npm run typecheck      # tsc --noEmit
-npm test               # build, then regression test + 5 UI bots (desktop and phone)
+npm run unit           # unit tests of the game objects, no browser or server needed
+npm test               # build, then unit tests, regression test + 5 UI bots (desktop and phone)
 npm run game-bot       # plays sensibly up to the Carrack and logs the balance
 ```
 The tests load the built `dist/index.html`. It is checked in, and every build rewrites it; the Pages workflow builds its own, so reset it with `git checkout -- dist/index.html` once the tests are through rather than committing it. The bot plays with chance: a reported bankruptcy is not a failure, `errors: none` and `invariants: ok` are what count. Without network access three.js does not load and the 3D code does not run at all (`TO.GL.on` stays false); to test it anyway, serve `three@0.169.0` locally, for instance through Playwright's `page.route` with an `access-control-allow-origin: *` header.
+- `tests/unit.js` tests the game objects in `js/game/state.ts`, reading saves (old ones too) and the commands that drive them. It compiles `js/` with `tsc` into a temporary folder and runs under `node --test`, with `ANIM.instant` and a seeded `Math.random`.
 - `tests/regress.js` checks restart, save and load, the stranding logic, refuelling in the route planner and that the two route modes really do differ.
 - `tests/test-bot.js` clicks its way through the interface, inside a locked iframe like the one on claude.ai (`tests/harness.html`). Five bots play side by side, desktop and phone taking turns, each from a random trading post. three.js in software rendering is what makes it slow, so only the first bot draws in 3D. Configurable with the environment variables `RUNS` (default 5), `STEPS` (default 120), `ONLY` (`desk` or `mob`), `START` (a post id instead of a random one), `GL=all` (3D for every bot) and `LOG`.
 - `tests/game-bot.js` plays through the game functions, with `ANIM.instant` and no animations.

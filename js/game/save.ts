@@ -1,0 +1,106 @@
+// Reading a save back: old ids and field names are mapped first, then the JSON is checked
+// and rebuilt, object by object, into a Game. Writing is Game.toSave() in game/state.ts.
+
+import { PostId, byPost, isGood, isNode, isPlanet, isPost, isShip } from './world.js';
+import { Amounts, Docked, Game, Hub, Logbook, MILESTONES, Market, Milestone, Order, Place, Player, Ship, TradingPost } from './state.js';
+
+// Saves written before the code was translated carry the old German ids, and saves
+// written before the state got readable names carry the old field names. One lookup
+// per kind is enough for both. Runs before the check below, which would otherwise
+// reject an old save outright.
+const OLD_IDS: Record<'ship'|'site'|'post', Record<string,string>> = {
+  ship: {kogge:'cog', holk:'hulk', hulk:'galleon', karacke:'carrack'},
+  site: {nordpol:'northpole', tigerstreifen:'tigerstripes', aeqator:'equator'},
+  post: {erde:'earth', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
+};
+const OLD_FIELDS: Record<'domain'|'market'|'order', Record<string,string>> = {
+  domain: {used:'dvUsed', target:'windowPlanet', over:'bankrupt', eco:'market'},
+  market: {stock:'produced', demand:'need', fwd:'hubStore', bulk:'bulkStore', bulkN:'bulkLot', day:'simulatedTo'},
+  order: {n:'containers', fwdOrder:'fromHubStore', transship:'toHub', bulk:'isBulk'},
+};
+
+type Raw = Record<string, unknown>;
+const isObj = (x:unknown):x is Raw => typeof x==='object' && x!==null && !Array.isArray(x);
+const isNum = (x:unknown):x is number => typeof x==='number' && Number.isFinite(x);
+const isStr = (x:unknown):x is string => typeof x==='string';
+const isBool = (x:unknown):x is boolean => typeof x==='boolean';
+
+// Move old field names to the new ones, in place; a field already under its new name wins
+function renameFields(o:Raw, names:Record<string,string>){
+  for(const [old,now] of Object.entries(names)) if(old in o){ if(!(now in o)) o[now]=o[old]; delete o[old]; }
+}
+
+function migrate(o:Raw){
+  renameFields(o, OLD_FIELDS.domain);
+  if(isObj(o.market)){ renameFields(o.market, OLD_FIELDS.market);
+    if(Array.isArray(o.market.orders)) o.market.orders.forEach(x=>{ if(isObj(x)) renameFields(x, OLD_FIELDS.order); }); }
+  const site = (s:string) => OLD_IDS.site[s] || s, post = (p:string) => OLD_IDS.post[p] || p;
+  if(isStr(o.ship)) o.ship = OLD_IDS.ship[o.ship] || o.ship;
+  if(isStr(o.site)) o.site = site(o.site);
+  if(Array.isArray(o.visited)) o.visited = o.visited.filter(isStr).map(v=>{
+    const i = v.indexOf('@'); return i<0 ? v : v.slice(0,i+1) + site(v.slice(i+1)); });
+  if(isObj(o.flags)) o.flags = Object.fromEntries(Object.entries(o.flags).map(([k,v])=>[k.startsWith('refuel:') ? k.replace(/@(.*)$/,(_,s:string)=>'@'+site(s)) : k, v]));
+  const market = o.market; if(!isObj(market)) return o;
+  if(Array.isArray(market.orders)) market.orders.forEach(x=>{ if(isObj(x) && isStr(x.from) && isStr(x.to)){ x.from = post(x.from); x.to = post(x.to); } });
+  for(const field of ['produced','need','hubStore']){ const m=market[field]; if(isObj(m))
+    market[field] = Object.fromEntries(Object.entries(m).map(([k,v])=>[post(k),v])); }
+  return o;
+}
+
+// An order and where it lies, or null if anything is missing or unknown
+function parseOrder(x:unknown):{order:Order; aboard:boolean}|null{
+  if(!isObj(x)) return null;
+  const {id,containers,reward,dv,days,deadline,created,expires,good,from,to,state}=x;
+  if(!isNum(id) || !isNum(containers) || !isNum(reward) || !isNum(dv) || !isNum(days) || !isNum(deadline) || !isNum(created) || !isNum(expires)) return null;
+  if(!isGood(good) || !isPost(from) || !isPost(to) || (state!=='open' && state!=='aboard')) return null;
+  const order=new Order({id, good, containers, from, to, reward, dv, days, deadline, created, expires,
+    fromHubStore:x.fromHubStore===true, toHub:isBool(x.toHub) && x.toHub, isBulk:isBool(x.isBulk) && x.isBulk});
+  return {order, aboard:state==='aboard'};
+}
+
+// post -> good -> amount, keeping only known posts and goods; null if it isn't such a table
+function parseTable(x:unknown):Partial<Record<PostId,Amounts>>|null{
+  if(!isObj(x)) return null;
+  const t:Partial<Record<PostId,Amounts>>={};
+  for(const [k,row] of Object.entries(x)){
+    if(!isObj(row) || !Object.values(row).every(isNum)) return null;
+    if(!isPost(k)) continue;
+    const a:Amounts=t[k]={}; for(const [g,v] of Object.entries(row)) if(isGood(g) && isNum(v)) a[g]=v;
+  }
+  return t;
+}
+
+// The market with its posts and their open orders, and the orders aboard. Posts added since
+// the save get empty rows.
+function parseMarket(e:unknown):{market:Market; aboard:Order[]}|null{
+  if(!isObj(e) || !isNum(e.nextId) || !isNum(e.simulatedTo) || !Array.isArray(e.orders)) return null;
+  const orders=e.orders.map(parseOrder), produced=parseTable(e.produced), hubStore=parseTable(e.hubStore), need=parseTable(e.need);
+  const bulkStore=e.bulkStore===undefined ? {} : parseTable(e.bulkStore), bulkLot=e.bulkLot===undefined ? {} : parseTable(e.bulkLot);
+  if(!produced || !hubStore || !need || !bulkStore || !bulkLot) return null;
+  const posts=byPost(k=>{
+    const rows={produced:produced[k.id]??{}, need:need[k.id]??{}, bulkStore:bulkStore[k.id]??{}, bulkLot:bulkLot[k.id]??{}};
+    return k.hub ? new Hub(k, rows, hubStore[k.id]??{}) : new TradingPost(k, rows);
+  });
+  const market=new Market(posts, e.nextId, e.simulatedTo), aboard:Order[]=[];
+  for(const o of orders){ if(!o) return null; if(o.aboard) aboard.push(o.order); else market.post(o.order.from).offer(o.order); }
+  return {market, aboard};
+}
+
+// Unchecked JSON from localStorage -> a game, or null if it isn't a usable save. Fields
+// added after a save was written get their defaults; old ids and field names are mapped first.
+export function parseSave(raw:unknown):Game|null{
+  if(!isObj(raw)) return null;
+  const o=migrate(raw), m=parseMarket(o.market);
+  if(!m || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
+  const f=isObj(o.flags)?o.flags:{}, milestones:Milestone[]=[], depots:string[]=[];
+  for(const [k,v] of Object.entries(f)) if(v===true){
+    if(k.startsWith('refuel:')) depots.push(k.slice(7));
+    else { const ms=MILESTONES.find(x=>x===k); if(ms) milestones.push(ms); }
+  }
+  const log=new Logbook(Array.isArray(o.visited)?o.visited.filter(isStr):[], isNum(f.delivered)?f.delivered:0, milestones, depots);
+  const player=new Player(o.credits, log); player.bankrupt=o.bankrupt===true; player.autoFill=o.autoFill===true;
+  const ship=new Ship(o.ship, o.fuel, new Docked(new Place(o.node, isStr(o.site)?o.site:null)));
+  ship.dvUsed=isNum(o.dvUsed)?o.dvUsed:0;
+  m.aboard.forEach(x=>ship.load(x));
+  return new Game(o.day, player, ship, m.market, isPlanet(o.windowPlanet)?o.windowPlanet:null);
+}

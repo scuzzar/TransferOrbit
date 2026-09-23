@@ -53,7 +53,7 @@ export function wireMenu(){
   findAll(document,'[data-wait]',HTMLButtonElement).forEach((b)=>b.onclick = ()=>{ setMenu(false); if(UI.view!=='main' && !isDesk()) openView('main'); waitDays(Number(b.dataset.wait)); });
   infobtn.onclick = (e)=>{ e.stopPropagation(); setLegend(byId('legend',HTMLElement).hidden === true); };
   byId('legend',HTMLElement).onclick = ()=>setLegend(false);
-  byId('autofill',HTMLButtonElement).onclick = ()=>setAutoFill(!S.domain.autoFill);
+  byId('autofill',HTMLButtonElement).onclick = ()=>setAutoFill(!S.player.autoFill);
   byId('cargotile',HTMLButtonElement).onclick = ()=>openView(UI.view==='cargo'?'main':'cargo');
   wireFullscreen();
   showVersion();

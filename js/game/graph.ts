@@ -3,7 +3,6 @@
 import { B, BodyId, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, rotPenalty, siteOf, splitNode } from './world.js';
 import { popMin } from '../basics.js';
 import { captDv, hopCost, transfer } from './physics.js';
-import { S, Order } from './state.js';
 
 const idealCache: Record<string, {total:number; tof:number}> = {};
 
@@ -42,9 +41,10 @@ export function edgesFrom(node: NodeId, site: string|null): Edge[]{
 
 export interface RouteResult { dv:number; days:number; legs:[PlanetId,PlanetId][]; launch:boolean; first:Edge|null }
 const routeCache: Record<string, RouteResult> = {};
-interface Place { id:string; node:NodeId; site:string|null }
+// Anything route() can start or end at: a trading post, or the ship's place ('@'+key)
+export interface RoutePoint { id:string; node:NodeId; site:string|null }
 
-export function route(from: Place, to: Place): RouteResult{
+export function route(from: RoutePoint, to: RoutePoint): RouteResult{
   const key=from.id+'>'+to.id, hit=routeCache[key]; if(hit) return hit;
   const startSite = from.site || (from.node==='earth.surf' ? 'kourou' : null);
   const sk=(n:NodeId, s:string|null)=>n+'|'+(s||'');
@@ -78,7 +78,3 @@ export function rewardFor(r: {dv:number; days:number; launch:boolean}, good: Goo
 const LUCK = {p:0.08, min:1.4, max:1.9} as const;
 
 const rewardLuck = () => Math.random()<LUCK.p ? LUCK.min+(LUCK.max-LUCK.min)*Math.random()**2 : 0.9+Math.random()*0.3;
-
-export const lateFactor = (o: Pick<Order,'deadline'>, day: number): number => day<=o.deadline ? 1 : Math.max(0.25, 1-0.02*(day-o.deadline));
-
-export const payout = (o: Pick<Order,'deadline'|'reward'>): number => Math.round(o.reward*lateFactor(o,S.domain.day));

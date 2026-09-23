@@ -6,6 +6,7 @@ import * as Basics from './basics.js';
 import * as World from './game/world.js';
 import * as Physics from './game/physics.js';
 import * as State from './game/state.js';
+import * as Save from './game/save.js';
 import * as UiState from './ui/state.js';
 import * as Graph from './game/graph.js';
 import * as Economy from './game/economy.js';
@@ -51,7 +52,7 @@ setTimeout(()=>{ if(Gl.GL.state==='loading') Gl.glOff('three.js could not be loa
 // A single outside edge for tests and the console: TO.<name> always shows the current
 // value, TO.module['<path>'] the whole module.
 const MODULES: Record<string, Record<string, unknown>> = {
-  'events':Events, 'basics':Basics, 'game/world':World, 'game/physics':Physics, 'game/state':State, 'ui/state':UiState, 'game/graph':Graph, 'game/economy':Economy, 'game/actions':Actions, 'map/geometry':Geometry, 'game/planner':Planner, 'game/commands':Commands, 'map/canvas':Canvas, 'map/rocketdata':Rocketdata, 'map/surface':Surface, 'map/gl':Gl, 'map/rocket':Rocket, 'map/view':View, 'map/draw':Draw, 'ui/widgets':Widgets, 'ui/pickcard':Pickcard, 'ui/panels':Panels, 'ui/display':Display, 'ui/menu':Menu,
+  'events':Events, 'basics':Basics, 'game/world':World, 'game/physics':Physics, 'game/state':State, 'game/save':Save, 'ui/state':UiState, 'game/graph':Graph, 'game/economy':Economy, 'game/actions':Actions, 'map/geometry':Geometry, 'game/planner':Planner, 'game/commands':Commands, 'map/canvas':Canvas, 'map/rocketdata':Rocketdata, 'map/surface':Surface, 'map/gl':Gl, 'map/rocket':Rocket, 'map/view':View, 'map/draw':Draw, 'ui/widgets':Widgets, 'ui/pickcard':Pickcard, 'ui/panels':Panels, 'ui/display':Display, 'ui/menu':Menu,
 };
 const TO: { module: Record<string, Record<string, unknown>> } = { module: MODULES };
 for(const space of Object.values(MODULES))

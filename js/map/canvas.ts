@@ -2,7 +2,7 @@
 
 import { byId, ctx2d, isDesk } from '../basics.js';
 import { POST_BY_ID, Post } from '../game/world.js';
-import { S, cargoOrders } from '../game/state.js';
+import { S } from '../game/state.js';
 import { SCENE } from './geometry.js';
 import { UI, Pick } from '../ui/state.js';
 
@@ -32,7 +32,7 @@ export function fitCanvas(canvas:HTMLCanvasElement, aspect:number):[number,numbe
   return [W,H];
 }
 
-export const moveProg = () => { const m=SCENE.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.domain.day-m.d0)/(m.d1-m.d0))) : 1; };
+export const moveProg = () => { const m=SCENE.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.day-m.d0)/(m.d1-m.d0))) : 1; };
 
 export function isPick(p:Pick){
   const q=UI.pick; if(!q) return false;
@@ -41,7 +41,7 @@ export function isPick(p:Pick){
   return p.type==='node' && q.node===p.node && (q.site||null)===(p.site||null);
 }
 
-export const cargoTo = (test:(p:Post)=>boolean) => cargoOrders().filter(o=>test(POST_BY_ID[o.to]));
+export const cargoTo = (test:(p:Post)=>boolean) => S.ship.hold.filter(o=>test(POST_BY_ID[o.to]));
 
 export function prep(canvas:HTMLCanvasElement,g:CanvasRenderingContext2D,W:number,H:number){ const dpr=window.devicePixelRatio||1;
   if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }

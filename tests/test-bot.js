@@ -22,8 +22,8 @@ async function run(b,name,vp,gl){
     await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
     const f=p.frames().find(x=>x.url().includes('index.html'));
     await f.evaluate(()=>{ TO.ANIM.instant=true; });
-    const st=()=>f.evaluate(()=>({node:TO.S.domain.node,site:TO.S.domain.site,busy:TO.S.action.busy,auto:!!TO.S.action.auto,view:TO.UI.view,fuel:TO.S.domain.fuel,cr:TO.S.domain.credits,day:TO.S.domain.day,over:TO.S.domain.bankrupt,
-      cargo:TO.cargoOrders().length,msg:TO.UI.msg,dv:document.getElementById('dv').textContent}));
+    const st=()=>f.evaluate(()=>({node:TO.S.ship.place?.node??null,site:TO.S.ship.place?.site??null,busy:TO.S.ship.busy,auto:!!TO.S.ship.autopilot,view:TO.UI.view,fuel:TO.S.ship.fuel,cr:TO.S.player.credits,day:TO.S.day,over:TO.S.player.bankrupt,
+      cargo:TO.S.ship.hold.length,msg:TO.UI.msg,dv:document.getElementById('dv').textContent}));
     const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(20);} return false; };
     // Book the money flows: modules cannot be patched from outside any more, so the balance is
     // read before and after every click and filed under the button that was pressed.
@@ -31,10 +31,10 @@ async function run(b,name,vp,gl){
     const kind=l=>/Rescue/.test(l)?'rescue':/Cancel/.test(l)?'cancel':/Refuel/.test(l)?'fuel':/Deliver|Accept/.test(l)?'income':'other';
     const click=async(sel,label)=>{ const el=await f.$(sel); if(!el) return false; if(!(await el.isVisible())||await el.isDisabled()) return false;
       const how=kind(label||sel);
-      if(how==='rescue') SPEND.where.push(await f.evaluate(()=>{ const r=TO.rescueInfo(); return TO.locKey()+(r&&r.local?'[credit]':'[tanker]')+' cr='+Math.round(TO.S.domain.credits)+' fuel='+TO.S.domain.fuel.toFixed(1)+' cargo='+TO.cargoMass(); }));
-      const before=await f.evaluate(()=>TO.S.domain.credits);
+      if(how==='rescue') SPEND.where.push(await f.evaluate(()=>{ const r=TO.rescueInfo(); return TO.S.ship.place?.key+(r&&r.local?'[credit]':'[tanker]')+' cr='+Math.round(TO.S.player.credits)+' fuel='+TO.S.ship.fuel.toFixed(1)+' cargo='+TO.S.ship.cargoMass; }));
+      const before=await f.evaluate(()=>TO.S.player.credits);
       try{ await el.click({timeout:3000}); }catch(e){ bad.push('CLICK BLOCKED: '+(label||sel)+' — '+(e.message.match(/<[^>]+> from[^\n]*intercepts/)||[''])[0]); await p.screenshot({path:'blocked_'+name+'.png'}); return false; }
-      const d=(await f.evaluate(()=>TO.S.domain.credits))-before;
+      const d=(await f.evaluate(()=>TO.S.player.credits))-before;
       if(Math.abs(d)>0.5){ SPEND[how]+=Math.round(-d); if(how==='rescue') SPEND.rescueN++; if(how==='cancel') SPEND.cancelN++; }
       log.push(label||sel); return true; };
     const log=[]; const bad=[];
@@ -48,14 +48,14 @@ async function run(b,name,vp,gl){
       return s; };
 
     // --- 1. restart from the menu (two steps)
-    await f.evaluate(()=>{ TO.S.domain.credits=12345; TO.changed(); });
+    await f.evaluate(()=>{ TO.S.player.credits=12345; TO.changed(); });
     await click('#menubtn','Menu'); await click('[data-menu="reset"]','Start over (1)');
     let armed=await f.evaluate(()=>document.querySelector('[data-menu="reset"]').textContent);
     await click('[data-menu="reset"]','Start over (2)'); await p.waitForTimeout(200);
     let s=await st(); report.push(`${name}: restart -> balance ${s.cr} (expected 20000), button text after the 1st click: "${armed}"`);
     // --- 2. save / load
-    await f.evaluate(()=>{ TO.S.domain.credits=777; TO.changed(); }); await click('#menubtn'); await click('[data-menu="save"]','Save');
-    await f.evaluate(()=>{ TO.S.domain.credits=1; TO.changed(); }); await click('#menubtn'); await click('[data-menu="load"]','Load');
+    await f.evaluate(()=>{ TO.S.player.credits=777; TO.changed(); }); await click('#menubtn'); await click('[data-menu="save"]','Save');
+    await f.evaluate(()=>{ TO.S.player.credits=1; TO.changed(); }); await click('#menubtn'); await click('[data-menu="load"]','Load');
     s=await st(); report.push(`${name}: save/load -> balance ${s.cr} (expected 777), message: ${s.msg}`);
     await click('#menubtn'); await click('[data-menu="reset"]'); await click('[data-menu="reset"]'); await p.waitForTimeout(150);
     // --- 3. waiting from the menu
@@ -87,7 +87,7 @@ async function run(b,name,vp,gl){
         if(h){ const fr=await (await p.$('#f')).boundingBox(); await p.mouse.dblclick(fr.x+h[0],fr.y+h[1]); log.push('double click'); }
         await f.evaluate(()=>TO.setView(null)); continue; }
       if(r<0.11){ // a hop, if one is possible
-        const hop=await f.evaluate(()=>{ const a=TO.localActions().find(a=>a.hop && a.dv<TO.dvAvail()); if(!a) return null; TO.openRoute({node:a.to,site:a.site}); return a.label; });
+        const hop=await f.evaluate(()=>{ const a=TO.localActions().find(a=>a.hop && a.dv<TO.S.ship.dvAvail); if(!a) return null; TO.openRoute({node:a.to,site:a.site}); return a.label; });
         if(hop){ log.push(hop); await click('text=Next step only','execute the hop'); await idle(); await check('after the hop'); }
         continue; }
       // refuel when delta-v is low
@@ -123,16 +123,16 @@ async function run(b,name,vp,gl){
         await f.evaluate(()=>TO.openView('main'));
       }
       // nothing to do: fly to the nearest post that has orders (pick card -> route)
-      const tgt=await f.evaluate(()=>{ const cand=TO.POSTS.filter(k=>TO.S.domain.market.orders.some(o=>o.state==='open'&&o.from===k.id)&&!(TO.postAt()&&TO.postAt().id===k.id));
-        const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.dvAvail()-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
+      const tgt=await f.evaluate(()=>{ const cand=TO.POSTS.filter(k=>TO.S.market.post(k.id).offers.length&&!(TO.S.ship.place?.post&&TO.S.ship.place?.post.id===k.id));
+        const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.S.ship.dvAvail-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
         if(!pl) return null; TO.openRoute(TO.kTarget(pl.k)); return pl.k.name; });
       if(tgt){ log.push('flying to '+tgt); const go=await click('#panel button:has-text("Start the autopilot")','autopilot');
         if(go){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); } await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); });
         // no autopilot on offer (the ship would strand there): otherwise the same flight is tried again forever, so let time pass
         if(!go){ await click('#menubtn'); await click('[data-wait="30"]','wait (no autopilot to '+tgt+')'); await idle(); stuck++; } }
-      else if(await f.evaluate(()=>{ if(TO.refuelInfo()) return false; const nf=TO.nearestFuel({node:TO.S.domain.node,site:TO.S.domain.site,day:TO.S.domain.day}); if(!nf.spot||nf.dv>TO.dvAvail()) return false; TO.openRoute(nf.spot); return true; })){
+      else if(await f.evaluate(()=>{ if(TO.refuelInfo()) return false; const nf=TO.nearestFuel({node:TO.S.ship.place.node,site:TO.S.ship.place.site,day:TO.S.day}); if(!nf.spot||nf.dv>TO.S.ship.dvAvail) return false; TO.openRoute(nf.spot); return true; })){
         if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot (empty)')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); }); }
-      else { await click('#menubtn'); await click('[data-wait="30"]','wait'); await idle(); stuck++; log.push('AT A LOSS @'+s.node+'/'+s.site+' dv='+Math.round(await f.evaluate(()=>TO.dvAvail()))+' cr='+Math.round(s.cr)); }
+      else { await click('#menubtn'); await click('[data-wait="30"]','wait'); await idle(); stuck++; log.push('AT A LOSS @'+s.node+'/'+s.site+' dv='+Math.round(await f.evaluate(()=>TO.S.ship.dvAvail))+' cr='+Math.round(s.cr)); }
     }
     s=await check('end');
     if(process.env.LOG) console.log(name+' NOTABLE:\n'+[...(log.filter(x=>/NO AUTOPILOT|AT A LOSS|BACK|Rescue|bankrupt|flying|->|Refuel|Accept|Deliver/.test(x)))].slice(0,+process.env.LOG).join('\n'));

@@ -8,8 +8,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "serve": "python3 tools/serve.py 8765",
+    "unit": "node --test tests/unit.js",
     "pretest": "npm run build",
-    "test": "node tests/regress.js && node tests/test-bot.js",
+    "test": "node --test tests/unit.js && node tests/regress.js && node tests/test-bot.js",
     "game-bot": "node tests/game-bot.js"
   },
   "devDependencies": {

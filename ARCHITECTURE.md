@@ -1,6 +1,6 @@
 # Architecture
 
-The game consists of 25 ES modules under `js/`. The browser loads them itself;
+The game consists of 26 ES modules under `js/`. The browser loads them itself;
 there is no toolchain and no `node_modules` in what gets shipped. `index.html`
 holds nothing but markup and CSS, plus a single line of Javascript:
 
@@ -92,32 +92,33 @@ From the bottom up. "Imports from" lists only the modules actually used.
 | 1 | `basics.js` | 46 | Numbers, dates, angles, `$`, `ANIM` | — |
 | 2 | `game/world.js` | 240 | Bodies, moons, landing sites, trading posts, goods | — |
 | 3 | `game/physics.js` | 90 | Tsiolkovsky, Kepler, Hohmann, hops | basics, world |
-| 4 | `game/state.js` | 117 | `S` — the simulation — and the queries on it | world |
-| 5 | `ui/state.js` | 38 | `UI` — what the screen shows — and `hear()` | events, game/state, world |
-| 6 | `game/graph.js` | 84 | Idealised cost, used for pricing | basics, physics, game/state, world |
-| 7 | `game/economy.js` | 107 | The order board, deadlines, bulk goods | basics, graph, physics, game/state, world |
-| 8 | `game/actions.js` | 67 | Which manoeuvres are possible from here | physics, game/state, world |
-| 9 | `map/geometry.js` | 172 | Where something sits on screen; `SCENE`, the animation caches | basics, physics, game/state, world |
-| 10 | `game/planner.js` | 119 | Route search for the player, date-aware | actions, basics, graph, physics, game/state, world |
-| 11 | `game/commands.js` | 419 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, game/state, world |
-| 12 | `map/canvas.js` | 55 | The three drawing layers and their helpers | basics, game/state, geometry, ui/state, world |
-| 13 | `map/rocketdata.js` | 31 | The rocket model as number arrays | — |
-| 14 | `map/surface.js` | 52 | The planet surfaces as number arrays | — |
-| 15 | `map/gl.js` | 306 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
-| 16 | `map/rocket.js` | 98 | Attitude, flame, 3D model or hand-drawn | basics, geometry, gl, rocketdata |
-| 17 | `map/view.js` | 94 | Which level the map shows; taps on it | basics, canvas, events, game/state, geometry, planner, ui/state, world |
-| 18 | `map/draw.js` | 301 | Sun, system, body — and `draw()` | basics, canvas, game/state, geometry, gl, physics, rocket, rocketdata, ui/state, view, world |
-| 19 | `ui/widgets.js` | 46 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, game/state, ui/state, world |
-| 20 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, game/state, graph, physics, ui/state, view, widgets, world |
-| 21 | `ui/panels.js` | 334 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, game/state, graph, planner, ui/state, widgets, world |
-| 22 | `ui/display.js` | 72 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, game/state, panels, pickcard, planner, ui/state, widgets, world |
-| 23 | `ui/menu.js` | 78 | Menu, fullscreen, legend, version line | basics, commands, draw, events, game/state, ui/state, widgets |
-| 24 | `start.js` | 60 | Connect, wire, load, `window.TO` | all |
+| 4 | `game/state.js` | 267 | `S` — the game as objects: `Game`, `Player`, `Ship`, `Place`, `Market`, `TradingPost`, `Order` | world |
+| 5 | `game/save.js` | 106 | Reading a save back: old ids and names mapped, checked, rebuilt as objects | game/state, world |
+| 6 | `ui/state.js` | 38 | `UI` — what the screen shows — and `hear()` | events, game/state, world |
+| 7 | `game/graph.js` | 80 | Idealised cost, used for pricing | basics, physics, world |
+| 8 | `game/economy.js` | 114 | The order board, deadlines, bulk goods | basics, graph, physics, game/state, world |
+| 9 | `game/actions.js` | 68 | Which manoeuvres are possible from here | physics, game/state, world |
+| 10 | `map/geometry.js` | 172 | Where something sits on screen; `SCENE`, the animation caches | basics, physics, game/state, world |
+| 11 | `game/planner.js` | 121 | Route search for the player, date-aware | actions, basics, graph, physics, game/state, world |
+| 12 | `game/commands.js` | 328 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, game/save, game/state, world |
+| 13 | `map/canvas.js` | 55 | The three drawing layers and their helpers | basics, game/state, geometry, ui/state, world |
+| 14 | `map/rocketdata.js` | 31 | The rocket model as number arrays | — |
+| 15 | `map/surface.js` | 52 | The planet surfaces as number arrays | — |
+| 16 | `map/gl.js` | 306 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
+| 17 | `map/rocket.js` | 98 | Attitude, flame, 3D model or hand-drawn | basics, geometry, gl, rocketdata |
+| 18 | `map/view.js` | 95 | Which level the map shows; taps on it | basics, canvas, events, game/state, geometry, planner, ui/state, world |
+| 19 | `map/draw.js` | 303 | Sun, system, body — and `draw()` | basics, canvas, game/state, geometry, gl, physics, rocket, rocketdata, ui/state, view, world |
+| 20 | `ui/widgets.js` | 46 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, game/state, ui/state, world |
+| 21 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, game/state, graph, physics, ui/state, view, widgets, world |
+| 22 | `ui/panels.js` | 334 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, game/state, planner, ui/state, widgets, world |
+| 23 | `ui/display.js` | 72 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, game/state, panels, pickcard, planner, ui/state, widgets, world |
+| 24 | `ui/menu.js` | 78 | Menu, fullscreen, legend, version line | basics, commands, draw, events, game/state, ui/state, widgets |
+| 25 | `start.js` | 61 | Connect, wire, load, `window.TO` | all |
 
 The numbering above is one valid order out of many. What the import graph really
 forces is much flatter: the longest chain of imports is nine deep
 (`basics`/`events`/`world`/`rocketdata`/`surface` → `physics`/`game/state` →
-`actions`/`graph`/`geometry`/`ui/state` → `economy`/`planner`/`canvas`/`widgets` →
+`actions`/`graph`/`geometry`/`game/save`/`ui/state` → `economy`/`planner`/`canvas`/`widgets` →
 `commands`/`gl`/`view` → `rocket`/`panels`/`pickcard` → `draw` →
 `display`/`menu` → `start`), and everything on the same step is independent of
 everything else there. Measured against the table, no module imports one that
@@ -185,10 +186,40 @@ the first one is `S`:
 
 | Where | Object | What | Written by |
 |---|---|---|---|
-| `game/state.js` | `S.domain` | The simulation: day, place, ship, fuel, money, economy. Exactly what a save holds. | commands |
-| `game/state.js` | `S.action` | What the game is doing right now: busy, the interplanetary transit, the autopilot's target. Never saved. | commands |
+| `game/state.js` | `S` | The game: the day, the player with their ship, the market with its trading posts and their orders. Everything a save holds, plus what is under way right now (busy, the transfer, the autopilot), which is never saved. | commands |
 | `map/geometry.js` | `SCENE` | The map animation's caches: the manoeuvre being drawn, the ship's orbit, the time-lapse window. Never saved. | commands (they play the animation), the map |
 | `ui/state.js` | `UI` | The open panel and where "back" leads, ticked orders, the refuel slider, the map selection and level, the last message. Never saved. | the interface only |
+
+### The game as objects
+
+`S` is a `Game`, and the objects in it relate the way the things in the game do.
+[`docs/domain-model.md`](docs/domain-model.md) draws them as a class diagram.
+
+```
+S.day                      days since 1 January 2000
+S.player                   credits, bankrupt, autoFill, log (the Logbook: places, deliveries, milestones, depots)
+S.ship                     type, fuel, dvUsed, location, hold, autopilot, busy
+S.ship.location            Docked (at a Place) or InTransit (between two planets)
+S.ship.place               the Place it is docked at; null in transit
+S.market.posts[id]         a TradingPost: produced, need, bulk store, the orders it offers; a Hub also has a store
+S.windowPlanet             where the transfer window on the solar system map points
+```
+
+An order lies at the post it comes from (`post.offers`) until the ship takes it
+aboard (`ship.hold`); where it lies is its state, there is no field for it that
+could disagree. A `Place` is a value — node and landing site — that knows its
+body, planet, trading post, fuel price and name; a ship that moves gets a new
+one. The questions that used to be free functions on `S` are properties now:
+`eng()` is `S.ship.def`, `dvAvail()` is `S.ship.dvAvail`, `postAt()` is
+`S.ship.place?.post`, `payout(o)` is `o.payout(S.day)`, and
+`S.action.busy || S.domain.bankrupt` is `!S.canAct`.
+
+The split of the work: the objects do each change and keep it consistent —
+`ship.burn(dv)` takes the propellant Tsiolkovsky asks for, `ship.load(order)`
+keeps the hold in order, `player.log.visit(place)` notes the Mars landing. The
+commands decide *when*: they check that a move is allowed, play its animation
+and report it. The order board is made in `game/economy.js`, which works on the
+market's posts; it sits above `game/graph.js`, which the objects must not import.
 
 The commands never read `UI`. Where a command used to set the message it now
 calls `report(text)`; `ui/state.js` catches that in `hear()`. The two moments
@@ -278,16 +309,19 @@ the field names that saves from before the renaming carry to the current ones
 else in a save is language-neutral. The mapping runs before the check, which
 would otherwise reject an old save outright.
 
-The check is `parseSave()` in `game/commands.ts`. What comes out of
+The check is `parseSave()` in `game/save.ts`. What comes out of
 `localStorage` is `unknown` until it has been through it: the place, the ship
 and every order must use ids the game knows, the numbers must be numbers, or
 the save is refused. Fields added after a save was written get their defaults,
-trading posts added since get empty `produced` and `need` rows, and the state is
-rebuilt field by field rather than cast.
+trading posts added since get empty `produced` and `need` rows, and the game is
+rebuilt object by object rather than cast: open orders go to the post they come
+from, orders aboard into the ship's hold.
 
 ### What a save holds
 
-A save is `S.domain` as JSON, with `visited` as an array:
+A save is what `S.toSave()` writes: the objects flattened into one JSON object,
+with `visited` as an array. The format is the same as before the state became
+objects; empty rows are left out.
 
 | Field | Meaning |
 |---|---|
