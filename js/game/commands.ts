@@ -283,7 +283,8 @@ export function execStep(st:PlanStep){
 }
 
 export function startAutopilot(target:Node, mode:RouteMode){
-  S.player.ship.autopilot=new Autopilot(target, mode, S.player.ship.place); changed();
+  const here=S.player.ship.place; if(!here) return;       // only from a place, never under way
+  S.player.ship.autopilot=new Autopilot(target, mode, here); changed();
   autoLater(200);
 }
 
@@ -306,7 +307,6 @@ function autoTick(){
   if(!st) return stopAutopilot('Autopilot: no route found.');
   if(st.kind!=='wait' && st.dv>S.player.ship.dvAvail+0.5) return stopAutopilot(`Autopilot stopped: "${st.label}" needs ${km(st.dv)} km/s, you have ${km(S.player.ship.dvAvail)}. Refuel or drop cargo.`);
   if(!execStep(st)) return stopAutopilot(`Autopilot stopped at "${st.label}": ${stepBlocker(st)}`);
-  A.start=null; // after the first step every post with a delivery counts as a stop
   autoLater(300);
 }
 

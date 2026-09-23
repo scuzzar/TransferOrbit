@@ -50,7 +50,6 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
-- **Autopilot.** `start` may be missing and is cleared after the first step.
 - **Starports** are built for each game from the `Post` table (name, node, site, makes, needs,
   hub) rather than being fixed objects, and they reach their definition through `def`. Their
   industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random

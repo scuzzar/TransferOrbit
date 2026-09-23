@@ -25,8 +25,9 @@ const ready = (async () => {
   execFileSync(path.join(root, 'node_modules', '.bin', 'tsc'), ['-p', path.join(root, 'tsconfig.json'), '--noEmit', 'false', '--rootDir', root, '--outDir', out], { stdio: 'inherit' });
   fs.writeFileSync(path.join(out, 'package.json'), '{"type":"module"}');
   const load = m => import(pathToFileURL(path.join(out, 'js', m + '.js')).href);
-  const [world, state, save, commands, economy, actions, graph, basics, events] =
-    await Promise.all(['game/world', 'game/state', 'game/save', 'game/commands', 'game/economy', 'game/actions', 'game/graph', 'basics', 'events'].map(load));
+  const [world, state, save, commands, economy, actions, graph, planner, basics, events] =
+    await Promise.all(['game/world', 'game/state', 'game/save', 'game/commands', 'game/economy', 'game/actions', 'game/graph', 'game/planner', 'basics', 'events'].map(load));
+  plannerMod = planner;
   basics.ANIM.instant = true;
   const reports = []; events.onReport((text, kind) => reports.push({ text, kind }));
   return { world, state, save, commands, economy, actions, graph, reports };
@@ -34,6 +35,8 @@ const ready = (async () => {
 
 // A fresh game with a fixed seed; S is read through the module so it is always the current one
 async function fresh(s = 1) { const m = await ready; seed(s); store.clear(); m.commands.newGame(); m.reports.length = 0; return m; }
+const TOplan = (_c, t) => plannerMod.planRoute(t, 'eco');
+let plannerMod;
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`);
 
 // ── Nodes, landing sites, depots ───────────────────────────────────────────
@@ -418,6 +421,21 @@ test('The autopilot flies to its target and stops there', async () => {
   assert.ok(S.player.ship.autopilot instanceof state.Autopilot); assert.equal(S.player.ship.autopilot.start, world.nodeOf('earth.orbit'));
   for (let i = 0; i < 200 && S.player.ship.autopilot; i++) await new Promise(r => setTimeout(r, 0));
   assert.equal(S.player.ship.autopilot, null); assert.ok(S.player.ship.isAt(world.nodeOf('moon.surf', 'shackleton')));
+});
+
+test('The autopilot keeps its start for the whole trip: a wait for the window there is no reason to stop', async () => {
+  const { state, commands, world, reports } = await fresh();
+  const S = state.S, ship = S.player.ship;
+  ship.dock(world.nodeOf('jupiter.capt')); ship.swapTo('carrack'); ship.fuel = 150; S.player.credits = 1e6;
+  ship.load(new state.Order({ id: 9999, good: 'food', containers: 1, from: 'shackleton', to: 'jupgas', reward: 1000, dv: 1, days: 1,
+    deadline: S.day + 1000, created: S.day, expires: S.day + 900, fromHubStore: false, toHub: false }));
+  assert.equal(commands.deliverables().length, 1);                       // it could be delivered right here
+  const tgt = world.nodeOf('saturn.capt'), plan = TOplan(commands, tgt);
+  assert.equal(plan.steps[0].kind, 'wait');                              // the trip starts with a wait for the window
+  commands.startAutopilot(tgt, 'eco');
+  for (let i = 0; i < 200 && ship.autopilot; i++) await new Promise(r => setTimeout(r, 0));
+  assert.ok(!reports.some(r => /cargo can be delivered here/.test(r.text)), reports.map(r => r.text).join(' / '));
+  assert.ok(ship.isAt(tgt), ship.place?.key);
 });
 
 // ── Saves ──────────────────────────────────────────────────────────────────

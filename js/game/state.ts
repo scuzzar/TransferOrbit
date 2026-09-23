@@ -23,11 +23,13 @@ export class InTransit extends Location {
   }
 }
 
+// The autopilot flies from where the trip began to its target; a delivery at the start is no
+// reason to stop, for the whole trip
 export class Autopilot {
   readonly target:Node;
   readonly mode:RouteMode;
-  start:Node|null;        // the place it started from; a delivery there is no reason to stop
-  constructor(target:Node, mode:RouteMode, start:Node|null){ this.target=target; this.mode=mode; this.start=start; }
+  readonly start:Node;
+  constructor(target:Node, mode:RouteMode, start:Node){ this.target=target; this.mode=mode; this.start=start; }
 }
 
 // Paid in full up to the deadline, then 2% less per day, down to a quarter
