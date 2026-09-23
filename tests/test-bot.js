@@ -1,10 +1,21 @@
 const { chromium } = require('playwright');
-const STEPS = +process.env.STEPS || 120;
+const STEPS = +process.env.STEPS || 120, RUNS = +process.env.RUNS || 5;
+const VP = {desk:{width:1440,height:860}, mob:{width:390,height:844}};
+// RUNS bots side by side, desktop and phone taking turns (ONLY=desk|mob keeps to one); each one
+// starts at a random post, START=<post id> pins it. three.js in software rendering keeps the CPU
+// busy, so only the first bot draws in 3D and the others stay on 2D; GL=all puts all of them on 3D.
 (async()=>{
   const b=await chromium.launch();
-  const report=[];
-  for(const [name,vp] of (process.env.ONLY==='mob'?[['mob',{width:390,height:844}]]:process.env.ONLY==='desk'?[['desk',{width:1440,height:860}]]:[['desk',{width:1440,height:860}],['mob',{width:390,height:844}]])){
+  const kinds=process.env.ONLY?[process.env.ONLY]:['desk','mob'];
+  const runs=Array.from({length:RUNS},(_,i)=>{ const k=kinds[i%kinds.length]; return run(b,k+(i+1),VP[k],i===0||process.env.GL==='all'); });
+  console.log((await Promise.all(runs)).flat().join('\n'));
+  await b.close();
+})();
+
+async function run(b,name,vp,gl){
+    const report=[];
     const p=await b.newPage({viewport:vp, reducedMotion:'reduce'});
+    if(!gl) await p.route('https://cdn.jsdelivr.net/npm/three@*/**', r=>r.abort());
     const errs=[]; p.on('pageerror',e=>errs.push('pageerror: '+e.message));
     p.on('console',m=>{ if(m.type()==='error' && !/fonts|ERR_FAILED/.test(m.text())) errs.push('console: '+m.text()); });
     p.on('dialog',d=>{ errs.push('DIALOG '+d.type()+': '+d.message()); d.dismiss(); });
@@ -55,7 +66,9 @@ const STEPS = +process.env.STEPS || 120;
     await click('#cargotile','cargo tile'); const v1=(await st()).view; await click('.phead .back');
     report.push(`${name}: legend open=${lg}, the cargo tile opens "${v1}"`);
 
-    // --- 5. the playing bot (the bookkeeping now lives in click(), see above)
+    // --- 5. the playing bot (the bookkeeping now lives in click(), see above), from a random post
+    const start=await f.evaluate(id=>{ const k=TO.POST_BY_ID[id]||TO.POSTS[Math.floor(Math.random()*TO.POSTS.length)]; TO.arrive(k.node,k.site); TO.changed(); return k.id; }, process.env.START||'');
+    report.push(`${name}: starts at ${start}, 3D ${await f.evaluate(()=>TO.GL.on?'on':'off')}`);
     let deliveries=0, trips=0, stuck=0;
     for(let i=0;i<STEPS;i++){
       await idle(); s=await check('step '+i);
@@ -113,7 +126,10 @@ const STEPS = +process.env.STEPS || 120;
       const tgt=await f.evaluate(()=>{ const cand=TO.POSTS.filter(k=>TO.S.domain.eco.orders.some(o=>o.state==='open'&&o.from===k.id)&&!(TO.postAt()&&TO.postAt().id===k.id));
         const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.dvAvail()-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
         if(!pl) return null; TO.openRoute(TO.kTarget(pl.k)); return pl.k.name; });
-      if(tgt){ log.push('flying to '+tgt); if(await click('#panel button:has-text("Start the autopilot")','autopilot')){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); }); }
+      if(tgt){ log.push('flying to '+tgt); const go=await click('#panel button:has-text("Start the autopilot")','autopilot');
+        if(go){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); });
+        // no autopilot on offer (the ship would strand there): otherwise the same flight is tried again forever, so let time pass
+        if(!go){ await click('#menubtn'); await click('[data-wait="30"]','wait (no autopilot to '+tgt+')'); await idle(); stuck++; } }
       else if(await f.evaluate(()=>{ if(TO.refuelInfo()) return false; const nf=TO.nearestFuel({node:TO.S.domain.node,site:TO.S.domain.site,day:TO.S.domain.day}); if(!nf.spot||nf.dv>TO.dvAvail()) return false; TO.openRoute(nf.spot); return true; })){
         if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot (empty)')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); }); }
       else { await click('#menubtn'); await click('[data-wait="30"]','wait'); await idle(); stuck++; log.push('AT A LOSS @'+s.node+'/'+s.site+' dv='+Math.round(await f.evaluate(()=>TO.dvAvail()))+' cr='+Math.round(s.cr)); }
@@ -126,7 +142,5 @@ const STEPS = +process.env.STEPS || 120;
     report.push(`${name}: invariants: ${bad.length?[...new Set(bad)].slice(0,8).join(' | '):'ok'}`);
     await p.screenshot({path:`bot_${name}.png`});
     await p.close();
-  }
-  console.log(report.join('\n'));
-  await b.close();
-})();
+    return report;
+}
