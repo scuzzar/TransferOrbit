@@ -1,9 +1,10 @@
-// Small pieces of HTML: button, icon, chip, panel heading.
+// Small pieces of HTML: button, icon, chip, panel heading - and opening the panels.
 
-import { esc, find } from '../basics.js';
+import { changed } from '../events.js';
+import { esc, find, isDesk } from '../basics.js';
 import { GOODS, GoodId, postLabel, Post } from '../game/world.js';
-import { S, Target, View } from '../game/state.js';
-import { openView } from '../game/commands.js';
+import { Target } from '../game/state.js';
+import { UI, View } from './state.js';
 
 // The label of the back button, per view it returns to.
 const BACK_LABEL: Partial<Record<View, string>> = {main:'Map', post:'Order board', cargo:'Cargo hold', route:'Route'};
@@ -16,9 +17,9 @@ export function btn(label: string, cls: string, disabled: boolean, fn: () => voi
 
 export function phead(title: string, sub: string, tag: string){
   const d = document.createElement('div'); d.className = 'phead';
-  d.innerHTML = `<button type="button" class="back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>${BACK_LABEL[S.ui.back||'main']}</button>
+  d.innerHTML = `<button type="button" class="back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>${BACK_LABEL[UI.back||'main']}</button>
     <h2 class="ptitle">${esc(title)}${tag?` <span class="tag">${tag}</span>`:''}</h2>${sub?`<p class="kinfo">${sub}</p>`:''}`;
-  find(d,'.back',HTMLButtonElement).onclick = () => openView(S.ui.back||'main');
+  find(d,'.back',HTMLButtonElement).onclick = () => openView(UI.back||'main');
   return d;
 }
 
@@ -34,7 +35,10 @@ const icon = (k: string, sz = 18) => `<svg width="${sz}" height="${sz}" viewBox=
 
 export function ibtn(ic: string, label: string, cls: string, disabled: boolean, fn: () => void){ const b = btn('', cls, disabled, fn); b.innerHTML = `${icon(ic)}<span>${label}</span>`; return b; }
 
-export function openRoute(target: Target, back: View|null){ S.ui.route = {target, mode:'eco'}; openView('route', back); }
+export function openView(v: View, back?: View|null){ UI.rmsg=false; UI.back = v==='main' ? null : (back||null); UI.view=v; UI.sel=new Set<number>(); UI.tank=null; changed();
+  if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
+
+export function openRoute(target: Target, back: View|null){ UI.route = {target, mode:'eco'}; openView('route', back); }
 
 export const kTarget = (k: Post): Target => ({node: k.node, site: k.site||null});
 

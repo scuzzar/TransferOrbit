@@ -6,7 +6,7 @@ const AI = String.raw`
   window.LOG=[]; window.EV={trips:0,profit:0,fuel:0,rescues:0,rescueCost:0,fees:0,ships:[],late:0,warnings:[],stuck:0,orders:0,waitDays:0};
   const log=(t)=>LOG.push('T'+Math.round(TO.S.domain.day-TO.START_DAY)+' '+t+' | '+Math.round(TO.S.domain.credits)+' Cr');
   const priceHere=()=>TO.fuelPrice()??220;
-  window.refuel=function(){ const r=TO.refuelInfo(); if(!r||r.need<0.5||r.max<0.5) return; const c=Math.round(r.max*r.price); EV.fuel+=c; TO.doRefuel(r.max,true); };
+  window.refuel=function(){ const r=TO.refuelInfo(); if(!r||r.need<0.5||r.max<0.5) return; const c=Math.round(r.max*r.price); EV.fuel+=c; TO.doRefuel(r.max); };
   // route from an arbitrary start: delta-v, days, arrival
   const planFrom=(start,target)=>TO.planRoute(target,'eco',start);
   const reserveAt=(t,day)=>{ const nf=TO.nearestFuel({node:t.node,site:t.site,day}); return nf.dv; };
@@ -83,7 +83,7 @@ const AI = String.raw`
     }
     if(here && (!alt || here.score>=alt.score*0.9)){
   // accept
-      here.pick.forEach(o=>TO.S.ui.sel.add(o.id)); TO.acceptSelected(); TO.S.ui.view='main'; EV.orders+=here.pick.length;
+      TO.acceptOrders(here.pick.map(o=>o.id)); EV.orders+=here.pick.length;
       log('loading '+here.pick.map(o=>o.n+'×'+TO.GOODS[o.good].sh).join(', ')+' for '+here.to.name+' ('+TO.fmtCr(here.rew)+', '+TO.km(here.pl.dv)+' km/s, '+TO.fmtDays(here.pl.days)+')');
       EV.trips++; const ok=travel(TO.kTarget(here.to)); if(!ok) EV.stuck++;
       return 'trip';

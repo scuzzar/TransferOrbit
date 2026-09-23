@@ -3,8 +3,9 @@
 import { $, TAU, reduce } from '../basics.js';
 import { B, BodyId, POST_BY_ID, POSTS, M, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, bodyOf, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
 import { keplerNu, theta, transfer, transferConic } from '../game/physics.js';
-import { S, Attitude, Burn, Pick, cargoOrders, here, homePlanet } from '../game/state.js';
-import { D2R, Plane, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
+import { S, cargoOrders, here, homePlanet } from '../game/state.js';
+import type { Pick } from '../ui/state.js';
+import { Attitude, Burn, D2R, Plane, SCENE, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
 import { HITS, bctx, cargoTo, cssVar, ctx, cv, fitCanvas, clearHits, isPick, moveProg, prep, prepBack, sc, sctx } from './canvas.js';
 import { RKT_LEN } from './rocketdata.js';
 import { GL, PathStyle, glBegin, glEnd, glHide, glNote, glPath, glPut, glSaturnRing } from './gl.js';
@@ -95,8 +96,8 @@ function drawSys(p:PlanetId){
     return ll==='capt'?ringPt(rH,st.capU):ll==='orbit'?ringPt(rLow,st.lowU):[0,Rp+5,0]; };
 // path of a manoeuvre: position at fraction t
   let path:((t:number)=>{q:Vec3; burn?:Burn; glow?:boolean})|null=null;
-  if(mine && S.render.move && S.render.move.sys){
-    const pl=S.render.move.sys, move=S.render.move;
+  if(mine && SCENE.move && SCENE.move.sys){
+    const pl=SCENE.move.sys, move=SCENE.move;
     const hoh=(rp:number,ra:number)=>{ const a=(rp+ra)/2, e=(ra-rp)/(ra+rp); return {a,e,r:(nu:number)=>a*(1-e*e)/(1+e*Math.cos(nu))}; };
     if(pl.kind==='toMoon'){ const E=hoh(rOf(pl.m),rH), aDep=pl.aArr-Math.PI, da=((aDep-pl.p0)%TAU+TAU)%TAU;
       path=(t)=>{ if(t<0.25) return {q:ringPt(rH,pl.p0+da*t/0.25)};
@@ -116,8 +117,8 @@ function drawSys(p:PlanetId){
     if(path){ const t=moveProg(), c=path(t), a=P(path(Math.max(0,t-0.01)).q), b=P(path(Math.min(1,t+0.01)).q);
       const tr:Vec3[]=[]; for(let j=0;j<=120;j++) tr.push(path(j/120).q); poly('spur',tr,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
       ship={pt:P(c.q), dir:[b.x-a.x,b.y-a.y], burn:c.burn??null, glow:!!c.glow, soon:path(Math.min(1,t+0.06)).burn??null}; }
-    else { const w=shipW(S.render.move?S.render.move.from.node:S.domain.node); if(w){ const [bb,nd]=splitNode(S.domain.node); let dir:[number,number]=[1,0];
-        if(!S.render.move && nd!=='surf'){ const moon=isMoon(bb), base:Vec3=isMoon(bb)?moonW(bb,S.domain.day):[0,0,0], rr=moon?rMo:(nd==='capt'?rH:rLow), uu=moon?st.moonU:(nd==='capt'?st.capU:st.lowU);
+    else { const w=shipW(SCENE.move?SCENE.move.from.node:S.domain.node); if(w){ const [bb,nd]=splitNode(S.domain.node); let dir:[number,number]=[1,0];
+        if(!SCENE.move && nd!=='surf'){ const moon=isMoon(bb), base:Vec3=isMoon(bb)?moonW(bb,S.domain.day):[0,0,0], rr=moon?rMo:(nd==='capt'?rH:rLow), uu=moon?st.moonU:(nd==='capt'?st.capU:st.lowU);
           const a=P(vadd(base,ringPt(rr,uu-0.05))), c=P(vadd(base,ringPt(rr,uu+0.05))); dir=[c.x-a.x,c.y-a.y]; }
         if(nd==='surf') dir=[0,-1];
         ship={pt:P(w), dir, up:nd==='surf'}; } }
@@ -190,8 +191,8 @@ function drawBody(b:BodyId){
 
 // path and ship
   let shipAt:Vec3|null=null, shipDir:[number,number]|null=null, burn:Burn=null, glow=false, fade=1, soon:Burn=null, att:Attitude|null=null;
-  if(mine && S.render.move && S.render.move.path && S.render.move.path.b===b){
-    const pa=S.render.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
+  if(mine && SCENE.move && SCENE.move.path && SCENE.move.path.b===b){
+    const pa=SCENE.move.path, t=moveProg(), q=pa.at(t), q2=pa.at(Math.min(1,t+0.01)), q1=pa.at(Math.max(0,t-0.01));
     const trail=[]; for(let j=0;j<=80;j++){ const q=P(pa.at(j/80).p); trail.push({x:q.x,y:q.y,z:q.z*R}); }
     glPath('spur',trail,{col:v('--accent'),w:1.4,dash:[3,4],a:0.6,ghost:0.4});
     shipAt=q.p; const a=P(q1.p), c=P(q2.p); shipDir=[c.x-a.x, c.y-a.y]; burn=q.burn??null; glow=!!q.glow; if(pa.fade) fade=Math.max(0,1-t*1.2);
@@ -265,7 +266,7 @@ function drawBody(b:BodyId){
     g.shadowColor='rgba(0,0,0,0.8)'; g.shadowBlur=3; g.fillText(name,x+(left?-10:10),y); g.shadowBlur=0; g.globalAlpha=1;
     HITS.push({canvas:cv,x,y,r:22,pick:pk});
 // a landed ship: upright, pointing away from the body
-    if(mine && !S.render.move && l==='surf' && S.domain.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
+    if(mine && !SCENE.move && l==='surf' && S.domain.site===st.id){ const dx=x-cx, dy=y-cy, n=Math.hypot(dx,dy); const ux=n>8?dx/n:0, uy=n>8?dy/n:-1;
       g.globalAlpha=hid?0.5:1; const up=Math.atan2(-uy,ux);
       setRocketMode(hid ? 'flat' : 'gl'); // faded on the far side but still visible, like the marker itself
       drawRocket(g,'body',x+ux*17,y+uy*17,up,null,null,{mode:'up',up},zPad);
@@ -290,8 +291,8 @@ export function idleLoop(ts:number){
     clearHits(sc); drawSys(vw.planet); return; }
   if(nd!=='orbit' || cv.hidden) return;
   if(vw.level!=='body' || vw.body!==b) return;
-  if(!S.render.orb || S.render.orb.body!==b) S.render.orb=defaultOrb(b);
-  S.render.orb.u=(S.render.orb.u+dt*0.35)%TAU; clearHits(cv); drawBody(b);
+  if(!SCENE.orb || SCENE.orb.body!==b) SCENE.orb=defaultOrb(b);
+  SCENE.orb.u=(SCENE.orb.u+dt*0.35)%TAU; clearHits(cv); drawBody(b);
 }
 
 export function wireDraw(){

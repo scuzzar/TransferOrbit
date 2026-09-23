@@ -10,6 +10,7 @@ import { draw } from '../map/draw.js';
 import { btn } from './widgets.js';
 import { renderPick } from './pickcard.js';
 import { renderPanel, renderPlace } from './panels.js';
+import { UI } from './state.js';
 
 export function speedHint(){ const h=$('speedhint'); if(!h) return;
   const show=ANIM.active && (ANIM.long||ANIM.fast); h.hidden=!show; if(!show) return;
@@ -29,24 +30,24 @@ export function header(){
   byId('mslots',HTMLElement).innerHTML=cells.join('');
   byId('slotinfo',HTMLElement).textContent=`${eng().slots-slotsUsed()} of ${eng().slots} free`;
   byId('autofill',HTMLButtonElement).setAttribute('aria-pressed',String(!!S.domain.autoFill));
-  byId('cargotile',HTMLButtonElement).classList.toggle('on',S.ui.view==='cargo');
+  byId('cargotile',HTMLButtonElement).classList.toggle('on',UI.view==='cargo');
 }
 
 // A short message in the bottom left of the map
 let toastMsg: string|null=null, toastT: number|null=null;
 
 function toast(){
-  if(S.ui.msg===toastMsg) return; toastMsg=S.ui.msg;
+  if(UI.msg===toastMsg) return; toastMsg=UI.msg;
   const t=byId('toast',HTMLElement);
-  if(!S.ui.msg){ t.hidden=true; return; }
-  t.textContent=S.ui.msg; t.hidden=false; t.classList.remove('fade');
+  if(!UI.msg){ t.hidden=true; return; }
+  t.textContent=UI.msg; t.hidden=false; t.classList.remove('fade');
   if(toastT) clearTimeout(toastT);
   toastT=setTimeout(()=>{ t.classList.add('fade'); toastT=setTimeout(()=>{ t.hidden=true; },450); },5000);
 }
 
 export function render(){
 // Set visibility first, then draw: otherwise the map measures a hidden area on mobile (size 0)
-  const pv=S.ui.view!=='main';
+  const pv=UI.view!=='main';
   document.body.classList.toggle('panel-open',pv);
   header(); draw(); renderPick(); renderAutobar(); toast();
   byId('mainview',HTMLElement).hidden=pv; byId('panel',HTMLElement).hidden=!pv;
@@ -58,8 +59,8 @@ export function render(){
 
 function renderAutobar(){
   const w=byId('autobar',HTMLElement);
-  w.innerHTML=''; w.hidden=!S.ui.auto;
-  const A=S.ui.auto; if(!A) return;
+  w.innerHTML=''; w.hidden=!S.action.auto;
+  const A=S.action.auto; if(!A) return;
   const plan=planRoute(A.target,A.mode), nx=plan&&plan.steps[0];
   w.innerHTML=`<div><b>Autopilot</b> to ${esc(targetName(A.target))}${nx?`<br><span class="muted">Now: ${esc(nx.label)}</span>`:''}</div>`;
   w.appendChild(btn('Stop','',false,()=>stopAutopilot('Autopilot stopped.')));

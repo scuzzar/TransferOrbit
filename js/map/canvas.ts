@@ -2,7 +2,9 @@
 
 import { byId, ctx2d, isDesk } from '../basics.js';
 import { POST_BY_ID, Post } from '../game/world.js';
-import { S, Pick, cargoOrders } from '../game/state.js';
+import { S, cargoOrders } from '../game/state.js';
+import { SCENE } from './geometry.js';
+import { UI, Pick } from '../ui/state.js';
 
 const el = (id:string) => byId(id,HTMLCanvasElement);
 
@@ -30,10 +32,10 @@ export function fitCanvas(canvas:HTMLCanvasElement, aspect:number):[number,numbe
   return [W,H];
 }
 
-export const moveProg = () => { const m=S.render.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.domain.day-m.d0)/(m.d1-m.d0))) : 1; };
+export const moveProg = () => { const m=SCENE.move; if(!m) return 0; return m.d1>m.d0 ? Math.max(0,Math.min(1,(S.domain.day-m.d0)/(m.d1-m.d0))) : 1; };
 
 export function isPick(p:Pick){
-  const q=S.ui.pick; if(!q) return false;
+  const q=UI.pick; if(!q) return false;
   if(q.type==='planet') return p.type==='planet' && q.planet===p.planet;
   if(q.type==='body') return p.type==='body' && q.body===p.body;
   return p.type==='node' && q.node===p.node && (q.site||null)===(p.site||null);

@@ -3,8 +3,10 @@
 import { changed } from '../events.js';
 import { VERSION, isDesk, byId, find, findAll } from '../basics.js';
 import { S } from '../game/state.js';
-import { autoFill, loadSlot, openView, resetGame, saveSlot, waitDays } from '../game/commands.js';
+import { loadSlot, resetGame, saveSlot, setAutoFill, waitDays } from '../game/commands.js';
 import { draw } from '../map/draw.js';
+import { UI } from './state.js';
+import { openView } from './widgets.js';
 
 export const menu = byId('menu',HTMLElement), menubtn = byId('menubtn',HTMLButtonElement);
 
@@ -30,9 +32,9 @@ export function toggleFs(){
   const el = document.documentElement as WebkitElement;
   try{
     if(isFs()){ if(document.exitFullscreen) document.exitFullscreen(); else doc.webkitExitFullscreen?.(); }
-    else if(el.requestFullscreen) el.requestFullscreen().catch(()=>{ S.ui.msg = 'Fullscreen is blocked here.'; changed(); });
+    else if(el.requestFullscreen) el.requestFullscreen().catch(()=>{ UI.msg = 'Fullscreen is blocked here.'; changed(); });
     else el.webkitRequestFullscreen?.();
-  }catch(e){ S.ui.msg = 'Fullscreen is blocked here.'; changed(); }
+  }catch(e){ UI.msg = 'Fullscreen is blocked here.'; changed(); }
 }
 
 export function wireMenu(){
@@ -48,11 +50,11 @@ export function wireMenu(){
     if(a==='fs') toggleFs(); else if(a==='save') saveSlot(); else if(a==='load') loadSlot();
     else if(a==='reset') resetGame();
   });
-  findAll(document,'[data-wait]',HTMLButtonElement).forEach((b)=>b.onclick = ()=>{ setMenu(false); if(S.ui.view!=='main' && !isDesk()) openView('main'); waitDays(Number(b.dataset.wait)); });
+  findAll(document,'[data-wait]',HTMLButtonElement).forEach((b)=>b.onclick = ()=>{ setMenu(false); if(UI.view!=='main' && !isDesk()) openView('main'); waitDays(Number(b.dataset.wait)); });
   infobtn.onclick = (e)=>{ e.stopPropagation(); setLegend(byId('legend',HTMLElement).hidden === true); };
   byId('legend',HTMLElement).onclick = ()=>setLegend(false);
-  byId('autofill',HTMLButtonElement).onclick = ()=>{ S.domain.autoFill = !S.domain.autoFill; S.ui.msg = S.domain.autoFill?'Always fill up: on. At every depot the tank is filled as far as the money goes.':'Always fill up: off.'; changed(); autoFill(); };
-  byId('cargotile',HTMLButtonElement).onclick = ()=>openView(S.ui.view==='cargo'?'main':'cargo');
+  byId('autofill',HTMLButtonElement).onclick = ()=>setAutoFill(!S.domain.autoFill);
+  byId('cargotile',HTMLButtonElement).onclick = ()=>openView(UI.view==='cargo'?'main':'cargo');
   wireFullscreen();
   showVersion();
 }

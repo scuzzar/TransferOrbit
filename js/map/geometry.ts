@@ -3,14 +3,47 @@
 import { TAU } from '../basics.js';
 import { BodyId, M, MOONS, MoonId, PlanetId, SITES, Site, hasAtm, isMoon, moonsOf, planetOfBody, siteOf, splitNode } from '../game/world.js';
 import { keplerNu } from '../game/physics.js';
-import { S, BodyPath, MoveSpec, Orbit, Plane, SysPlan, SysState, Vec3 } from '../game/state.js';
+import { Target } from '../game/state.js';
 
-export type { BodyPath, Move, MoveSpec, Orbit, PathAt, Plane, SysPlan, Vec3 } from '../game/state.js';
+export type Vec3 = [number,number,number];
+// An orbital plane: inclination i and ascending node Om, both in degrees
+export interface Plane { i:number; Om:number }
+// The ship's orbit around a body; u is its position along the orbit in radians
+export interface Orbit extends Plane { body:BodyId; u:number }
+// Which way the engine fires, if at all; how the rocket is held when it isn't along the path
+export type Burn = 'pro'|'retro'|null;
+export interface Attitude { mode:'up'|'retro'; up:number }
+export interface PathAt { p:Vec3; burn?:Burn; glow?:boolean; att?:'retro' }
+// Path of a manoeuvre in the body frame, t runs from 0 to 1
+export interface BodyPath { b:BodyId; finalOrb:Orbit|null; at:(t:number)=>PathAt; fade?:boolean }
+export interface SysState { p:PlanetId; capU:number; lowU:number; moonU:number }
+// Plan of a manoeuvre in the system view (angles only, independent of scale)
+export type SysPlan =
+  | { kind:'toMoon'; m:MoonId; p0:number; aArr:number; final:{moonU:number} }
+  | { kind:'fromMoon'; m:MoonId; m0:number; aDep:number; final:{capU:number} }
+  | { kind:'raise'; u0:number; final:{capU:number} }
+  | { kind:'lower'; u0:number; aero:boolean; th:number; final:{lowU:number} };
+// A manoeuvre: from where to where over which days, plus the pictures it is drawn with
+export interface MoveSpec { from:Target; to:Target; d0:number; d1:number; aero:boolean; orb:Orbit|null }
+export interface Move extends MoveSpec { path:BodyPath|null; sys:SysPlan|null }
+
+// The map animation's per-frame caches: the manoeuvre being flown, the ship's orbit
+// around the body, its place in the system view, the time-lapse window. Not part of
+// the game state: none of it is saved, and a new or loaded game simply clears it.
+export interface Scene {
+  move:Move|null;
+  orb:Orbit|null;
+  sys:SysState|null;
+  anim:{ d0:number; d1:number }|null;
+}
+export const SCENE:Scene = {move:null, orb:null, sys:null, anim:null};
+
+export function resetScene(){ Object.assign(SCENE, {move:null, orb:null, sys:null, anim:null}); }
 
 // During a time-lapse animation fast moons would otherwise spin round many times (a wild blur).
 // So in an animation they advance at most one lap and end up exactly at their real position.
 export function moonAngle(m:MoonId,day:number){
-  const base=MOONS.indexOf(m)*1.7, P=M[m].P, A=S&&S.render.anim;
+  const base=MOONS.indexOf(m)*1.7, P=M[m].P, A=SCENE.anim;
   if(A && A.d1>A.d0 && day>=A.d0-1e-9 && day<=A.d1+1e-9){
     const a0=TAU*A.d0/P, a1=TAU*A.d1/P, res=((a1-a0)%TAU+TAU)%TAU;
     return a0 + res*(day-A.d0)/(A.d1-A.d0) + base;
@@ -70,7 +103,7 @@ function siteOrbit(st:{lat:number;lon:number}):Plane&{uSite:number}{ const i=Mat
 
 export const defaultOrb = (b:BodyId):Orbit => ({body:b, i:0, Om:bodyLon0(b)-90, u:90*D2R});
 
-export const shipOrb = (b:BodyId):Orbit => S.render.orb?.body===b ? S.render.orb : defaultOrb(b);
+export const shipOrb = (b:BodyId):Orbit => SCENE.orb?.body===b ? SCENE.orb : defaultOrb(b);
 
 const easeIn = (t:number)=>t*t, easeOut = (t:number)=>1-(1-t)*(1-t);
 
@@ -124,7 +157,7 @@ export const SYS_EL = 35*D2R;
 
 export const ringPt=(r:number,a:number):Vec3=>[r*Math.cos(a),0,-r*Math.sin(a)];
 
-export const sysState = (p:PlanetId):SysState => { const s=S.render.sys; return s && s.p===p ? s : S.render.sys={p, capU:-0.75, lowU:0, moonU:0}; };
+export const sysState = (p:PlanetId):SysState => { const s=SCENE.sys; return s && s.p===p ? s : SCENE.sys={p, capU:-0.75, lowU:0, moonU:0}; };
 
 // Plan of a manoeuvre in the system view (angles only, independent of scale)
 export function sysPlan(mv:MoveSpec):SysPlan|null{

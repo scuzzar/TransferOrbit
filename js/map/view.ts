@@ -3,17 +3,19 @@
 import { changed } from '../events.js';
 import { $ } from '../basics.js';
 import { B, SITES, SYSNAME, bodyName, moonsOf, planetOfBody, splitNode } from '../game/world.js';
-import { S, ViewLevel, Pick, cargoOrders, homePlanet } from '../game/state.js';
+import { S, cargoOrders, homePlanet } from '../game/state.js';
+import { UI, Pick, ViewLevel } from '../ui/state.js';
 import { cargoHints } from '../game/planner.js';
 import { Hit, HITS, cv, sc } from './canvas.js';
+import { SCENE } from './geometry.js';
 
 // Automatic: in transit -> solar system; in low orbit or on the ground -> the body with its sites;
 // in high orbit -> system map, unless the next step towards the cargo is an interplanetary transfer.
 export function autoView():ViewLevel{
   if(S.action.transit || !S.domain.node) return {level:'sol'};
   const [k,l]=splitNode(S.domain.node), hp=planetOfBody(k), moons=moonsOf(hp).length>0;
-  if(S.render.move){
-    const [fb,fl]=splitNode(S.render.move.from.node), [tb,tl]=splitNode(S.render.move.to.node);
+  if(SCENE.move){
+    const [fb,fl]=splitNode(SCENE.move.from.node), [tb,tl]=splitNode(SCENE.move.to.node);
     if(fb===tb && fl!=='capt' && tl!=='capt' && SITES[fb]) return {level:'body', planet:hp, body:fb};
     if(moons) return {level:'sys', planet:hp};
     if(SITES[fb]) return {level:'body', planet:hp, body:fb};
@@ -30,12 +32,12 @@ export function autoView():ViewLevel{
 }
 
 export function mapView():ViewLevel{
-  const key=S.action.transit?'transit':(S.render.move?'mv:'+S.render.move.to.node+(S.render.move.to.site||'')+'|':'')+(S.domain.node||'')+(S.domain.site||'');
-  if(S.ui.mapKey!==key){ S.ui.mapKey=key; S.ui.mapView=null; }
-  return S.ui.mapView||autoView();
+  const key=S.action.transit?'transit':(SCENE.move?'mv:'+SCENE.move.to.node+(SCENE.move.to.site||'')+'|':'')+(S.domain.node||'')+(S.domain.site||'');
+  if(UI.mapKey!==key){ UI.mapKey=key; UI.mapView=null; }
+  return UI.mapView||autoView();
 }
 
-export function setView(v:ViewLevel|null){ S.ui.mapView=v; S.ui.pick=null; changed(); }
+export function setView(v:ViewLevel|null){ UI.mapView=v; UI.pick=null; changed(); }
 
 export function renderCrumbs(v:ViewLevel){
   const nav=$('crumbs'); if(!nav) return; nav.innerHTML='';
@@ -54,7 +56,7 @@ export function renderCrumbs(v:ViewLevel){
   nav.scrollLeft=nav.scrollWidth; // keep the current level in view
   const au=$('mapauto'); if(au){
     au.innerHTML='';
-    if(S.ui.mapView){ const b=document.createElement('button'); b.type='button'; b.className='linky'; b.textContent='Auto'; b.title='Let the map follow the ship again'; b.onclick=()=>setView(null); au.appendChild(b); }
+    if(UI.mapView){ const b=document.createElement('button'); b.type='button'; b.className='linky'; b.textContent='Auto'; b.title='Let the map follow the ship again'; b.onclick=()=>setView(null); au.appendChild(b); }
     else { au.textContent='Auto'; au.title='The map follows the ship'; }
   }
   const lg=$('legend'); if(lg) lg.textContent = v.level==='sol'
@@ -72,7 +74,7 @@ export function onMapClick(e:MouseEvent){
   // Double click or double tap: look closer, or show the landing sites
   if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=pk?deeperView(pk):null; if(dv){ setView(dv); return; } }
   lastTap={key,t:now};
-  S.ui.pick=pk;
+  UI.pick=pk;
   if(best && best.pick.type==='planet' && best.pick.planet!==homePlanet()) S.domain.target=best.pick.planet;
   changed();
 }

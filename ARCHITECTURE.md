@@ -1,6 +1,6 @@
 # Architecture
 
-The game consists of 24 ES modules under `js/`. The browser loads them itself;
+The game consists of 25 ES modules under `js/`. The browser loads them itself;
 there is no toolchain and no `node_modules` in what gets shipped. `index.html`
 holds nothing but markup and CSS, plus a single line of Javascript:
 
@@ -36,16 +36,20 @@ that something has changed. Whoever wants to react has subscribed beforehand.
 // js/events.js — the only module right at the bottom
 export function onChange(fn)   // the display subscribes
 export function onTick(fn)
+export function onReport(fn)
 export function changed()      // "the game state has changed"
 export function tick()         // "only time has moved on"
+export function report(text, kind)  // "tell the player this"
 ```
 
-Two signals, because there are two very different cases:
+Two signals for the rebuild, because there are two very different cases, and a
+third for what the player should be told:
 
 | Signal | When | What hangs off it |
 |---|---|---|
 | `changed()` | An action, a purchase, an arrival — anything that changes the game state | a complete rebuild: header, map, panels, then saving |
 | `tick()` | Every frame of a running animation | header and map, nothing else |
+| `report(text, kind)` | A command has something to say: "Delivered …", "Bankrupt …" | the message in `ui/state.js`; no rebuild, the command still calls `changed()` |
 
 The difference is not cosmetic: during a flight `tick()` runs sixty times a
 second. A full rebuild there would recreate the HTML of the open panel and write
@@ -54,6 +58,7 @@ the save to `localStorage` on every single frame.
 Both sides are connected in exactly one place, in `js/start.js`:
 
 ```js
+Events.onReport(UiState.hear);
 Events.onChange(()=>{ Display.render(); Commands.save(); });
 Events.onTick(()=>{ Display.header(); Display.speedHint(); Draw.draw(); });
 ```
@@ -83,37 +88,38 @@ From the bottom up. "Imports from" lists only the modules actually used.
 
 | # | Module | Lines | What for | Imports from |
 |--:|---|--:|---|---|
-| 0 | `events.js` | 15 | The two signals | — |
-| 1 | `basics.js` | 32 | Numbers, dates, angles, `$`, `ANIM` | — |
-| 2 | `game/world.js` | 195 | Bodies, moons, landing sites, trading posts, goods | — |
-| 3 | `game/physics.js` | 89 | Tsiolkovsky, Kepler, Hohmann, hops | basics, world |
-| 4 | `game/state.js` | 54 | `S` and the queries on it | world |
-| 5 | `game/graph.js` | 77 | Idealised cost, used for pricing | physics, state, world |
-| 6 | `game/economy.js` | 107 | The order board, deadlines, bulk goods | basics, graph, physics, state, world |
-| 7 | `game/actions.js` | 61 | Which manoeuvres are possible from here | physics, state, world |
-| 8 | `map/geometry.js` | 134 | Where something sits on screen | basics, physics, state, world |
-| 9 | `game/planner.js` | 95 | Route search for the player, date-aware | actions, basics, graph, physics, state, world |
-| 10 | `game/commands.js` | 346 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, state, world |
-| 11 | `map/canvas.js` | 46 | The three drawing layers and their helpers | basics, state, world |
-| 12 | `map/rocketdata.js` | 18 | The rocket model as number arrays | — |
-| 13 | `map/surface.js` | 49 | The planet surfaces as number arrays | — |
-| 14 | `map/gl.js` | 288 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
-| 15 | `map/rocket.js` | 75 | Attitude, flame, 3D model or hand-drawn | basics, canvas, gl, rocketdata, state, world |
-| 16 | `map/view.js` | 86 | Which level the map shows; taps on it | basics, canvas, events, planner, state, world |
-| 17 | `map/draw.js` | 300 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, state, view, world |
-| 18 | `ui/widgets.js` | 42 | Button, icon, chip, panel heading | basics, commands, state, world |
-| 19 | `ui/pickcard.js` | 72 | The card for the selected map object | basics, canvas, events, graph, physics, state, view, widgets, world |
-| 20 | `ui/panels.js` | 316 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, graph, planner, state, widgets, world |
-| 21 | `ui/display.js` | 67 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, state, widgets, world |
-| 22 | `ui/menu.js` | 70 | Menu, fullscreen, legend, version line | basics, commands, draw, events, state |
-| 23 | `start.js` | 58 | Connect, wire, load, `window.TO` | all |
+| 0 | `events.js` | 24 | The three signals | — |
+| 1 | `basics.js` | 46 | Numbers, dates, angles, `$`, `ANIM` | — |
+| 2 | `game/world.js` | 240 | Bodies, moons, landing sites, trading posts, goods | — |
+| 3 | `game/physics.js` | 90 | Tsiolkovsky, Kepler, Hohmann, hops | basics, world |
+| 4 | `game/state.js` | 117 | `S` — the simulation — and the queries on it | world |
+| 5 | `ui/state.js` | 38 | `UI` — what the screen shows — and `hear()` | events, game/state, world |
+| 6 | `game/graph.js` | 84 | Idealised cost, used for pricing | basics, physics, game/state, world |
+| 7 | `game/economy.js` | 107 | The order board, deadlines, bulk goods | basics, graph, physics, game/state, world |
+| 8 | `game/actions.js` | 67 | Which manoeuvres are possible from here | physics, game/state, world |
+| 9 | `map/geometry.js` | 172 | Where something sits on screen; `SCENE`, the animation caches | basics, physics, game/state, world |
+| 10 | `game/planner.js` | 119 | Route search for the player, date-aware | actions, basics, graph, physics, game/state, world |
+| 11 | `game/commands.js` | 419 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, game/state, world |
+| 12 | `map/canvas.js` | 55 | The three drawing layers and their helpers | basics, game/state, geometry, ui/state, world |
+| 13 | `map/rocketdata.js` | 31 | The rocket model as number arrays | — |
+| 14 | `map/surface.js` | 52 | The planet surfaces as number arrays | — |
+| 15 | `map/gl.js` | 306 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
+| 16 | `map/rocket.js` | 98 | Attitude, flame, 3D model or hand-drawn | basics, geometry, gl, rocketdata |
+| 17 | `map/view.js` | 94 | Which level the map shows; taps on it | basics, canvas, events, game/state, geometry, planner, ui/state, world |
+| 18 | `map/draw.js` | 301 | Sun, system, body — and `draw()` | basics, canvas, game/state, geometry, gl, physics, rocket, rocketdata, ui/state, view, world |
+| 19 | `ui/widgets.js` | 46 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, game/state, ui/state, world |
+| 20 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, game/state, graph, physics, ui/state, view, widgets, world |
+| 21 | `ui/panels.js` | 334 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, game/state, graph, planner, ui/state, widgets, world |
+| 22 | `ui/display.js` | 72 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, game/state, panels, pickcard, planner, ui/state, widgets, world |
+| 23 | `ui/menu.js` | 78 | Menu, fullscreen, legend, version line | basics, commands, draw, events, game/state, ui/state, widgets |
+| 24 | `start.js` | 60 | Connect, wire, load, `window.TO` | all |
 
 The numbering above is one valid order out of many. What the import graph really
 forces is much flatter: the longest chain of imports is nine deep
-(`basics`/`events`/`world`/`rocketdata`/`surface` → `physics`/`state` →
-`actions`/`graph`/`canvas`/`geometry` → `economy`/`planner`/`gl` →
-`commands`/`rocket`/`view` → `draw`/`widgets` → `menu`/`panels`/`pickcard` →
-`display` → `start`), and everything on the same step is independent of
+(`basics`/`events`/`world`/`rocketdata`/`surface` → `physics`/`game/state` →
+`actions`/`graph`/`geometry`/`ui/state` → `economy`/`planner`/`canvas`/`widgets` →
+`commands`/`gl`/`view` → `rocket`/`panels`/`pickcard` → `draw` →
+`display`/`menu` → `start`), and everything on the same step is independent of
 everything else there. Measured against the table, no module imports one that
 comes later in it.
 
@@ -142,8 +148,9 @@ lives in the same module, because a tap on the map changes exactly that state.
 
 **`map/` is not a world of its own next to `ui/`, but the other half of the same
 one.** Both are presentation; the only difference is what gets drawn on, canvas
-or DOM. The code shows it clearly: `map/` imports from `ui/` nowhere, and
-`ui/widgets.js` and `ui/panels.js` import from `map/` nowhere. The two halves do
+or DOM. The code shows it clearly: `map/` imports from `ui/` nowhere but
+`ui/state.js` — the map selection and the chosen map level are screen state
+like any other — and `ui/widgets.js` and `ui/panels.js` import from `map/` nowhere. The two halves do
 not know each other. They only come together in `ui/display.js` (`render()`
 calls `draw()`) and in `ui/menu.js` (fullscreen redraws the map). Splitting them
 into two folders is a matter of technology, not of responsibility.
@@ -171,6 +178,30 @@ names that module imported, and that alone lifted it above `game/physics`,
 **`ui/panels.js` sits below `ui/display.js`.** `render()` decides whether a
 panel or the main view is visible, and then builds the panel.
 
+## Three kinds of state
+
+What the game knows and what the screen shows live in separate places, and only
+the first one is `S`:
+
+| Where | Object | What | Written by |
+|---|---|---|---|
+| `game/state.js` | `S.domain` | The simulation: day, place, ship, fuel, money, economy. Exactly what a save holds. | commands |
+| `game/state.js` | `S.action` | What the game is doing right now: busy, the interplanetary transit, the autopilot's target. Never saved. | commands |
+| `map/geometry.js` | `SCENE` | The map animation's caches: the manoeuvre being drawn, the ship's orbit, the time-lapse window. Never saved. | commands (they play the animation), the map |
+| `ui/state.js` | `UI` | The open panel and where "back" leads, ticked orders, the refuel slider, the map selection and level, the last message. Never saved. | the interface only |
+
+The commands never read `UI`. Where a command used to set the message it now
+calls `report(text)`; `ui/state.js` catches that in `hear()`. The two moments
+where the screen has to react — a new or loaded game (`'fresh'`: start the
+screen afresh) and an autopilot that stopped somewhere worth looking at
+(`'arrived'`: close the route panel) — travel as the kind of the report, so the
+commands still do not know that a route panel exists. The other way round, a
+command that used to read the screen now takes what it needs as an argument:
+`acceptOrders(ids)` instead of the ticked orders, `startAutopilot(target, mode)`
+instead of the route panel. Choosing panels (`openView`) and what happens after
+a command (show the cargo hold, leave the refuel panel, back to the map on a
+phone) sits in `ui/`.
+
 ## Three bindings that cannot simply be reassigned
 
 ES modules do not allow an imported binding to be set from outside. Three places
@@ -178,7 +209,7 @@ in the old script did exactly that; they now have a named interface:
 
 | Before | Now | Why |
 |---|---|---|
-| `S = {...}` in `newGame`/`load` | `setState(next)` in `game/state.js` | `S` stays a live binding: every module sees the new state at once |
+| `S = {...}` in `newGame`/`load` | `setState(next)` in `game/state.js` | `S` stays a live binding: every module sees the new state at once. `UI` and `SCENE` are `const` and reset in place |
 | `HITS = []`, `HITS = HITS.filter(...)` | `clearHits([layer])` in `map/canvas.js` | `HITS` is now `const` and is emptied in place |
 | `rocketMode = 'flat'` from the drawing code | `setRocketMode(mode)` in `map/rocket.js` | same again |
 
@@ -203,6 +234,7 @@ stays readable on one page.
 
 ```js
 window.TO.S                    // the game state, always the current one
+window.TO.UI                   // what the screen shows
 window.TO.doAction(a)          // every command that can be executed
 window.TO.changed()            // rebuild and save
 window.TO.module['map/gl']     // a whole module, when you want a closer look

@@ -1,11 +1,8 @@
 // The game state S and the queries on it. Never writes anything by itself.
 
-import { B, BodyId, FUEL_PRICE, G0, GOODS, GoodId, POSTS, LVL, M, MoonId, NodeId, PlanetId, PostId, SHIPS, SITES, ShipId, bodyName, isMoon, isPlanet, Post, siteOf, splitNode } from './world.js';
+import { B, FUEL_PRICE, G0, GOODS, GoodId, POSTS, LVL, M, NodeId, PlanetId, PostId, SHIPS, ShipId, bodyName, isMoon, Post, siteOf, splitNode } from './world.js';
 
 export type Target = { node:NodeId; site?:string|null };
-export type Pick = { type:'planet'; planet:PlanetId } | { type:'body'; body:BodyId } | { type:'node'; node:NodeId; site?:string|null };
-export type ViewLevel = { level:'sol' } | { level:'sys'; planet:PlanetId } | { level:'body'; planet:PlanetId; body:BodyId };
-export type View = 'main'|'post'|'cargo'|'refuel'|'shipyard'|'route';
 export type RouteMode = 'eco'|'now';
 export type OrderState = 'open'|'aboard';
 export interface Order {
@@ -50,60 +47,20 @@ export interface DomainState {
   autoFill:boolean;
 }
 
-// Whether a manoeuvre is under way and along which path. Session-only: save()/saveSlot()
-// refuse while busy is true, so there is never a transit to persist.
+// Whether a manoeuvre is under way, along which path, and where the autopilot is headed.
+// Session-only: save()/saveSlot() refuse while busy is true, so there is never a transit
+// to persist, and a loaded game starts with the autopilot off.
 export interface ActionState {
   busy:boolean;
   transit:{ a:PlanetId; b:PlanetId; dep:number; arr:number; th0:number; th1:number }|null;
-}
-
-// What the screen is showing: open panel, selection, dialogs, the toast message.
-export interface UIState {
-  view:View; sel:Set<number>; tank:number|null; pick:Pick|null;
-  route:{ target:Target; mode:RouteMode; strand?:boolean }|null;
   auto:{ target:Target; mode:RouteMode; start:string|null }|null;
-  mapView:ViewLevel|null; mapKey:string|null; rmsg:boolean; back:View|null;
-  msg:string|null;
 }
 
-// The shapes the map animation works with. They live here because RenderState holds
-// them; map/geometry.ts builds them and re-exports the types.
-export type Vec3 = [number,number,number];
-// An orbital plane: inclination i and ascending node Om, both in degrees
-export interface Plane { i:number; Om:number }
-// The ship's orbit around a body; u is its position along the orbit in radians
-export interface Orbit extends Plane { body:BodyId; u:number }
-// Which way the engine fires, if at all; how the rocket is held when it isn't along the path
-export type Burn = 'pro'|'retro'|null;
-export interface Attitude { mode:'up'|'retro'; up:number }
-export interface PathAt { p:Vec3; burn?:Burn; glow?:boolean; att?:'retro' }
-// Path of a manoeuvre in the body frame, t runs from 0 to 1
-export interface BodyPath { b:BodyId; finalOrb:Orbit|null; at:(t:number)=>PathAt; fade?:boolean }
-export interface SysState { p:PlanetId; capU:number; lowU:number; moonU:number }
-// Plan of a manoeuvre in the system view (angles only, independent of scale)
-export type SysPlan =
-  | { kind:'toMoon'; m:MoonId; p0:number; aArr:number; final:{moonU:number} }
-  | { kind:'fromMoon'; m:MoonId; m0:number; aDep:number; final:{capU:number} }
-  | { kind:'raise'; u0:number; final:{capU:number} }
-  | { kind:'lower'; u0:number; aero:boolean; th:number; final:{lowU:number} };
-// A manoeuvre: from where to where over which days, plus the pictures it is drawn with
-export interface MoveSpec { from:Target; to:Target; d0:number; d1:number; aero:boolean; orb:Orbit|null }
-export interface Move extends MoveSpec { path:BodyPath|null; sys:SysPlan|null }
-
-// Per-frame interpolation caches the map animation reads and writes. Rebuilt from
-// DomainState on demand, so there is nothing here worth saving.
-export interface RenderState {
-  move:Move|null;
-  orb:Orbit|null;
-  sys:SysState|null;
-  anim:{ d0:number; d1:number }|null;
-}
-
+// The game: the simulation and what it is doing right now. What the screen shows lives
+// in ui/state.ts, the map animation's caches in map/geometry.ts.
 export interface GameState {
   domain:DomainState;
   action:ActionState;
-  ui:UIState;
-  render:RenderState;
 }
 
 export let S:GameState;
@@ -149,8 +106,6 @@ export const nodeName = (node:NodeId) => { const [k,l]=splitNode(node);
   if(l==='surf' && S.domain.site){ const st=siteOf(k,S.domain.site); if(st) return `${st.name} (${bodyName(k)})`; }
   if(isMoon(k)) return l==='surf' ? (M[k].surfName||`the surface of ${M[k].name}`) : (M[k].orbitName||`orbit around ${M[k].name}`);
   return `${LVL[l]} of ${B[k].name}`; };
-
-export const pickTarget = (p:Pick):Target => p.type==='planet' ? {node:`${p.planet}.capt`} : p.type==='body' ? {node:isPlanet(p.body)&&!SITES[p.body] ? `${p.body}.capt` : `${p.body}.orbit`} : {node:p.node, site:p.site||null};
 
 export const atTarget = (t:Target) => S.domain.node===t.node && (!t.site || S.domain.site===t.site);
 

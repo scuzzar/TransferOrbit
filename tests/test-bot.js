@@ -22,8 +22,8 @@ async function run(b,name,vp,gl){
     await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
     const f=p.frames().find(x=>x.url().includes('index.html'));
     await f.evaluate(()=>{ TO.ANIM.instant=true; });
-    const st=()=>f.evaluate(()=>({node:TO.S.domain.node,site:TO.S.domain.site,busy:TO.S.action.busy,auto:!!TO.S.ui.auto,view:TO.S.ui.view,fuel:TO.S.domain.fuel,cr:TO.S.domain.credits,day:TO.S.domain.day,over:TO.S.domain.over,
-      cargo:TO.cargoOrders().length,msg:TO.S.ui.msg,dv:document.getElementById('dv').textContent}));
+    const st=()=>f.evaluate(()=>({node:TO.S.domain.node,site:TO.S.domain.site,busy:TO.S.action.busy,auto:!!TO.S.action.auto,view:TO.UI.view,fuel:TO.S.domain.fuel,cr:TO.S.domain.credits,day:TO.S.domain.day,over:TO.S.domain.over,
+      cargo:TO.cargoOrders().length,msg:TO.UI.msg,dv:document.getElementById('dv').textContent}));
     const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(20);} return false; };
     // Book the money flows: modules cannot be patched from outside any more, so the balance is
     // read before and after every click and filed under the button that was pressed.
@@ -99,14 +99,14 @@ async function run(b,name,vp,gl){
         if(!ok){ await f.evaluate(()=>TO.openView('main')); stuck++; continue; }
         if(await click('#panel button:has-text("Start the autopilot")','autopilot')){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); }
         else { log.push('NO AUTOPILOT: '+(await f.evaluate(()=>document.getElementById('panel').innerText.replace(/\s+/g,' ').slice(0,260)))); // too little delta-v: cancel cargo for a penalty, or refuel
-          if(await click('#panel button:has-text("To the nearest depot first")','-> nearest depot')){ if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); }); continue; }
+          if(await click('#panel button:has-text("To the nearest depot first")','-> nearest depot')){ if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); }); continue; }
           const tank=await f.evaluate(()=>{ const r=TO.refuelInfo(); return !!r && r.need>0.5 && r.max>0.5; });
           if(tank){ await f.evaluate(()=>TO.openView('refuel')); await click('#panel .pfoot button.go','Refuel (before the route)'); await idle(); }
           else { await f.evaluate(()=>TO.openView('cargo')); const a=await click('#panel .o-btns button:has-text("Return")','return an order') || await click('#panel .o-btns button:has-text("Cancel")','Cancel an order'); if(!a) stuck++;
             // otherwise the same order is taken straight back on (a destination it would strand at, say): let the board move on
             else { await f.evaluate(()=>TO.openView('main')); await click('#menubtn'); await click('[data-wait="30"]','wait after returning'); await idle(); } }
         }
-        await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); });
+        await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); });
         continue;
       }
       // accept orders
@@ -127,11 +127,11 @@ async function run(b,name,vp,gl){
         const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.dvAvail()-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
         if(!pl) return null; TO.openRoute(TO.kTarget(pl.k)); return pl.k.name; });
       if(tgt){ log.push('flying to '+tgt); const go=await click('#panel button:has-text("Start the autopilot")','autopilot');
-        if(go){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); });
+        if(go){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); } await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); });
         // no autopilot on offer (the ship would strand there): otherwise the same flight is tried again forever, so let time pass
         if(!go){ await click('#menubtn'); await click('[data-wait="30"]','wait (no autopilot to '+tgt+')'); await idle(); stuck++; } }
       else if(await f.evaluate(()=>{ if(TO.refuelInfo()) return false; const nf=TO.nearestFuel({node:TO.S.domain.node,site:TO.S.domain.site,day:TO.S.domain.day}); if(!nf.spot||nf.dv>TO.dvAvail()) return false; TO.openRoute(nf.spot); return true; })){
-        if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot (empty)')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.S.ui.view!=='main') TO.openView('main'); }); }
+        if(await click('#panel button:has-text("Start the autopilot")','autopilot to the depot (empty)')){ trips++; await idle(60000); } await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); }); }
       else { await click('#menubtn'); await click('[data-wait="30"]','wait'); await idle(); stuck++; log.push('AT A LOSS @'+s.node+'/'+s.site+' dv='+Math.round(await f.evaluate(()=>TO.dvAvail()))+' cr='+Math.round(s.cr)); }
     }
     s=await check('end');

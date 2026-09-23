@@ -10,17 +10,17 @@ const { chromium } = require('playwright');
     const box=r.layer.getBoundingClientRect(); return {x:box.left+r.x, y:box.top+r.y}; });
   // Set the move up but do not let it run: that way every phase can be captured on its own.
   const move=w=>p.evaluate(w=>{ const a=eval(w); if(!a) return false;
-    TO.S.render.move=TO.planMove(a); TO.S.action.busy=true; return true; },w);
+    TO.SCENE.move=TO.planMove(a); TO.S.action.busy=true; return true; },w);
   const shots=[];
   const snap=async(setup,ts,tag)=>{
     await setup();
     for(const t of ts){
-      await p.evaluate(t=>{ const m=TO.S.render.move; if(m){TO.S.domain.day=m.d0+(m.d1-m.d0)*t;} TO.LAST_ROCKET.layer=null; TO.draw(); },t);
+      await p.evaluate(t=>{ const m=TO.SCENE.move; if(m){TO.S.domain.day=m.d0+(m.d1-m.d0)*t;} TO.LAST_ROCKET.layer=null; TO.draw(); },t);
       const rp=await spot(); if(!rp) continue;
       await p.screenshot({path:`z_${tag}_${t}.png`,clip:{x:rp.x-40,y:rp.y-40,width:80,height:80}});
       shots.push(`z_${tag}_${t}.png`);
     }
-    await p.evaluate(()=>{ TO.S.render.move=null; TO.S.action.busy=false; TO.S.render.anim=null; TO.changed(); });
+    await p.evaluate(()=>{ TO.SCENE.move=null; TO.S.action.busy=false; TO.SCENE.anim=null; TO.changed(); });
   };
   await snap(()=>move("TO.localActions().find(a=>a.site==='kourou')"),[0.1,0.4,0.7,0.9],'land');
   await p.evaluate(()=>{ TO.S.domain.node='earth.surf'; TO.S.domain.site='kourou'; TO.S.domain.fuel=80; TO.changed(); });

@@ -1,15 +1,16 @@
 // The commands. Everything that changes the game state lives here and reports
-// afterwards with changed(). It knows nothing about the display.
+// afterwards with changed(); what the player should hear goes out through report().
+// It knows nothing about the display and never touches what the screen shows.
 
-import { changed, tick } from '../events.js';
-import { ANIM, FAST, SLOW, dateStr, fmtDays, isDesk, km, reduce, tons } from '../basics.js';
+import { changed, report, tick } from '../events.js';
+import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
 import { B, BANKRUPT, DEPOTS, G0, GOODS, HubId, NodeId, POST_BY_ID, POSTS, PlanetId, PostId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, byPost, fmtCr, isGood, isMoon, isNode, isPlanet, isPost, isShip, planetOfBody, siteOf, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, Amounts, DomainState, Eco, Flags, View, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, shipPlace, setState, slotsUsed, targetName, Order } from './state.js';
+import { S, Amounts, DomainState, Eco, Flags, RouteMode, Target, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, shipPlace, setState, slotsUsed, targetName, Order } from './state.js';
 import { payout, route } from './graph.js';
 import { econAdvance, freshDeadline, newEconomy } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
-import { Move, MoveSpec, bodyPath, defaultOrb, sysPlan, sysState } from '../map/geometry.js';
+import { Move, MoveSpec, SCENE, bodyPath, defaultOrb, resetScene, sysPlan, sysState } from '../map/geometry.js';
 import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
 
 // A save as written: the domain with visited as an array, since JSON has no Set
@@ -22,14 +23,13 @@ export function newGame(){
   setState({
     domain:{day:START_DAY, node:'earth.orbit', site:null, ship:'cog', fuel:SHIPS.cog.cap, used:0, credits:20000,
       visited:new Set(['earth.orbit']), flags:{delivered:0}, target:'mars', over:false, autoFill:false, eco:newEconomy()},
-    action:{busy:false, transit:null},
-    ui:{view:'main', sel:new Set<number>(), tank:null, pick:null, route:null, auto:null, mapView:null, mapKey:null, rmsg:false, back:null,
-      msg:'A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.'},
-    render:{move:null, orb:null, sys:null, anim:null},
+    action:{busy:false, transit:null, auto:null},
   });
+  resetScene();
   econAdvance(START_DAY);
 // orders from the run-up period start with a full deadline
   S.domain.eco.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
+  report('A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.','fresh');
 }
 
 export function arrive(node:NodeId, site:string|null){
@@ -51,7 +51,7 @@ function showMap(el?:Element){
 // The move an action sets off: path around the body, system orbit, time window.
 // doAction then plays it out; anyone who only wants the picture sets it themselves.
 export function planMove(a:LocalAction):Move{
-  const node=S.domain.node, orb=S.render.orb; if(!node) throw new Error('planMove while under way');
+  const node=S.domain.node, orb=SCENE.orb; if(!node) throw new Error('planMove while under way');
   const spec:MoveSpec={from:{node, site:S.domain.site}, to:{node:a.to, site:a.site||null}, d0:S.domain.day, d1:S.domain.day+a.days, aero:!!a.aero,
     orb: orb?.body===splitNode(node)[0] ? {...orb} : null};
   return {...spec, path:bodyPath(spec), sys:sysPlan(spec)};
@@ -62,17 +62,17 @@ export function doAction(a:LocalAction){
   if(a.fee) S.domain.credits-=a.fee;
   burn(a.dv); S.action.busy=true;
 // remember the move so the system and body views can show the ship under way
-  const mv=planMove(a); S.render.move=mv;
+  const mv=planMove(a); SCENE.move=mv;
   changed();
   const [tb,tl]=splitNode(a.to), [hb,hl]=here();
   if(isMoon(tb) && tl==='orbit' && hl!=='surf' || hb && isMoon(hb) && tl==='capt') showMap();
   const ms = mv.sys ? (mv.aero ? 3400 : 2400) : mv.path ? (a.to.endsWith('.surf')&&!a.hop ? 2600 : 1900) : Math.max(800, Math.min(1500, 400+a.days*20));
   animateTo(S.domain.day+a.days, ms*SLOW, ()=>{
-    const pth=mv.path, spl=mv.sys; S.render.move=null;
+    const pth=mv.path, spl=mv.sys; SCENE.move=null;
     if(spl) Object.assign(sysState(planetOfBody(tb)), spl.final);
 // orbit state for the 3D view: the launch orbit after lift-off, otherwise equatorial and in front
-    if(tl==='orbit') S.render.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); else if(tl==='surf') S.render.orb=null;
-    arrive(a.to,a.site??null); S.ui.msg=`${a.label}: ${km(a.dv)} km/s used. Now: ${nodeName(a.to)}.`;
+    if(tl==='orbit') SCENE.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); else if(tl==='surf') SCENE.orb=null;
+    arrive(a.to,a.site??null); report(`${a.label}: ${km(a.dv)} km/s used. Now: ${nodeName(a.to)}.`);
     S.action.busy=false; changed(); autoFill();
   });
 }
@@ -83,31 +83,36 @@ export function doTransfer(b:PlanetId){
   burn(t.total);
   const dep=S.domain.day, arr=S.domain.day+t.tof;
   S.action.transit={a,b,dep,arr,th0:theta(a,dep),th1:theta(b,arr)};
-  S.domain.node=null; S.action.busy=true; S.ui.mapView=null; S.ui.msg=`Under way to ${B[b].name}. Arrival on ${dateStr(arr)}.`; changed(); showMap();
+  S.domain.node=null; S.action.busy=true; report(`Under way to ${B[b].name}. Arrival on ${dateStr(arr)}.`); changed(); showMap();
   animateTo(arr, 2800*SLOW, ()=>{
     S.action.transit=null; arrive(`${b}.capt`,null);
-    S.ui.msg=`Arrived: high orbit of ${B[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`;
+    report(`Arrived: high orbit of ${B[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`);
     S.action.busy=false; changed(); autoFill();
   });
 }
 
 export function waitDays(n:number){
   if(S.action.busy || S.domain.over) return; S.action.busy=true; changed(); showMap();
-  animateTo(S.domain.day+n, Math.min(2400,350+n*5)*1.3, ()=>{ S.action.busy=false; S.ui.msg=`${fmtDays(n)} passed.`; changed(); });
+  animateTo(S.domain.day+n, Math.min(2400,350+n*5)*1.3, ()=>{ S.action.busy=false; report(`${fmtDays(n)} passed.`); changed(); });
 }
 
 // "Always fill up": at every depot take on as much as the tank holds and the money allows
 export function autoFill(){
   if(!S.domain.autoFill || S.action.busy || S.domain.over) return false;
   const r=refuelInfo(); if(!r || r.need<0.5 || r.max<0.5) return false;
-  doRefuel(r.max,true); return true;
+  doRefuel(r.max); return true;
+}
+
+export function setAutoFill(on:boolean){
+  S.domain.autoFill=on;
+  report(on?'Always fill up: on. At every depot the tank is filled as far as the money goes.':'Always fill up: off.'); changed(); autoFill();
 }
 
 function animateTo(target:number, ms:number, done:()=>void){
   const d0=S.domain.day;
 // Straight to the target without animating: time-lapse tools and tests switch this on.
-  if(ANIM.instant){ S.render.anim=null; S.domain.day=target; econAdvance(S.domain.day); done(); return; }
-  S.render.anim={d0, d1:target}; ANIM.active=true; ANIM.long=ms>1500; tick();
+  if(ANIM.instant){ SCENE.anim=null; S.domain.day=target; econAdvance(S.domain.day); done(); return; }
+  SCENE.anim={d0, d1:target}; ANIM.active=true; ANIM.long=ms>1500; tick();
   let prog=0, last=performance.now();
   const step=(now:number)=>{
     const dt=Math.min(100,now-last); last=now;
@@ -115,7 +120,7 @@ function animateTo(target:number, ms:number, done:()=>void){
     const p=prog, e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
     S.domain.day=d0+(target-d0)*e; tick();
     if(p<1) requestAnimationFrame(step);
-    else { S.domain.day=target; S.render.anim=null; ANIM.active=false; if(!S.ui.auto) ANIM.fast=false; tick(); econAdvance(S.domain.day); done(); }
+    else { S.domain.day=target; SCENE.anim=null; ANIM.active=false; if(!S.action.auto) ANIM.fast=false; tick(); econAdvance(S.domain.day); done(); }
   };
   requestAnimationFrame(step);
 }
@@ -128,12 +133,12 @@ export function deliverOrder(o:Order, silent?:boolean){
   if(o.transship){ const f=S.domain.eco.fwd[o.to]??={}; f[o.good]=(f[o.good]||0)+o.n; S.domain.flags.hubDelivery=true; }
   S.domain.flags.delivered=(S.domain.flags.delivered||0)+1;
   if(silent) return;
-  S.ui.msg=`Delivered: ${o.n} × ${GOODS[o.good].name}. ${fmtCr(pay)} credited${pay<o.reward?' (late)':''}.`; changed();
+  report(`Delivered: ${o.n} × ${GOODS[o.good].name}. ${fmtCr(pay)} credited${pay<o.reward?' (late)':''}.`); changed();
 }
 
 export function returnOrder(o:Order){
   if(S.action.busy||S.domain.over) return;
-  o.state='open'; S.ui.msg=`Returned: ${o.n} × ${GOODS[o.good].name}. Free of charge, because you are still at the post it came from.`; changed();
+  o.state='open'; report(`Returned: ${o.n} × ${GOODS[o.good].name}. Free of charge, because you are still at the post it came from.`); changed();
 }
 
 export function abortOrder(o:Order){
@@ -141,7 +146,7 @@ export function abortOrder(o:Order){
   if(S.action.busy||S.domain.over||pen>S.domain.credits) return;
   S.domain.credits-=pen; removeOrder(o);
   if(!o.transship){ const d=S.domain.eco.demand[o.to]; d[o.good]=Math.min(3,(d[o.good]??0)+1); }
-  S.ui.msg=`Order cancelled. Penalty ${fmtCr(pen)}, the cargo is lost.`; changed();
+  report(`Order cancelled. Penalty ${fmtCr(pen)}, the cargo is lost.`); changed();
 }
 
 export function buyShip(id:ShipId){
@@ -150,7 +155,7 @@ export function buyShip(id:ShipId){
   S.action.busy=true; changed();
   animateTo(S.domain.day+5, 500, ()=>{
     S.domain.credits-=net; S.domain.ship=id; S.domain.fuel=Math.min(S.domain.fuel,eng().cap); S.domain.flags.bought=true;
-    S.ui.msg=`New ship: ${eng().name} with ${eng().slots} cargo slots. ${fmtCr(net)} paid.`;
+    report(`New ship: ${eng().name} with ${eng().slots} cargo slots. ${fmtCr(net)} paid.`);
     S.action.busy=false; changed();
   });
 }
@@ -202,15 +207,12 @@ export function rescue(){
     S.domain.fuel=eng().cap;
     const [b]=here(); if(r.lift && b){ S.domain.node=`${b}.orbit`; S.domain.site=null; }
     S.action.busy=false;
-    if(S.domain.credits<BANKRUPT){ S.domain.over=true; S.ui.msg=`Bankrupt. Your balance stands at ${fmtCr(S.domain.credits)}. Start again to have another go.`; }
-    else if(r.local) S.ui.msg=`Fuelled on credit: ${tons(r.amount)} for ${fmtCr(r.cost)}. Your balance is ${fmtCr(S.domain.credits)}.`;
-    else S.ui.msg=`The tanker has arrived (${fmtDays(r.days)} travel): ${tons(r.amount)} for ${fmtCr(r.cost)}.${r.lift?' It also lifted you into orbit.':''} Your cargo is still aboard.`;
+    if(S.domain.credits<BANKRUPT){ S.domain.over=true; report(`Bankrupt. Your balance stands at ${fmtCr(S.domain.credits)}. Start again to have another go.`); }
+    else if(r.local) report(`Fuelled on credit: ${tons(r.amount)} for ${fmtCr(r.cost)}. Your balance is ${fmtCr(S.domain.credits)}.`);
+    else report(`The tanker has arrived (${fmtDays(r.days)} travel): ${tons(r.amount)} for ${fmtCr(r.cost)}.${r.lift?' It also lifted you into orbit.':''} Your cargo is still aboard.`);
     changed();
   });
 }
-
-export function openView(v:View, back?:View|null){ S.ui.rmsg=false; S.ui.back = v==='main' ? null : (back||null); S.ui.view=v; S.ui.sel=new Set<number>(); S.ui.tank=null; changed();
-  if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
 
 export function refuelInfo(){
   const node=S.domain.node; if(!node) return null;
@@ -220,15 +222,17 @@ export function refuelInfo(){
   return {days, price, need, max:Math.min(need,afford), source: st?(k==='earth'?'Refuelling at the spaceport':'Propellant from local ice'):'Orbital fuel depot'};
 }
 
-export function doRefuel(amount:number, keepView?:boolean){
-  const r=refuelInfo(); if(!r || S.action.busy || S.domain.over) return;
-  amount=Math.min(amount,r.max); if(amount<0.1) return;
+// false if nothing happens: no depot here, busy, or nothing to take on
+export function doRefuel(amount:number){
+  const r=refuelInfo(); if(!r || S.action.busy || S.domain.over) return false;
+  amount=Math.min(amount,r.max); if(amount<0.1) return false;
   const cost=Math.round(amount*r.price);
-  S.action.busy=true; if(!keepView){ const back=S.ui.view==='refuel'?S.ui.back:null; S.ui.view=back||'main'; S.ui.back=null; } changed();
+  S.action.busy=true; changed();
   animateTo(S.domain.day+r.days, Math.min(1200,300+r.days*15), ()=>{
     S.domain.fuel=Math.min(eng().cap,S.domain.fuel+amount); S.domain.credits-=cost; const [k]=here(); if(k) S.domain.flags[`refuel:${k}@${S.domain.site}`]=true;
-    S.ui.msg=`Fuelled: ${tons(amount)} for ${fmtCr(cost)}. ${km(dvAvail())} km/s available.`; S.action.busy=false; changed();
+    report(`Fuelled: ${tons(amount)} for ${fmtCr(cost)}. ${km(dvAvail())} km/s available.`); S.action.busy=false; changed();
   });
+  return true;
 }
 
 // The most delta-v the cargo on board needs from here
@@ -243,15 +247,16 @@ export const deliverables = () => { const k=postAt(); return k ? cargoOrders().f
 
 export function deliverAll(){ const list=deliverables(); if(!list.length||S.action.busy||S.domain.over) return;
   let sum=0; list.forEach(o=>{ sum+=payout(o); deliverOrder(o,true); });
-  S.ui.msg=`${list.length} ${list.length>1?'orders':'order'} delivered, ${fmtCr(sum)} credited.`; changed(); }
+  report(`${list.length} ${list.length>1?'orders':'order'} delivered, ${fmtCr(sum)} credited.`); changed(); }
 
-export function acceptSelected(){
-  const k=postAt(); if(!k||S.action.busy||S.domain.over) return;
-  const list=S.domain.eco.orders.filter(o=>S.ui.sel.has(o.id) && o.state==='open' && o.from===k.id);
-  const n=list.reduce((s,o)=>s+o.n,0); if(!list.length || slotsUsed()+n>eng().slots) return;
+// Take the open orders with these ids aboard, all or none; false if they don't fit
+export function acceptOrders(ids:Iterable<number>){
+  const k=postAt(); if(!k||S.action.busy||S.domain.over) return false;
+  const want=new Set(ids), list=S.domain.eco.orders.filter(o=>want.has(o.id) && o.state==='open' && o.from===k.id);
+  const n=list.reduce((s,o)=>s+o.n,0); if(!list.length || slotsUsed()+n>eng().slots) return false;
   list.forEach(o=>{ o.deadline=freshDeadline(o,S.domain.day); o.created=S.domain.day; o.state='aboard'; });
-  S.ui.msg=`${list.length} ${list.length>1?'orders':'order'} accepted, ${n} containers loaded.`;
-  openView('cargo');
+  report(`${list.length} ${list.length>1?'orders':'order'} accepted, ${n} containers loaded.`); changed();
+  return true;
 }
 
 const SAVE_KEY='transferorbit-v3', SLOT_KEY='transferorbit-slot1';
@@ -336,8 +341,8 @@ export function parseSave(raw:unknown):DomainState|null{
     over:o.over===true, autoFill:o.autoFill===true, eco};
 }
 
-// Only the domain is ever written: it's the whole save, no blacklist of UI/render/action
-// fields to remember to strip.
+// Only the domain is ever written: it's the whole save, no blacklist of action fields
+// to remember to strip. What the screen shows isn't in S at all.
 function toSaveObj():SaveObj{ const d=S.domain; return {...d, visited:[...d.visited]}; }
 
 export function save(){
@@ -354,12 +359,8 @@ export function load(key?: string|null){
     if(!t && slot) t=memSlot;
     if(!t) return false;
     const domain=parseSave(JSON.parse(t)); if(!domain) return false;
-    setState({
-      domain,
-      action:{busy:false, transit:null},
-      ui:{view:'main', sel:new Set<number>(), tank:null, pick:null, route:null, auto:null, mapView:null, mapKey:null, rmsg:false, back:null, msg:'Game loaded.'},
-      render:{move:null, orb:null, sys:null, anim:null},
-    });
+    setState({domain, action:{busy:false, transit:null, auto:null}});
+    resetScene(); report('Game loaded.','fresh');
     return true;
   }catch(e){ return false; }
 }
@@ -373,23 +374,20 @@ export function execStep(st:PlanStep){
   doAction(a); return true;
 }
 
-export function startAutopilot(){
-  const r=S.ui.route; if(!r) return;
-  S.ui.auto={target:r.target, mode:r.mode, start:locKey()}; S.ui.pick=null; S.ui.rmsg=true;
-// desktop: the schedule stays open. Mobile: back to the map so the flight is visible.
-  if(!isDesk()){ S.ui.view='main'; changed(); window.scrollTo({top:0}); } else changed();
+export function startAutopilot(target:Target, mode:RouteMode){
+  S.action.auto={target, mode, start:locKey()}; changed();
   autoLater(200);
 }
 
-// arrived=true: stopped at the target or at a post with a delivery -> back to the map, so the location (deliver, orders, refuel) is visible
-export function stopAutopilot(msg?:string, arrived?:boolean){ S.ui.auto=null; if(!ANIM.active) ANIM.fast=false; if(msg) S.ui.msg=msg;
-  if(arrived && S.ui.view==='route'){ S.ui.view='main'; S.ui.back=null; } changed(); }
+// arrived=true: stopped at the target or at a post with a delivery, a place worth looking at
+export function stopAutopilot(msg?:string, arrived?:boolean){ S.action.auto=null; if(!ANIM.active) ANIM.fast=false;
+  if(msg) report(msg, arrived?'arrived':'info'); changed(); }
 
 // The pauses between steps are for watching; tests running with ANIM.instant skip them
 const autoLater = (ms:number) => setTimeout(autoTick, ANIM.instant?0:ms);
 
 function autoTick(){
-  const A=S.ui.auto; if(!A) return;
+  const A=S.action.auto; if(!A) return;
   if(S.action.busy){ autoLater(250); return; }
   if(S.domain.over) return stopAutopilot();
   if(atTarget(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
@@ -404,18 +402,18 @@ function autoTick(){
   autoLater(300);
 }
 
-export function resetGame(){ S.ui.auto=null; if(S.action.busy){ S.ui.msg='Please wait a moment, the ship is under way.'; changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); changed(); }
+export function resetGame(){ S.action.auto=null; if(S.action.busy){ report('Please wait a moment, the ship is under way.'); changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); changed(); }
 
 export function saveSlot(){
-  if(S.action.busy||!S.domain.node){ S.ui.msg='Saving only works while the ship is stationary.'; changed(); return; }
+  if(S.action.busy||!S.domain.node){ report('Saving only works while the ship is stationary.'); changed(); return; }
   memSlot=JSON.stringify(toSaveObj());
-  try{ localStorage.setItem(SLOT_KEY, memSlot); S.ui.msg=`Saved: ${dateStr(S.domain.day)}, ${fmtCr(S.domain.credits)}.`; }
-  catch(e){ S.ui.msg=`Saved for this session only: ${dateStr(S.domain.day)}, ${fmtCr(S.domain.credits)}. The browser does not allow permanent storage.`; }
+  try{ localStorage.setItem(SLOT_KEY, memSlot); report(`Saved: ${dateStr(S.domain.day)}, ${fmtCr(S.domain.credits)}.`); }
+  catch(e){ report(`Saved for this session only: ${dateStr(S.domain.day)}, ${fmtCr(S.domain.credits)}. The browser does not allow permanent storage.`); }
   changed();
 }
 
 export function loadSlot(){
   if(S.action.busy) return;
-  if(!load(SLOT_KEY)){ S.ui.msg='No saved game found.'; changed(); return; }
-  S.ui.msg=`Game loaded: ${dateStr(S.domain.day)}, ${fmtCr(S.domain.credits)}.`; changed();
+  if(!load(SLOT_KEY)){ report('No saved game found.'); changed(); return; }
+  report(`Game loaded: ${dateStr(S.domain.day)}, ${fmtCr(S.domain.credits)}.`); changed();
 }

@@ -1,7 +1,7 @@
 import { ANIM, FAST, TAU } from '../basics.js';
 import { RKT, RKT_FACES, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
 import { glRocket } from './gl.js';
-import type { Attitude, Burn } from '../game/state.js';
+import type { Attitude, Burn } from './geometry.js';
 
 const HEAD: Record<string, {a:number; t:number} | undefined> = {};
 
