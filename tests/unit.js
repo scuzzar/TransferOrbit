@@ -248,7 +248,8 @@ test('Market over five years: stores stay within bounds, expired orders go back,
   for (let i = 0; i < 60; i++) commands.waitDays(30);
   for (const k of world.POSTS) {
     const p = S.market.post(k.id);
-    for (const g of k.makes) { const n = state.stockOf(p.industry.stores, g); assert.ok(n >= 0 && n <= 12, `${k.id} ${g} ${n}`); }
+    // production stops at 12; an expired order may bring its containers back on top
+    for (const g of k.makes) { const n = state.stockOf(p.industry.stores, g); assert.ok(n >= 0 && n <= 12 + world.GOODS[g].lot[1], `${k.id} ${g} ${n}`); }
     for (const g of k.needs) { const n = p.industry.levelOf(g); assert.ok(n >= 0 && n <= 3, `${k.id} needs ${g}`); }
     for (const o of p.offers) assert.ok(o.expires >= S.day, 'an expired order still on offer');
     for (const g of k.makes) assert.ok(p.offers.filter(o => o.good === g && !o.isBulk && !o.fromHubStore).length <= world.MAX_OPEN);
@@ -269,6 +270,44 @@ test('An order that expires gives its goods back to the post: none are lost, non
   const newer = post.offers.filter(x => x.good === g && x.created === S.market.simulatedTo && !x.isBulk && !x.fromHubStore);
   const after = state.stockOf(post.industry.stores, g) + newer.reduce((s, x) => s + x.containers, 0);
   near(after, Math.min(12, before + made) + o.containers, 1e-9);
+});
+
+test('Bulk orders: the daily test gives sizes between the least and largest, averaging the good\'s bulkLot', async () => {
+  const { economy, world: { GOODS, BULK } } = await ready;
+  seed(11);
+  for (const [g, G] of Object.entries(GOODS)) {
+    const step = 1 / (G.rate * BULK.slow), sizes = [];
+    for (let run = 0; run < 3000; run++) {
+      let have = 0;
+      for (;;) { have += step; if (Math.random() < economy.bulkChance(g, have, step)) break; }
+      sizes.push(Math.min(Math.floor(have), BULK.max));
+      assert.ok(have >= BULK.min && have < BULK.max + 1 + step, `${g} ${have}`);
+    }
+    const mean = sizes.reduce((a, b) => a + b, 0) / sizes.length;
+    assert.ok(Math.abs(mean - G.bulkLot) < 0.25, `${g}: mean ${mean.toFixed(2)} for bulkLot ${G.bulkLot}`);
+  }
+  assert.equal(economy.bulkChance('water', 6.9, 0.1), 0); assert.equal(economy.bulkChance('water', 19, 0.1), 1);
+});
+
+test('A bulk store that piled up while an order was on offer gives one order\'s worth, the rest stays', async () => {
+  const { state, commands, economy, world } = await fresh(9);
+  const S = state.S, p = S.market.post('marsnorth'), g = 'water';
+  p.offers.filter(o => o.isBulk).forEach(o => p.withdraw(o));
+  const st = state.storeOf(p.industry.bulk, g); st.stock = 40;
+  let before = 40;
+  for (let i = 0; i < 30 && !p.offers.some(x => x.isBulk && x.good === g); i++) { before = st.stock; commands.waitDays(1); }  // until a buyer turns up
+  const o = p.offers.find(x => x.isBulk && x.good === g), [a, b] = economy.bulkRange(g);
+  assert.ok(o, 'a bulk order right away');
+  assert.ok(o.containers >= Math.floor(a) && o.containers <= world.BULK.max, String(o.containers));
+  assert.ok(Math.abs(st.stock + o.containers - before) < 0.2);             // the rest stays in store
+});
+
+test('A save no longer keeps the size the next bulk order waits for', async () => {
+  const { state, commands } = await fresh(4);
+  for (let i = 0; i < 20; i++) commands.waitDays(30);
+  const sv = state.S.toSave();
+  assert.equal(sv.market.bulkLot, undefined); assert.ok(Object.keys(sv.market.bulkStore).length > 0);
+  assert.ok(state.S.market.offers.some(o => o.isBulk && o.containers >= 7 && o.containers <= 18));
 });
 
 // ── Commands on the objects ────────────────────────────────────────────────

@@ -41,8 +41,9 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   ordinary orders and one for bulk orders, for every good it needs a demand (`level` 0 to 3: how
   keen the starport is to get it). A good comes in at one container per `rate` days. Once the bulk
   store holds enough for a bulk order, a random test each day decides whether the order appears:
-  likelier the closer the store gets to the good's `bulkLot`, certain at the largest size. The
-  order takes the whole bulk store.
+  likelier the closer the store gets to the good's `bulkLot`, certain at the largest size, so the
+  sizes average `bulkLot`. The order takes the whole containers in the store; if more piled up
+  while an earlier bulk order was on offer, it takes one order's worth and the rest stays.
 - **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
   no reason to stop. `target` is where it ends.
 
@@ -51,9 +52,7 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
 - **Starports** are built for each game from the `Post` table (name, node, site, makes, needs,
-  hub) rather than being fixed objects, and they reach their definition through `def`. Their
-  industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random
-  and saved, instead of `Good.bulkLot` and a daily test.
+  hub) rather than being fixed objects, and they reach their definition through `def`.
 - **Bodies.** Of the moons the tables do not know gravity, radius and the height of the low
   orbit, so these are empty; the game only needs them for the planets.
 - **Transit.** `InTransit` exists only for transfers between planets; every other manoeuvre is

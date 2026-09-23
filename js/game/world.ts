@@ -15,9 +15,9 @@ export interface MoonRow { name:string; parent:PlanetId; xfer:number; days:numbe
 export interface Site { id:string; name:string; lat:number; lon:number; port?:boolean; depot?:number; note?:string }
 // A class of ship: drive, specific impulse (s), dry mass and tank (t), cargo slots, price (Cr)
 export interface ShipClass { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
-// A good: mass per container (t), value per container (Cr), order size (containers), one
-// container made every rate days
-export interface Good { name:string; shortName:string; mass:number; value:number; lot:[number,number]; rate:number; color:string }
+// A good: mass per container (t), value per container (Cr), order size (containers), the mean
+// size of a bulk order (containers), one container made every rate days
+export interface Good { name:string; shortName:string; mass:number; value:number; lot:[number,number]; bulkLot:number; rate:number; color:string }
 export interface Post { id:PostId; name:string; node:NodeId; site:string|null; makes:GoodId[]; needs:GoodId[]; hub?:HubId }
 
 // Circular orbits with real mean longitudes (J2000) and periods
@@ -153,14 +153,14 @@ export const SHIP_IDS = keysOf(SHIP_TABLE);
 export const isShip = (x: unknown): x is ShipId => keyOf(SHIPS, x);
 
 const GOOD_TABLE = {
-  he3:  {name:'Helium-3', shortName:'He-3',        mass:1,  value:8000, lot:[1,2], rate:45, color:'#b78cf0'},
-  elec: {name:'Electronics', shortName:'Electronics',   mass:1,  value:5000, lot:[1,2], rate:30, color:'#5cc9e0'},
-  hab:  {name:'Habitat modules', shortName:'Habitat',  mass:10, value:4000, lot:[1,1], rate:30, color:'#e0a15c'},
-  rare: {name:'Rare metals', shortName:'Rare met.',    mass:4,  value:3000, lot:[1,2], rate:30, color:'#d97fb0'},
-  mach: {name:'Machinery', shortName:'Machinery',      mass:5,  value:2000, lot:[1,2], rate:20, color:'#9aa7c0'},
-  food: {name:'Food', shortName:'Food',                mass:3,  value:600,  lot:[1,2], rate:20, color:'#7cc56a'},
-  metal:{name:'Metals', shortName:'Metals',            mass:8,  value:400,  lot:[1,3], rate:10, color:'#b0a18f'},
-  water:{name:'Water', shortName:'Water',              mass:8,  value:200,  lot:[1,3], rate:10, color:'#4f8fd8'},
+  he3:  {name:'Helium-3', shortName:'He-3',        mass:1,  value:8000, lot:[1,2], bulkLot:9, rate:45, color:'#b78cf0'},
+  elec: {name:'Electronics', shortName:'Electronics',   mass:1,  value:5000, lot:[1,2], bulkLot:10, rate:30, color:'#5cc9e0'},
+  hab:  {name:'Habitat modules', shortName:'Habitat',  mass:10, value:4000, lot:[1,1], bulkLot:8, rate:30, color:'#e0a15c'},
+  rare: {name:'Rare metals', shortName:'Rare met.',    mass:4,  value:3000, lot:[1,2], bulkLot:10, rate:30, color:'#d97fb0'},
+  mach: {name:'Machinery', shortName:'Machinery',      mass:5,  value:2000, lot:[1,2], bulkLot:12, rate:20, color:'#9aa7c0'},
+  food: {name:'Food', shortName:'Food',                mass:3,  value:600,  lot:[1,2], bulkLot:13, rate:20, color:'#7cc56a'},
+  metal:{name:'Metals', shortName:'Metals',            mass:8,  value:400,  lot:[1,3], bulkLot:15, rate:10, color:'#b0a18f'},
+  water:{name:'Water', shortName:'Water',              mass:8,  value:200,  lot:[1,3], bulkLot:16, rate:10, color:'#4f8fd8'},
 } satisfies Record<string, Good>;
 export type GoodId = keyof typeof GOOD_TABLE;
 export const GOODS: Record<GoodId, Good> = GOOD_TABLE;
@@ -232,7 +232,7 @@ export const RATE_MASS = 400, SHIP_MASS_SHARE = 8, V_EXHAUST = 450*9.80665, RATE
 
 export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + ship share) and travel day
 
-export const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Bulk orders: size, restock slower than single goods, premium, lifetime
+export const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Bulk orders: least and largest size, restock slower than single goods, premium, lifetime
 
 export const bodyOf = (k: Post): BodyId => splitNode(k.node)[0];
 

@@ -94,15 +94,33 @@ function marketTick(day:number){
   bulkTick(day);
 }
 
-// Bulk orders: every producer fills a bulk store on the side. Once the lot size is reached,
-// an order appears with more containers than the Cog can carry (7 to 18).
+// Is a bulk order ready, with this much in the bulk store after a day that added step? The order
+// takes the whole containers in store, and their number spreads evenly around the good's bulkLot,
+// as wide as BULK.min and BULK.max allow, so it averages bulkLot. Each day the chance is that of
+// the size falling within that day's growth, given it has not fallen before: nothing needs
+// remembering from one day to the next.
+export function bulkRange(g:GoodId):[number,number]{
+  const L=GOODS[g].bulkLot+0.5, w=Math.min(L-BULK.min, BULK.max+1-L); return [L-w, L+w];
+}
+export function bulkChance(g:GoodId, have:number, step:number){
+  const [a,b]=bulkRange(g);
+  if(have<BULK.min) return 0;
+  if(have>=b) return 1;
+  const F=(x:number)=>Math.min(1,Math.max(0,(x-a)/(b-a))), before=F(have-step);
+  return before>=1 ? 1 : (F(have)-before)/(1-before);
+}
+
+// Bulk orders: every producer fills a bulk store on the side. Once enough is in it, a daily test
+// decides whether an order appears that takes it all, with more containers than the Cog carries.
 function bulkTick(day:number){
   const market=M;
   POSTS.forEach(k=>k.makes.forEach(g=>{
-    const p=post(k), bs=storeOf(p.industry.bulk,g), N=p.industry.bulkLot;
-    let n=N.get(g); if(n===undefined){ n=randInt(BULK.min,BULK.max); N.set(g,n); }
-    const have=bs.stock+=1/(GOODS[g].rate*BULK.slow);
-    if(have<n || p.offers.some(o=>o.isBulk && o.good===g)) return;
+    const p=post(k), bs=storeOf(p.industry.bulk,g), step=1/(GOODS[g].rate*BULK.slow);
+    const have=bs.stock+=step;
+    if(have<BULK.min || p.offers.some(o=>o.isBulk && o.good===g)) return;
+    if(Math.random()>=bulkChance(g,have,step)) return;
+    // what piled up while an earlier bulk order was on offer: one order's worth, the rest stays
+    const [a,b]=bulkRange(g), n=Math.min(BULK.max, Math.floor(have>=b ? a+Math.random()*(b-a) : have));
     const cand=POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && need(c,g)>0 && bodyOf(c)!==bodyOf(k) && route(k,c).dv<=MAX_ROUTE_DV);
     const hubs=Object.values(HUBS).filter((h)=>h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(M,h)>=n && route(k,h).dv<=MAX_ROUTE_DV);
     let to:Post, toHub=false;
@@ -111,7 +129,7 @@ function bulkTick(day:number){
     else return;
     const r=route(k,to); if(!isFinite(r.dv)) return;
     if(!toHub) setNeed(to,g,need(to,g)-1);
-    bs.stock=have-n; N.set(g,randInt(BULK.min,BULK.max));
+    bs.stock=have-n;
     const wait=legWait(r,day);
     p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor(r,g,n)*BULK.premium/10)*10,
       dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+60, created:day, expires:day+BULK.life, fromHubStore:false, toHub, isBulk:true}));

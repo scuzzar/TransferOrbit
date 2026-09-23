@@ -100,10 +100,9 @@ export class Industry {
   readonly stores:PerGood<Store>;
   readonly bulk:PerGood<Store>;
   readonly demands:PerGood<Demand>;
-  readonly bulkLot:Map<GoodId,number>;   // the lot size the next bulk order waits for, 7 to 18
-  constructor(def:{makes:readonly GoodId[]; needs:readonly GoodId[]}, rows:{stores:PerGood<Store>; bulk?:PerGood<Store>; demands:PerGood<Demand>; bulkLot?:Map<GoodId,number>}){
+  constructor(def:{makes:readonly GoodId[]; needs:readonly GoodId[]}, rows:{stores:PerGood<Store>; bulk?:PerGood<Store>; demands:PerGood<Demand>}){
     this.makes=def.makes; this.needs=def.needs;
-    this.stores=rows.stores; this.bulk=rows.bulk??new Map(); this.demands=rows.demands; this.bulkLot=rows.bulkLot??new Map();
+    this.stores=rows.stores; this.bulk=rows.bulk??new Map(); this.demands=rows.demands;
   }
   levelOf(g:GoodId){ return this.demands.get(g)?.level ?? 0; }
   // the demand for a good, made at level 0 the first time it is needed
@@ -200,7 +199,7 @@ export interface SaveOrder extends Omit<OrderSpec,'isBulk'> { state:'open'|'aboa
 export interface SaveMarket {
   produced:Record<PostId,Amounts>; need:Record<PostId,Amounts>; hubStore:Partial<Record<PostId,Amounts>>;
   orders:SaveOrder[]; nextId:number; simulatedTo:number;
-  bulkStore?:Partial<Record<PostId,Amounts>>; bulkLot?:Partial<Record<PostId,Amounts>>;
+  bulkStore?:Partial<Record<PostId,Amounts>>;
 }
 // A save as written; game/save.ts reads it back
 export interface SaveObj {
@@ -237,8 +236,7 @@ export class Game {
     // a table of the posts that have something in it; an empty row is left out, as it always was
     const rows=(f:(t:Starport)=>Amounts|null)=>{ const r:Partial<Record<PostId,Amounts>>={};
       POSTS.forEach(k=>{ const a=f(m.posts[k.id]); if(a && Object.keys(a).length) r[k.id]=a; }); return r; };
-    const stock=(x:Store)=>x.stock, bulkStore=rows(t=>toAmounts(t.industry.bulk,stock)),
-      bulkLot=rows(t=>Object.fromEntries(t.industry.bulkLot));
+    const stock=(x:Store)=>x.stock, bulkStore=rows(t=>toAmounts(t.industry.bulk,stock));
     const orders=[...m.offers.map(o=>saveOrder(o,'open')), ...ship.hold.map(o=>saveOrder(o,'aboard'))].sort((a,b)=>a.id-b.id);
     return {day:this.day, node:p.node, site:p.site, ship:ship.type, fuel:ship.fuel, dvUsed:ship.dvUsed, credits:this.player.credits,
       bankrupt:this.player.bankrupt, autoFill:this.player.autoFill,
@@ -246,7 +244,7 @@ export class Game {
         hubStore:rows(t=>t instanceof Hub ? toAmounts(t.transship,stock) : null), orders,
         nextId:m.nextId, simulatedTo:m.simulatedTo,
         // a market that has never been run has no bulk tables yet
-        ...(Object.keys(bulkStore).length?{bulkStore}:{}), ...(Object.keys(bulkLot).length?{bulkLot}:{})}};
+        ...(Object.keys(bulkStore).length?{bulkStore}:{})}};
   }
 }
 
