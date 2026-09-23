@@ -43,7 +43,7 @@ const AI = String.raw`
       if(st.kind==='wait') EV.waitDays+=st.days;
       if(!TO.execStep(st)){ log('step failed: '+st.label+' - '+TO.stepBlocker(st)); return false; }
       if(TO.stranded()) return false;
-      if(TO.S.player.ship.busy){ log('still busy after a step?!'); }
+      if(TO.S.player.ship.underWay){ log('still busy after a step?!'); }
       // refuel automatically on the way, if there is a depot
       if(!TO.S.player.ship.isAt(target)) { const r=TO.refuelInfo(); if(r && r.need>5) refuel(); }
     }

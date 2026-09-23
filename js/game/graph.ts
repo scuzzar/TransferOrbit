@@ -1,7 +1,7 @@
 // The connections between the places, and the route graph behind pricing: idealised cost
 // between two places.
 
-import { B, BodyId, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf } from './world.js';
+import { B, BodyId, Connection, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf } from './world.js';
 import { popMin } from '../basics.js';
 import { captDv, hopCost, transfer } from './physics.js';
 
@@ -11,23 +11,6 @@ export function idealTransfer(a: PlanetId, b: PlanetId){
   const key=a+'>'+b; if(idealCache[key]) return idealCache[key];
   const t0=transfer(a,b,START_DAY), t=transfer(a,b,START_DAY+t0.wait);
   return idealCache[key]={total:t.total, tof:t.tof};
-}
-
-// A connection: a manoeuvre from one node to another, what it costs and how long it takes.
-// launchFee: a launcher flies it, for a fee (on Earth). transferWindow: a transfer between the
-// high orbits of two planets, whose dv and days are the values in the ideal window; leaving on
-// another day costs more and flies faster (physics.transfer).
-export class Connection {
-  readonly from:Node; readonly to:Node;
-  readonly dv:number; readonly days:number;
-  readonly launchFee:boolean; readonly transferWindow:boolean;
-  constructor(from:Node, to:Node, dv:number, days:number, launchFee=false, transferWindow=false){
-    this.from=from; this.to=to; this.dv=dv; this.days=days; this.launchFee=launchFee; this.transferWindow=transferWindow;
-  }
-  // between two landing sites of one body
-  get hop(){ return this.from.level==='surface' && this.to.level==='surface'; }
-  // the two planets of a transfer
-  get leg():[PlanetId,PlanetId]|null { return this.transferWindow ? [this.from.planet, this.to.planet] : null; }
 }
 
 // The connections that lead out of a node, built once per node. The order matters: it breaks

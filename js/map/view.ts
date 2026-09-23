@@ -12,8 +12,8 @@ import { SCENE } from './geometry.js';
 // Automatic: in transit -> solar system; in low orbit or on the ground -> the body with its sites;
 // in high orbit -> system map, unless the next step towards the cargo is an interplanetary transfer.
 export function autoView():ViewLevel{
-  const node=S.player.ship.place?.node;
-  if(S.player.ship.transit || !node) return {level:'sol'};
+  const node=S.player.ship.near?.node;
+  if(!node) return {level:'sol'};
   const [k,l]=splitNode(node), hp=planetOfBody(k), moons=moonsOf(hp).length>0;
   if(SCENE.move){
     const [fb,fl]=splitNode(SCENE.move.from.node), [tb,tl]=splitNode(SCENE.move.to.node);
@@ -33,7 +33,7 @@ export function autoView():ViewLevel{
 }
 
 export function mapView():ViewLevel{
-  const key=S.player.ship.transit?'transit':(SCENE.move?'mv:'+SCENE.move.to.node+(SCENE.move.to.site||'')+'|':'')+(S.player.ship.place?.node||'')+(S.player.ship.place?.site||'');
+  const near=S.player.ship.near, key=!near?'transit':(SCENE.move?'mv:'+SCENE.move.to.node+(SCENE.move.to.site||'')+'|':'')+near.node+(near.site||'');
   if(UI.mapKey!==key){ UI.mapKey=key; UI.mapView=null; }
   return UI.mapView||autoView();
 }
@@ -76,7 +76,7 @@ export function onMapClick(e:MouseEvent){
   if(key && lastTap.key===key && now-lastTap.t<450){ lastTap={key:null,t:0}; const dv=pk?deeperView(pk):null; if(dv){ setView(dv); return; } }
   lastTap={key,t:now};
   UI.pick=pk;
-  if(best && best.pick.type==='planet' && best.pick.planet!==(S.player.ship.place?.planet??null)) UI.windowPlanet=best.pick.planet;
+  if(best && best.pick.type==='planet' && best.pick.planet!==(S.player.ship.near?.planet??null)) UI.windowPlanet=best.pick.planet;
   changed();
 }
 

@@ -51,14 +51,9 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
-- **Starports** are built for each game from the `Post` table (name, node, site, makes, needs,
-  hub) rather than being fixed objects, and they reach their definition through `def`.
 - **Bodies.** Of the moons the tables do not know gravity, radius and the height of the low
   orbit, so these are empty; the game only needs them for the planets.
-- **Transit.** `InTransit` exists only for transfers between planets; every other manoeuvre is
-  `busy` plus an animation.
-- **Starport table.** The fixed data of the starports and their industries sits in rows of the
-  `Post` table in `game/world.ts` (name, node, landing site, makes, needs, hub), which the
-  starports built for each game refer to through `def`.
-- **Behaviour from outside.** The commands set `ship.busy`, fill a hub's store and change a
-  post's need directly instead of asking the objects.
+- **Starports, hubs and industries** are built anew for every game rather than being fixed
+  objects, because the stores, demands and offers of that game hang on them. What is fixed about
+  them sits in rows of the `Post` table in `game/world.ts` (name, node, landing site, makes,
+  needs, hub), which they reach through `def`; a node finds its starport through the market.

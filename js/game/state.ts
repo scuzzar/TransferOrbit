@@ -2,25 +2,26 @@
 // that relate the way the things in the game do. Never writes anything by itself; the
 // commands decide when a method runs. docs/domain-model.md draws the whole picture.
 
-import { BodyId, G0, GOODS, GoodId, Node, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, SHIP_IDS, ShipId, ZONES, byPost, isGood, nodeOf } from './world.js';
+import { BodyId, Connection, G0, GOODS, GoodId, Node, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, SHIP_IDS, ShipId, ZONES, byPost, isGood, nodeOf } from './world.js';
 
 export type RouteMode = 'eco'|'now';
 // Amounts per good, as a save writes the stores and demands
 export type Amounts = Partial<Record<GoodId,number>>;
 
-// Where the ship is: docked at a node, or on an interplanetary transfer between two planets
+// Where the ship is: docked at a node, or in transit along a connection. Every manoeuvre is a
+// transit, a landing as much as a transfer to another planet.
 export abstract class Location {}
 export class Docked extends Location {
   readonly at:Node;
   constructor(at:Node){ super(); this.at=at; }
 }
 export class InTransit extends Location {
-  readonly from:PlanetId; readonly to:PlanetId;
+  readonly along:Connection;
   readonly dep:number; readonly arr:number;     // departure and arrival day
-  readonly th0:number; readonly th1:number;     // the two planets' angles then, for drawing the arc
-  constructor(t:{from:PlanetId; to:PlanetId; dep:number; arr:number; th0:number; th1:number}){
-    super(); this.from=t.from; this.to=t.to; this.dep=t.dep; this.arr=t.arr; this.th0=t.th0; this.th1=t.th1;
-  }
+  constructor(along:Connection, dep:number, arr:number){ super(); this.along=along; this.dep=dep; this.arr=arr; }
+  // the two planets of the trip; the same one for a manoeuvre within a planet's system
+  get from():PlanetId { return this.along.from.planet; }
+  get to():PlanetId { return this.along.to.planet; }
 }
 
 // The autopilot flies from where the trip began to its target; a delivery at the start is no
@@ -155,12 +156,17 @@ export class Ship {
   location:Location;
   readonly hold:Order[]=[];     // the orders aboard, in id order
   autopilot:Autopilot|null=null;
-  busy=false;                   // a manoeuvre, a wait, a refuelling is under way
+  busy=false;                   // time passes at a place: waiting, refuelling, the shipyard, a rescue
   constructor(type:ShipId, fuel:number, location:Location){ this.type=type; this.fuel=fuel; this.location=location; }
   get def(){ return SHIPS[this.type]; }
   // where the ship is docked; null while in transit
   get place():Node|null { return this.location instanceof Docked ? this.location.at : null; }
   get transit():InTransit|null { return this.location instanceof InTransit ? this.location : null; }
+  // where the ship is, or the node a manoeuvre within a planet's system leaves from; null on the
+  // way to another planet. For the map and the panels, which keep showing where it lifted off.
+  get near():Node|null { const t=this.transit; return this.place ?? (t && !t.along.transferWindow ? t.along.from : null); }
+  // something is going on: time passes at a place, or the ship is under way
+  get underWay(){ return this.busy || this.transit!==null; }
   isAt(n:Node){ return this.place===n; }
   dock(n:Node){ this.location=new Docked(n); }
   depart(t:InTransit){ this.location=t; }
@@ -219,7 +225,7 @@ export class Game {
   readonly market:Market;
   constructor(day:number, player:Player, market:Market){ this.day=day; this.player=player; this.market=market; }
   // nothing under way and not bankrupt: the player may give an order
-  get canAct(){ return !this.player.ship.busy && !this.player.bankrupt; }
+  get canAct(){ return !this.player.ship.underWay && !this.player.bankrupt; }
   // the trading post the ship is docked at
   get postHere():Starport|null { const k=this.player.ship.place?.post; return k ? this.market.post(k.id) : null; }
   // every order in the game, offered or aboard, in id order

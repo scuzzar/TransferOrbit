@@ -22,7 +22,7 @@ async function run(b,name,vp,gl){
     await p.goto('http://localhost:8765/tests/harness.html'); await p.waitForTimeout(800);
     const f=p.frames().find(x=>x.url().includes('index.html'));
     await f.evaluate(()=>{ TO.ANIM.instant=true; });
-    const st=()=>f.evaluate(()=>({node:TO.S.player.ship.place?.node??null,site:TO.S.player.ship.place?.site??null,busy:TO.S.player.ship.busy,auto:!!TO.S.player.ship.autopilot,view:TO.UI.view,fuel:TO.S.player.ship.fuel,cr:TO.S.player.credits,day:TO.S.day,over:TO.S.player.bankrupt,
+    const st=()=>f.evaluate(()=>({node:TO.S.player.ship.place?.node??null,site:TO.S.player.ship.place?.site??null,busy:TO.S.player.ship.underWay,auto:!!TO.S.player.ship.autopilot,view:TO.UI.view,fuel:TO.S.player.ship.fuel,cr:TO.S.player.credits,day:TO.S.day,over:TO.S.player.bankrupt,
       cargo:TO.S.player.ship.hold.length,msg:TO.UI.msg,dv:document.getElementById('dv').textContent}));
     const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(20);} return false; };
     // Book the money flows: modules cannot be patched from outside any more, so the balance is

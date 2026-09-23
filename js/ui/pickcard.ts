@@ -20,7 +20,7 @@ export function renderPick(){
   let title='', tags:string[]=[], info='', stats:[string,string][]=[], btns:[string,string,()=>void][]=[];
   const close = `<button type="button" class="x" aria-label="Close the selection">×</button>`;
   if(p.type==='planet'){
-    const k = p.planet, hp = (S.player.ship.place?.planet??null), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
+    const k = p.planet, hp = (S.player.ship.near?.planet??null), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
     const n = cargoTo(x=>planetOfBody(bodyOf(x))===k).length;
     title = BODIES[k].name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);

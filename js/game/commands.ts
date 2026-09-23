@@ -7,9 +7,9 @@
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
 import { BODIES, BANKRUPT, GOODS, HubId, hubFor, LandingSite, Node, NodeId, POST_BY_ID, POSTS, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
-import { theta, transfer } from './physics.js';
+import { transfer } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
-import { route } from './graph.js';
+import { connectionsFrom, route } from './graph.js';
 import { advanceMarket, freshDeadline, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
 import { Move, MoveSpec, SCENE, bodyPath, defaultOrb, resetScene, sysPlan, sysState } from '../map/geometry.js';
@@ -52,9 +52,10 @@ export function doAction(a:LocalAction){
   const here=S.player.ship.place;
   if(!S.canAct || !here || a.dv>S.player.ship.dvAvail+0.5 || feeBlocked(a)) return;
   if(a.fee) S.player.charge(a.fee);
-  S.player.ship.burn(a.dv); S.player.ship.busy=true;
+  S.player.ship.burn(a.dv);
 // remember the move so the system and body views can show the ship under way
   const mv=planMove(a); SCENE.move=mv;
+  S.player.ship.depart(new InTransit(a.via, S.day, S.day+a.days));
   changed();
   const [tb,tl]=splitNode(a.to);
   if(isMoon(tb) && tl==='orbit' && here.level!=='surface' || isMoon(here.body) && tl==='capt') showMap();
@@ -64,22 +65,23 @@ export function doAction(a:LocalAction){
     if(spl) Object.assign(sysState(planetOfBody(tb)), spl.final);
 // orbit state for the 3D view: the launch orbit after lift-off, otherwise equatorial and in front
     if(tl==='orbit') SCENE.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); else if(tl==='surf') SCENE.orb=null;
-    arrive(a.to,a.site??null); report(`${a.label}: ${km(a.dv)} km/s used. Now: ${S.player.ship.place?.label}.`);
-    S.player.ship.busy=false; changed(); autoFill();
+    S.player.ship.dock(a.via.to); report(`${a.label}: ${km(a.dv)} km/s used. Now: ${S.player.ship.place?.label}.`);
+    changed(); autoFill();
   });
 }
 
 export function doTransfer(b:PlanetId){
   const p=S.player.ship.place; if(!p || !S.canAct || p.node!==`${p.planet}.capt`) return;
+  const c=connectionsFrom(p).find(x=>x.transferWindow && x.to.planet===b); if(!c) return;
   const a=p.planet, t=transfer(a,b,S.day); if(t.total>S.player.ship.dvAvail) return;
   S.player.ship.burn(t.total);
   const dep=S.day, arr=S.day+t.tof;
-  S.player.ship.depart(new InTransit({from:a, to:b, dep, arr, th0:theta(a,dep), th1:theta(b,arr)}));
-  S.player.ship.busy=true; report(`Under way to ${BODIES[b].name}. Arrival on ${dateStr(arr)}.`); changed(); showMap();
+  S.player.ship.depart(new InTransit(c, dep, arr));
+  report(`Under way to ${BODIES[b].name}. Arrival on ${dateStr(arr)}.`); changed(); showMap();
   animateTo(arr, 2800*SLOW, ()=>{
-    arrive(`${b}.capt`,null);
+    S.player.ship.dock(c.to);
     report(`Arrived: high orbit of ${BODIES[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`);
-    S.player.ship.busy=false; changed(); autoFill();
+    changed(); autoFill();
   });
 }
 
@@ -254,7 +256,7 @@ const SAVE_KEY='transferorbit-v3', SLOT_KEY='transferorbit-slot1';
 const OLD_SAVE_KEY='transferfenster-v2', OLD_SLOT_KEY='transferfenster-slot1';
 
 export function save(){
-  if(S.player.ship.busy||!S.player.ship.place) return;
+  if(S.player.ship.underWay||!S.player.ship.place) return;
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S.toSave())); }catch(e){}
 }
 
@@ -297,7 +299,7 @@ const autoLater = (ms:number) => setTimeout(autoTick, ANIM.instant?0:ms);
 
 function autoTick(){
   const A=S.player.ship.autopilot; if(!A) return;
-  if(S.player.ship.busy){ autoLater(250); return; }
+  if(S.player.ship.underWay){ autoLater(250); return; }
   if(S.player.bankrupt) return stopAutopilot();
   if(S.player.ship.isAt(A.target)) return stopAutopilot(`Autopilot: target reached, ${A.target.label}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   const k=S.player.ship.place?.post;
@@ -310,10 +312,10 @@ function autoTick(){
   autoLater(300);
 }
 
-export function resetGame(){ S.player.ship.autopilot=null; if(S.player.ship.busy){ report('Please wait a moment, the ship is under way.'); changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); changed(); }
+export function resetGame(){ S.player.ship.autopilot=null; if(S.player.ship.underWay){ report('Please wait a moment, the ship is under way.'); changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); changed(); }
 
 export function saveSlot(){
-  if(S.player.ship.busy||!S.player.ship.place){ report('Saving only works while the ship is stationary.'); changed(); return; }
+  if(S.player.ship.underWay||!S.player.ship.place){ report('Saving only works while the ship is stationary.'); changed(); return; }
   memSlot=JSON.stringify(S.toSave());
   try{ localStorage.setItem(SLOT_KEY, memSlot); report(`Saved: ${dateStr(S.day)}, ${fmtCr(S.player.credits)}.`); }
   catch(e){ report(`Saved for this session only: ${dateStr(S.day)}, ${fmtCr(S.player.credits)}. The browser does not allow permanent storage.`); }
@@ -321,7 +323,7 @@ export function saveSlot(){
 }
 
 export function loadSlot(){
-  if(S.player.ship.busy) return;
+  if(S.player.ship.underWay) return;
   if(!load(SLOT_KEY)){ report('No saved game found.'); changed(); return; }
   report(`Game loaded: ${dateStr(S.day)}, ${fmtCr(S.player.credits)}.`); changed();
 }

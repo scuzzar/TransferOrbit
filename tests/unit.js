@@ -30,7 +30,9 @@ const ready = (async () => {
   plannerMod = planner;
   basics.ANIM.instant = true;
   const reports = []; events.onReport((text, kind) => reports.push({ text, kind }));
-  return { world, state, save, commands, economy, actions, graph, reports };
+  // what the ship was doing whenever a command reported a change
+  const seen = []; events.onChange(() => { const sh = state.S?.player.ship; if (sh) seen.push({ transit: sh.transit, busy: sh.busy, place: sh.place }); });
+  return { world, state, save, commands, economy, actions, graph, reports, seen };
 })();
 
 // A fresh game with a fixed seed; S is read through the module so it is always the current one
@@ -170,13 +172,18 @@ test('Ship: the hold keeps orders in id order and knows their mass and slots', a
   assert.deepEqual(s.hold.map(x => x.id), [2, 9]);
 });
 
-test('Ship: docked it has a place, in transit it has none', async () => {
-  const { state: { Ship, Docked, InTransit }, world: { nodeOf } } = await ready;
+test('Ship: docked it has a place, in transit along a connection it has none', async () => {
+  const { state: { Ship, Docked, InTransit }, world: { nodeOf }, graph } = await ready;
   const s = new Ship('cog', 80, new Docked(nodeOf('earth.capt')));
-  assert.equal(s.place?.node, 'earth.capt'); assert.equal(s.transit, null);
-  s.depart(new InTransit({ from: 'earth', to: 'mars', dep: 0, arr: 200, th0: 0, th1: 1 }));
-  assert.equal(s.place, null); assert.equal(s.transit?.to, 'mars'); assert.ok(!s.isAt(nodeOf('earth.capt')));
+  assert.equal(s.place?.node, 'earth.capt'); assert.equal(s.transit, null); assert.ok(!s.underWay);
+  const toMars = graph.connectionsFrom(nodeOf('earth.capt')).find(c => c.to === nodeOf('mars.capt'));
+  s.depart(new InTransit(toMars, 0, 200));
+  assert.equal(s.place, null); assert.equal(s.transit?.to, 'mars'); assert.equal(s.transit?.from, 'earth'); assert.ok(!s.isAt(nodeOf('earth.capt')));
+  assert.equal(s.near, null); assert.ok(s.underWay);                         // on the way to another planet: near nowhere
   s.dock(nodeOf('mars.capt')); assert.ok(s.isAt(nodeOf('mars.capt'))); assert.equal(s.transit, null);
+  const down = graph.connectionsFrom(nodeOf('mars.capt')).find(c => c.to === nodeOf('mars.orbit'));
+  s.depart(new InTransit(down, 0, 1));
+  assert.equal(s.place, null); assert.equal(s.near, nodeOf('mars.capt')); assert.ok(s.underWay);   // a local manoeuvre: near where it left
 });
 
 // ── Order, Player ─────────────────────────────────────────────────────────
@@ -401,6 +408,21 @@ test('A manoeuvre burns fuel, takes its time and arrives', async () => {
   assert.match(reports.at(-1).text, /Up to high orbit: .* Now: High orbit of Earth\./);
 });
 
+test('Every manoeuvre is a transit along its connection; busy is only time spent at a place', async () => {
+  const { state, commands, actions, world, seen } = await fresh();
+  const S = state.S, a = actions.localActions().find(x => x.label === 'Up to high orbit');
+  seen.length = 0; commands.doAction(a);
+  const under = seen.find(x => x.transit);
+  assert.ok(under, 'the ship was in transit'); assert.equal(under.transit.along, a.via); assert.equal(under.place, null); assert.ok(!under.busy);
+  assert.equal(under.transit.along.to, world.nodeOf('earth.capt')); assert.equal(S.player.ship.transit, null);
+  seen.length = 0; commands.waitDays(3);
+  assert.ok(seen.some(x => x.busy && x.place === world.nodeOf('earth.capt') && !x.transit));   // waiting: busy at the place
+  S.player.ship.swapTo('carrack'); S.player.ship.fuel = 150;
+  seen.length = 0; commands.doTransfer('mars');
+  const tr = seen.find(x => x.transit);
+  assert.ok(tr && tr.transit.along.transferWindow && tr.transit.to === 'mars' && !tr.busy);
+});
+
 test('An interplanetary transfer leaves from high orbit and arrives in high orbit', async () => {
   const { state, commands, world } = await fresh();
   const S = state.S;
@@ -501,7 +523,8 @@ test('commands.save and load go through localStorage', async () => {
 
 test('A save is refused while in transit', async () => {
   const { state } = await fresh();
-  state.S.player.ship.depart(new state.InTransit({ from: 'earth', to: 'mars', dep: 0, arr: 1, th0: 0, th1: 0 }));
+  const { graph, world } = await ready;
+  state.S.player.ship.depart(new state.InTransit(graph.connectionsFrom(world.nodeOf('earth.orbit'))[0], 0, 1));
   assert.throws(() => state.S.toSave());
 });
 

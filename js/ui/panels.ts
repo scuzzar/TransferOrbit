@@ -14,7 +14,7 @@ import { btn, dots, gchip, ibtn, openRoute, openView, phead, routeLink } from '.
 export function acceptSelected(){ if(acceptOrders(UI.sel)) openView('cargo'); }
 
 function panelPost(p:HTMLElement){
-  const k=(S.player.ship.place?.post??null); if(!k){ openView('main'); return; }
+  const k=(S.player.ship.near?.post??null); if(!k){ openView('main'); return; }
   const post=S.market.post(k.id), locked=!S.canAct, free=S.player.ship.def.slots-S.player.ship.slotsUsed;
   p.appendChild(phead(`${k.name} Trading Post`, `${esc(postPlace(k))}. ${fmtCr(S.player.credits)}, ${free} cargo ${free===1?'slot':'slots'} free.`, k.hub?'Hub':''));
   const del=deliverables();
@@ -85,8 +85,8 @@ function panelPost(p:HTMLElement){
 }
 
 function panelCargo(p:HTMLElement){
-  const locked=!S.canAct, co=S.player.ship.hold, hereK=(S.player.ship.place?.post??null);
-  p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, S.player.ship.place?`Currently in ${esc(S.player.ship.place.label)}.`:'Under way.', ''));
+  const locked=!S.canAct, co=S.player.ship.hold, near=S.player.ship.near, hereK=(near?.post??null);
+  p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, near?`Currently in ${esc(near.label)}.`:'Under way.', ''));
   const slots=document.createElement('div'); slots.className='bigslots';
   const cells:string[]=[]; co.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].shortName}</b><span>${GOODS[o.good].mass} t</span></div>`); });
   while(cells.length<S.player.ship.def.slots) cells.push('<div class="free">free</div>');
@@ -112,7 +112,7 @@ function panelCargo(p:HTMLElement){
       <div class="due"><div class="row"><span>Due ${dateStr(o.deadline)}</span><span class="${left>=0?'ok':'late'}">${left>=0?fmtDays(left)+' left':fmtDays(-left)+' overdue, '+Math.round(o.lateFactor(S.day)*100)+'%'}</span></div>
       <div class="fbar"><i style="width:${(frac*100).toFixed(0)}%;background:${left>=0?(frac>0.25?'var(--good)':'var(--warn)'):'var(--bad)'}"></i></div></div>`;
     const row=document.createElement('div'); row.className='o-btns';
-    if(!(hereK && hereK.id===o.to) && S.player.ship.place){ const rl=routeLink(to,'cargo'); rl.style.marginRight='auto'; row.appendChild(rl); }
+    if(!(hereK && hereK.id===o.to) && near){ const rl=routeLink(to,'cargo'); rl.style.marginRight='auto'; row.appendChild(rl); }
     if(hereK && hereK.id===o.to) row.appendChild(btn(`Deliver, ${fmtCr(pay)}`,'go',locked,()=>deliverOrder(o)));
     else if(hereK && hereK.id===o.from){ row.appendChild(btn('Return','',locked,()=>returnOrder(o))); }
     else { const pen=Math.round(o.reward*0.2); row.appendChild(btn(`Cancel, −${fmtCr(pen)}`,'',locked||pen>S.player.credits,()=>abortOrder(o))); }
@@ -166,7 +166,7 @@ function panelRefuel(p:HTMLElement){
 }
 
 function panelShipyard(p:HTMLElement){
-  const k=(S.player.ship.place?.post??null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
+  const k=(S.player.ship.near?.post??null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
   const locked=!S.canAct, cur=S.player.ship.def;
   p.appendChild(phead('Shipyard', `${esc(postLabel(k))}. Balance ${fmtCr(S.player.credits)}.`, ''));
   const note=document.createElement('p'); note.className='kinfo';
@@ -194,17 +194,17 @@ function panelShipyard(p:HTMLElement){
 
 export function renderPlace(){
   const w=byId('placecard',HTMLElement); w.innerHTML='';
-  const k=(S.player.ship.place?.post??null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
+  const near=S.player.ship.near, k=(near?.post??null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
   const c=document.createElement('div'); c.className='place';
-  const tr=S.player.ship.transit, where=S.player.ship.place?S.player.ship.place.label:tr?`Under way to ${BODIES[tr.to].name}`:'Under way';
+  const tr=S.player.ship.transit, where=near?near.label:tr?`Under way to ${BODIES[tr.to].name}`:'Under way';
   const info = k ? `${k.makes.length?'Produces '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`
     : r ? `Fuel depot, ${r.price} Cr/t.` : '';
   c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Location</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${k.hub?'Hub':'Trading post'}</span>`:''}</div>`;
   const g=document.createElement('div'); g.className='pbtns';
   if(del.length){ const b=ibtn('deliver',`Deliver (${del.length}), ${fmtCr(del.reduce((s,o)=>s+o.payout(S.day),0))}`,'go full',locked,deliverAll); b.style.minHeight='44px'; b.style.display='inline-flex'; b.style.alignItems='center'; b.style.justifyContent='center'; b.style.gap='6px'; c.appendChild(b); }
-  if(k){ const n=S.market.post(k.id).offers.length; g.appendChild(ibtn('orders',`Orders (${n})`,del.length?'':'go',S.player.ship.busy,()=>openView('post'))); }
-  if(r) g.appendChild(ibtn('fuel','Refuel','',S.player.ship.busy,()=>openView('refuel')));
-  if(k&&k.hub) g.appendChild(ibtn('yard','Shipyard','',S.player.ship.busy,()=>openView('shipyard')));
+  if(k){ const n=S.market.post(k.id).offers.length; g.appendChild(ibtn('orders',`Orders (${n})`,del.length?'':'go',S.player.ship.underWay,()=>openView('post'))); }
+  if(r) g.appendChild(ibtn('fuel','Refuel','',S.player.ship.underWay,()=>openView('refuel')));
+  if(k&&k.hub) g.appendChild(ibtn('yard','Shipyard','',S.player.ship.underWay,()=>openView('shipyard')));
   // Equal columns: in German "Aufträge (11)" needed extra room, "Orders (8)" does not,
   // and weighting it that way squeezed "Shipyard" into an ellipsis.
   if(g.children.length) c.appendChild(g);
@@ -240,7 +240,7 @@ function panelRoute(p:HTMLElement){
   const locked=!S.canAct;
   const autoBtn=()=>{ const g=document.createElement('div'); g.className='pfoot'; g.appendChild(btn('Stop the autopilot','wide',false,()=>stopAutopilot('Autopilot stopped.'))); return g; };
   const tr=S.player.ship.transit;
-  const here=S.player.ship.place;
+  const here=S.player.ship.near;
   if(!here){
     p.appendChild(phead(`Route: ${R.target.label}`, tr?`Under way to ${BODIES[tr.to].name}, arriving ${dateStr(tr.arr)}.`:'Under way.', ''));
     const h=document.createElement('p'); h.className='hint'; h.textContent='The schedule is recalculated once you arrive.'; p.appendChild(h);

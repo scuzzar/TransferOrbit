@@ -1,15 +1,15 @@
 // Which manoeuvres are possible from here. A pure query, changes nothing.
 
-import { BODIES, BANKRUPT, BodyId, LAUNCH_FEE, LandingSite, M, NodeId, ROT, bodyName, fmtCr, hasDepot, isMoon, latStr, rotPenalty, siteOf } from './world.js';
+import { BODIES, BANKRUPT, BodyId, Connection, LAUNCH_FEE, LandingSite, M, NodeId, ROT, bodyName, fmtCr, hasDepot, isMoon, latStr, rotPenalty, siteOf } from './world.js';
 import { HOP_FEE_SHARE, bodyDown, bodyUp, hopCost } from './physics.js';
 import { S } from './state.js';
 import { connectionsFrom } from './graph.js';
 
 export interface LocalAction {
-  label:string; dv:number; days:number; to:NodeId;
+  label:string; dv:number; days:number; to:NodeId; via:Connection;
   site?:string|null; lat?:number; note?:string; fee?:number; hop?:boolean; aero?:boolean;
 }
-type ActionExtra = Omit<LocalAction,'label'|'dv'|'days'|'to'>;
+type ActionExtra = Omit<LocalAction,'label'|'dv'|'days'|'to'|'via'>;
 
 // The manoeuvres from here: every connection out of the ship's node except the transfers to
 // other planets, with what the player reads about it and the fee for the ship as it is now
@@ -23,7 +23,7 @@ export function localActions(): LocalAction[]{
     return {lat,rotNote};
   };
   return connectionsFrom(place).filter(c=>!c.transferWindow).map(c=>{
-    const to=c.to, k=place.body, add=(label:string,x:ActionExtra={}):LocalAction=>({label,dv:c.dv,days:c.days,to:to.node,...x});
+    const to=c.to, k=place.body, add=(label:string,x:ActionExtra={}):LocalAction=>({label,dv:c.dv,days:c.days,to:to.node,via:c,...x});
     if(c.hop && to instanceof LandingSite){
       const h=hopCost(k,place.site,to.site), full=bodyUp(k)+bodyDown(k);
       const fee=c.launchFee?Math.round(LAUNCH_FEE*mass*HOP_FEE_SHARE):0;

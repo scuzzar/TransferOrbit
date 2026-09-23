@@ -1,10 +1,10 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
 import { km, popMin } from '../basics.js';
-import { BODIES, DEPOT_LIST, POST_BY_ID, LAUNCH_FEE, Node, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, nodeOf, siteOf } from './world.js';
+import { BODIES, Connection, DEPOT_LIST, POST_BY_ID, LAUNCH_FEE, Node, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, nodeOf, siteOf } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
 import { S, RouteMode } from './state.js';
-import { Connection, connectionsFrom, idealTransfer, route } from './graph.js';
+import { connectionsFrom, idealTransfer, route } from './graph.js';
 import { feeBlocked, localActions } from './actions.js';
 
 
@@ -19,7 +19,7 @@ const DAY_COST: Record<RouteMode, number> = {eco:0.01, now:100};
 export interface StepHint { node:NodeId; site:string|null; dv:number; name:string; n:number; final:boolean }
 export function cargoHints(){
   const H:{step:StepHint[]; transfer:Partial<Record<PlanetId,string[]>>}={step:[], transfer:{}};
-  const me=S.player.ship.place; if(!me) return H;
+  const me=S.player.ship.near; if(!me) return H;
   const hereK=me.post;
   const byDest: Partial<Record<PostId, number>> = {};
   S.player.ship.hold.forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
@@ -47,7 +47,7 @@ interface RNode { n:Node; c:number; dv:number; days:number }
 interface PlanEdge { c:Connection; dv:number; days:number; wait:number }
 
 export function planRoute(target:Node, mode:RouteMode, start?:Start|null): PlanResult|null{
-  const p=S.player.ship.place;
+  const p=S.player.ship.near;
   start = start || (p ? {node:p.node, site:p.site, day:S.day} : null);
   if(!start) return null;
   const dayCost = DAY_COST[mode];
