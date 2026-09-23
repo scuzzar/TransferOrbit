@@ -44,9 +44,11 @@ const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is no
 // ── Nodes, landing sites, depots ───────────────────────────────────────────
 
 test('Bodies: a planet circles the Sun, a moon its planet, with the orbit the physics reads', async () => {
-  const { world: { BODIES, PLANETS, MOONS, planetOrbit, hasAtm, rotPenalty } } = await ready;
-  for (const k of PLANETS) { const b = BODIES[k]; assert.equal(b.orbits, null); assert.ok(b.gravity > 0 && b.radius > 0 && b.lowOrbitAltitude > 0); planetOrbit(k); }
-  for (const k of MOONS) { const b = BODIES[k]; assert.ok(b.orbits && PLANETS.includes(b.orbits.id)); assert.ok(b.orbitRadius > 1000 && b.period > 0); }
+  const { world: { BODIES, PLANETS, MOONS, hasAtm, rotPenalty } } = await ready;
+  for (const k of PLANETS) { const b = BODIES[k]; assert.equal(b.orbits, null); assert.ok(b.gravity > 0 && b.radius > 0 && b.lowOrbitAltitude > 0); }
+  for (const k of MOONS) { const b = BODIES[k]; assert.ok(b.orbits && PLANETS.includes(b.orbits.id)); assert.ok(b.orbitRadius > 1000 && b.period > 0);
+    assert.ok(b.gravity > 0 && b.radius > 0 && b.lowOrbitAltitude > 0, k); assert.ok(b.gravity < b.orbits.gravity, k); }
+  assert.equal(BODIES.moon.gravity, 4902.8); assert.equal(BODIES.titan.radius, 2574.7);
   assert.equal(BODIES.titan.orbits, BODIES.saturn); assert.equal(BODIES.mars.orbitRadius, 1.524); assert.equal(BODIES.earth.rotation, 465);
   assert.ok(BODIES.titan.atmosphere && hasAtm('titan') && !hasAtm('moon'));
   near(rotPenalty('earth', 60), 465 / 2, 1e-9);

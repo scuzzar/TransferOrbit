@@ -1,7 +1,7 @@
 // Orbital mechanics: circular orbits, escape velocity, Hohmann transfers, ballistic hops.
 
 import { TAU, wrap } from '../basics.js';
-import { AU, B, BODIES, BodyId, M, MU_SUN, PlanetId, hasAtm, isMoon, launcherAt, planetOrbit, siteOf } from './world.js';
+import { AU, B, BODIES, BodyId, M, MU_SUN, PlanetId, hasAtm, isMoon, launcherAt, siteOf } from './world.js';
 
 // Circular orbital speed at the surface in m/s (moons: approximate)
 const VSURF: Partial<Record<BodyId, number>> = {mercury:3005, venus:7326, earth:7910, mars:3555, ceres:365, moon:1680, phobos:8, deimos:4,
@@ -41,7 +41,7 @@ export const theta = (k: PlanetId, day: number): number => BODIES[k].meanLongitu
 
 const nn = (k: PlanetId): number => TAU/BODIES[k].period;
 
-const vc = (k: PlanetId): number => { const o=planetOrbit(k); return Math.sqrt(o.gravity/(o.radius+o.lowOrbitAltitude)); };   // km/s
+const vc = (k: PlanetId): number => { const b=BODIES[k]; return Math.sqrt(b.gravity/(b.radius+b.lowOrbitAltitude)); };   // km/s
 
 const vesc = (k: PlanetId): number => Math.SQRT2*vc(k);
 

@@ -11,7 +11,7 @@ const keysOf = <T extends object>(t: T) => Object.keys(t) as (keyof T & string)[
 export interface BodySurf { up:number; down:number; launcher?:boolean; note?:string }
 // Rows of the planet and moon tables; the game reads them through the Body objects below
 export interface PlanetRow { name:string; a:number; T:number; L0:number; mu:number; R:number; alt:number; atm:boolean; surf:BodySurf|null; color:string }
-export interface MoonRow { name:string; parent:PlanetId; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
+export interface MoonRow { name:string; parent:PlanetId; xfer:number; days:number; up:number; down:number; P:number; rv:number; mu:number; R:number; alt:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
 export interface Site { id:string; name:string; lat:number; lon:number; port?:boolean; depot?:number; note?:string }
 // A class of ship: drive, specific impulse (s), dry mass and tank (t), cargo slots, price (Cr)
 export interface ShipClass { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
@@ -36,17 +36,18 @@ export const B: Record<PlanetId, PlanetRow> = PLANET_TABLE;
 export const PLANETS = keysOf(PLANET_TABLE);
 
 // Moons: nodes "orbit" and "surf", joined to the high orbit of the parent planet.
-// xfer = delta-v from the planet's high orbit down to low moon orbit (approximate), P = period in days, rv = orbital radius in km
+// xfer = delta-v from the planet's high orbit down to low moon orbit (approximate), P = period in days, rv = orbital radius in km,
+// mu = gravitational parameter (km³/s²), R = radius (km), alt = height of the low orbit (km, a typical one)
 const MOON_TABLE = {
-  moon:     {name:'Moon',      parent:'earth',  xfer:800,  days:3,  up:1870, down:1870, P:27.32, rv:384400, orbitName:'lunar orbit', surfName:'the lunar surface'},
-  phobos:   {name:'Phobos',    parent:'mars',   xfer:550,  days:1,  up:10,   down:10,   P:0.319, rv:9376,   downNote:'Barely any gravity, more docking than landing'},
-  deimos:   {name:'Deimos',    parent:'mars',   xfer:350,  days:2,  up:6,    down:6,    P:1.263, rv:23460,  downNote:'Barely any gravity, more docking than landing'},
-  io:       {name:'Io',        parent:'jupiter',xfer:4000, days:4,  up:1850, down:1850, P:1.769, rv:421700, downNote:'Extreme radiation and volcanoes'},
-  europa:   {name:'Europa',    parent:'jupiter',xfer:2900, days:5,  up:1480, down:1480, P:3.551, rv:671100, downNote:'An ice shell over an ocean'},
-  ganymede: {name:'Ganymede',   parent:'jupiter',xfer:1800, days:6,  up:2000, down:2000, P:7.155, rv:1070400},
-  callisto: {name:'Callisto',  parent:'jupiter',xfer:1100, days:8,  up:1750, down:1750, P:16.69, rv:1882700, downNote:'Outside the heavy radiation belts'},
-  enceladus:{name:'Enceladus', parent:'saturn', xfer:2400, days:5,  up:180,  down:180,  P:1.370, rv:238000, downNote:'Geysers from the south pole'},
-  titan:    {name:'Titan',     parent:'saturn', xfer:700,  days:10, up:7600, down:100,  P:15.95, rv:1221900, downNote:'Thick atmosphere, parachutes are enough', upNote:'The thick atmosphere makes getting back up expensive'},
+  moon:     {name:'Moon',      parent:'earth',  xfer:800,  days:3,  up:1870, down:1870, P:27.32, rv:384400, mu:4902.8, R:1737.4, alt:100, orbitName:'lunar orbit', surfName:'the lunar surface'},
+  phobos:   {name:'Phobos',    parent:'mars',   xfer:550,  days:1,  up:10,   down:10,   P:0.319, rv:9376, mu:0.0007087, R:11.1, alt:5,   downNote:'Barely any gravity, more docking than landing'},
+  deimos:   {name:'Deimos',    parent:'mars',   xfer:350,  days:2,  up:6,    down:6,    P:1.263, rv:23460, mu:9.62e-05, R:6.2, alt:5,  downNote:'Barely any gravity, more docking than landing'},
+  io:       {name:'Io',        parent:'jupiter',xfer:4000, days:4,  up:1850, down:1850, P:1.769, rv:421700, mu:5959.9, R:1821.6, alt:100, downNote:'Extreme radiation and volcanoes'},
+  europa:   {name:'Europa',    parent:'jupiter',xfer:2900, days:5,  up:1480, down:1480, P:3.551, rv:671100, mu:3202.7, R:1560.8, alt:100, downNote:'An ice shell over an ocean'},
+  ganymede: {name:'Ganymede',   parent:'jupiter',xfer:1800, days:6,  up:2000, down:2000, P:7.155, rv:1070400, mu:9887.8, R:2634.1, alt:100},
+  callisto: {name:'Callisto',  parent:'jupiter',xfer:1100, days:8,  up:1750, down:1750, P:16.69, rv:1882700, mu:7179.3, R:2410.3, alt:100, downNote:'Outside the heavy radiation belts'},
+  enceladus:{name:'Enceladus', parent:'saturn', xfer:2400, days:5,  up:180,  down:180,  P:1.370, rv:238000, mu:7.211, R:252.1, alt:20, downNote:'Geysers from the south pole'},
+  titan:    {name:'Titan',     parent:'saturn', xfer:700,  days:10, up:7600, down:100,  P:15.95, rv:1221900, mu:8978.1, R:2574.7, alt:1200, downNote:'Thick atmosphere, parachutes are enough', upNote:'The thick atmosphere makes getting back up expensive'},
 } satisfies Record<string, MoonRow>;
 export type MoonId = keyof typeof MOON_TABLE;
 export const M: Record<MoonId, MoonRow> = MOON_TABLE;
@@ -255,8 +256,7 @@ export const bodyColor = (b: BodyId): string => isPlanet(b) ? B[b].color : BODYC
 
 // ── The bodies as fixed objects ──────────────────────────────────────────────
 // What the game needs to know about a planet or a moon. A planet circles the Sun, a moon its
-// planet (orbits). Of the moons the tables know only the orbit: gravity, radius and the height
-// of the low orbit are left empty, and the mean longitude is the phase the map starts them at.
+// planet (orbits). A moon's mean longitude is the phase the map starts it at.
 
 export class Body {
   readonly id:BodyId;
@@ -265,13 +265,13 @@ export class Body {
   readonly orbitRadius:number;              // planets: AU from the Sun; moons: km from the planet
   readonly period:number;                   // days per orbit
   readonly meanLongitude:number;            // degrees on 1 January 2000
-  readonly gravity:number|null;             // gravitational parameter, km³/s²
-  readonly radius:number|null;              // km
-  readonly lowOrbitAltitude:number|null;    // km
+  readonly gravity:number;                  // gravitational parameter, km³/s²
+  readonly radius:number;                   // km
+  readonly lowOrbitAltitude:number;         // km
   readonly rotation:number;                 // speed of the surface at the equator, m/s
   readonly atmosphere:boolean;
   constructor(b:{id:BodyId; name:string; orbits:Body|null; orbitRadius:number; period:number; meanLongitude:number;
-    gravity:number|null; radius:number|null; lowOrbitAltitude:number|null; rotation:number; atmosphere:boolean}){
+    gravity:number; radius:number; lowOrbitAltitude:number; rotation:number; atmosphere:boolean}){
     this.id=b.id; this.name=b.name; this.orbits=b.orbits; this.orbitRadius=b.orbitRadius; this.period=b.period; this.meanLongitude=b.meanLongitude;
     this.gravity=b.gravity; this.radius=b.radius; this.lowOrbitAltitude=b.lowOrbitAltitude; this.rotation=b.rotation; this.atmosphere=b.atmosphere;
   }
@@ -282,14 +282,8 @@ const PLANET_BODIES = Object.fromEntries(PLANETS.map(k=>{ const p=B[k];
     lowOrbitAltitude:p.alt, rotation:ROT[k]||0, atmosphere:p.atm})]; })) as Record<PlanetId, Body>;
 export const BODIES: Record<BodyId, Body> = {...PLANET_BODIES, ...Object.fromEntries(MOONS.map((k,i)=>{ const m=M[k];
   return [k, new Body({id:k, name:m.name, orbits:PLANET_BODIES[m.parent], orbitRadius:m.rv, period:m.P, meanLongitude:i*1.7*180/Math.PI,
-    gravity:null, radius:null, lowOrbitAltitude:null, rotation:ROT[k]||0, atmosphere:k==='titan'})]; })) as Record<MoonId, Body>};
+    gravity:m.mu, radius:m.R, lowOrbitAltitude:m.alt, rotation:ROT[k]||0, atmosphere:k==='titan'})]; })) as Record<MoonId, Body>};
 
-// The orbital data of a planet, which the tables know in full
-export function planetOrbit(k:PlanetId):{orbitRadius:number; period:number; meanLongitude:number; gravity:number; radius:number; lowOrbitAltitude:number}{
-  const b=BODIES[k], {gravity, radius, lowOrbitAltitude}=b;
-  if(gravity===null || radius===null || lowOrbitAltitude===null) throw new Error(`${k}: incomplete planet`);
-  return {orbitRadius:b.orbitRadius, period:b.period, meanLongitude:b.meanLongitude, gravity, radius, lowOrbitAltitude};
-}
 
 // ── The places as fixed objects ──────────────────────────────────────────────
 // A node is a body and a level; on a surface every node is a landing site. There is one

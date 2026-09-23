@@ -51,8 +51,6 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 The code in `js/game/` was written against an earlier model and departs from this one here:
 
-- **Bodies.** Of the moons the tables do not know gravity, radius and the height of the low
-  orbit, so these are empty; the game only needs them for the planets.
 - **Starports, hubs and industries** are built anew for every game rather than being fixed
   objects, because the stores, demands and offers of that game hang on them. What is fixed about
   them sits in rows of the `Post` table in `game/world.ts` (name, node, landing site, makes,
