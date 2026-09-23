@@ -1,7 +1,7 @@
 // Route search for the player: date-aware, checking fuel and deadlines.
 
 import { km, popMin } from '../basics.js';
-import { BODIES, Connection, DEPOT_LIST, POST_BY_ID, LAUNCH_FEE, Node, NodeId, PlanetId, PostId, bodyName, fmtCr, fuelHere, isMoon, isPost, nodeOf, siteOf, postAt } from './world.js';
+import { BODIES, Connection, DEPOT_LIST, LAUNCH_FEE, Node, NodeId, PlanetId, bodyName, fmtCr, fuelHere, isMoon, nodeOf, siteOf } from './world.js';
 import { HOP_FEE_SHARE, transfer } from './physics.js';
 import { S, RouteMode } from './state.js';
 import { connectionsFrom, idealTransfer, route } from './graph.js';
@@ -20,12 +20,12 @@ export interface StepHint { node:NodeId; site:string|null; dv:number; name:strin
 export function cargoHints(){
   const H:{step:StepHint[]; transfer:Partial<Record<PlanetId,string[]>>}={step:[], transfer:{}};
   const me=S.player.ship.near; if(!me) return H;
-  const hereK=postAt(me);
-  const byDest: Partial<Record<PostId, number>> = {};
+  const hereK=S.market.at(me);
+  const byDest: Record<string, number> = {};
   S.player.ship.hold.forEach(o=>{ if(!hereK||hereK.id!==o.to) byDest[o.to]=(byDest[o.to]||0)+1; });
   Object.entries(byDest).forEach(([id,n])=>{
-    if(!isPost(id) || !n) return;
-    const dest=POST_BY_ID[id], r=route(me,dest); if(!r.first) return;
+    if(!S.market.has(id) || !n) return;
+    const dest=S.market.post(id), r=route(me,dest); if(!r.first) return;
     const name=dest.name;
     if(r.first.leg){ const names=H.transfer[r.first.leg[1]]??=[]; if(!names.includes(name)) names.push(name); }
     else H.step.push({node:r.first.to.node, site:r.first.to.site, dv:r.first.dv, name, n, final: dest.node===r.first.to.node && (!dest.site||dest.site===r.first.to.site)});

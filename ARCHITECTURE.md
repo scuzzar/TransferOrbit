@@ -90,25 +90,25 @@ From the bottom up. "Imports from" lists only the modules actually used.
 |--:|---|--:|---|---|
 | 0 | `events.js` | 24 | The three signals | — |
 | 1 | `basics.js` | 46 | Numbers, dates, angles, `$`, `ANIM` | — |
-| 2 | `game/world.js` | 384 | The world as tables and fixed objects: `Body`, `Node`, `LandingSite`, `Depot`, `Connection`, goods, ship classes, the starport table, zones of influence | — |
+| 2 | `game/world.js` | 358 | The world as tables and fixed objects: `Body`, `Node`, `LandingSite`, `Depot`, `Connection`, goods, ship classes; the starport table and zones of influence a new game starts with | — |
 | 3 | `game/physics.js` | 90 | Tsiolkovsky, Kepler, Hohmann, hops | basics, world |
-| 4 | `game/state.js` | 259 | `S` — the game as objects: `Game`, `Player`, `Ship`, `Market`, `Starport`, `Hub`, `Industry`, `Store`, `Demand`, `Order` | world |
-| 5 | `game/save.js` | 105 | Reading a save back: old ids and names mapped, checked, rebuilt as objects | game/state, world |
+| 4 | `game/state.js` | 286 | `S` — the game as objects: `Game`, `Player`, `Ship`, `Market`, `Starport`, `Hub`, `Industry`, `Store`, `Demand`, `Order` | world |
+| 5 | `game/save.js` | 125 | Reading a save back: old ids and names mapped, checked, rebuilt as objects | game/state, world |
 | 6 | `ui/state.js` | 39 | `UI` — what the screen shows — and `hear()` | events, game/state, world |
-| 7 | `game/graph.js` | 83 | The connections out of each node, and idealised cost for pricing | basics, physics, world |
-| 8 | `game/economy.js` | 141 | The order board, deadlines, bulk goods | basics, graph, physics, game/state, world |
+| 7 | `game/graph.js` | 84 | The connections out of each node, and idealised cost for pricing | basics, physics, world |
+| 8 | `game/economy.js` | 144 | The order board, deadlines, bulk goods | basics, graph, physics, game/state, world |
 | 9 | `game/actions.js` | 55 | Which manoeuvres are possible from here | graph, physics, game/state, world |
 | 10 | `map/geometry.js` | 173 | Where something sits on screen; `SCENE`, the animation caches | basics, physics, world |
 | 11 | `game/planner.js` | 119 | Route search for the player, date-aware | actions, basics, graph, physics, game/state, world |
 | 12 | `game/commands.js` | 329 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, save, game/state, world |
-| 13 | `map/canvas.js` | 55 | The three drawing layers and their helpers | basics, geometry, game/state, ui/state, world |
+| 13 | `map/canvas.js` | 54 | The three drawing layers and their helpers | basics, geometry, game/state, ui/state |
 | 14 | `map/rocketdata.js` | 31 | The rocket model as number arrays | — |
 | 15 | `map/surface.js` | 52 | The planet surfaces as number arrays | — |
 | 16 | `map/gl.js` | 306 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
 | 17 | `map/rocket.js` | 98 | Attitude, flame, 3D model or hand-drawn | basics, geometry, gl, rocketdata |
 | 18 | `map/view.js` | 95 | Which level the map shows; taps on it | basics, canvas, events, geometry, planner, game/state, ui/state, world |
 | 19 | `map/draw.js` | 305 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, game/state, ui/state, view, world |
-| 20 | `ui/widgets.js` | 45 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, ui/state, world |
+| 20 | `ui/widgets.js` | 46 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, game/state, ui/state, world |
 | 21 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, graph, physics, game/state, ui/state, view, widgets, world |
 | 22 | `ui/panels.js` | 332 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, planner, game/state, ui/state, widgets, world |
 | 23 | `ui/display.js` | 72 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, game/state, ui/state, widgets, world |
@@ -203,7 +203,7 @@ S.player.ship              type, fuel, dvUsed, location, hold, autopilot, busy
 S.player.ship.location     Docked (at a Node) or InTransit (along a Connection, for every manoeuvre)
 S.player.ship.place        the Node it is docked at; null in transit
 S.player.ship.near         the place, or where a manoeuvre within a planet's system left from
-S.market.posts[id]         a Starport: its industry (a Store per good it makes, one for bulk orders, a Demand per good it needs) and the orders it offers; a Hub also has stores for transhipment
+S.market.post(id)          a Starport: its name, the node it lies at, its industry (a Store per good it makes, one for bulk orders, a Demand per good it needs) and the orders it offers; a Hub also has stores for transhipment, its zone of influence and the ships it sells
 ```
 
 An order lies at the post it comes from (`post.offers`) until the ship takes it
@@ -213,13 +213,16 @@ body and a level, on a surface every node is a `LandingSite`, and there is one
 object per place, so `===` compares them. A node knows its planet, its `Depot`
 (fuel price and fill time) and its label on screen. It does not point to its
 starport: arrows only lead from the game into the world, so which starport lies
-at a node is a question to the game's market (`market.at(node)`), or to the
-starport table (`postAt(node)`) for its fixed data. Planets and
+at a node is a question to the game's market (`market.at(node)`), and so is
+which hub's zone a body lies in (`market.hubFor(body)`). Starports, hubs and
+their industries are game state, not world: their name, place, goods, zone and
+ships may change during a game, and a new game founds them from the starport
+table (`STARPORT_TABLE`, `ZONES`). Planets and
 moons are `Body` objects, and a `Connection` leads from node to node with its
 delta-v and days (`game/graph.js` builds the ones out of each node once). The
 questions that used to be free functions on `S` are properties now:
 `eng()` is `S.player.ship.def`, `dvAvail()` is `S.player.ship.dvAvail`, `postAt()` is
-`S.player.ship.place?.post`, `payout(o)` is `o.payout(S.day)`, and
+`S.postHere`, `payout(o)` is `o.payout(S.day)`, and
 `S.action.busy || S.domain.bankrupt` is `!S.canAct`.
 
 The split of the work: the objects do each change and keep it consistent —
@@ -324,7 +327,8 @@ The check is `parseSave()` in `game/save.ts`. What comes out of
 `localStorage` is `unknown` until it has been through it: the place, the ship
 and every order must use ids the game knows, the numbers must be numbers, or
 the save is refused. Fields added after a save was written get their defaults,
-trading posts added since get empty `produced` and `need` rows, and the game is
+a save from before the starports were game state gets those of a new game,
+starports without rows get empty `produced` and `need` rows, and the game is
 rebuilt object by object rather than cast: open orders go to the post they come
 from, orders aboard into the ship's hold.
 
@@ -343,6 +347,7 @@ pointed (`windowPlanet`) — is no longer part of the game and is ignored on loa
 | `dvUsed` | Delta-v burned so far, m/s |
 | `bankrupt`, `autoFill` | The run is over; "always fill up" is on |
 | `market.orders` | The order board. Per order: `good`, `containers`, `from`, `to`, `reward`, route `dv` (m/s) and `days`, `deadline`, `created`, `expires`, `state` (`open` or `aboard`); `toHub` if it ends at a hub, `fromHubStore` if a hub made it from its store, `isBulk` for bulk orders |
+| `market.starports` | The starports in the order they were founded. Per starport: `id`, `name`, where it lies (`node`, `site`), the goods it `makes` and `needs`; a hub also has `hub` with its zone of influence (`zone`, body ids) and the ship classes it `sells` |
 | `market.produced` | Per post and good: the industry's store, made and not yet handed out as an order |
 | `market.need` | Per post and good, 0 to 3: how badly the post wants it, which decides where orders go |
 | `market.hubStore` | Per hub: goods delivered there for transhipment, waiting to be passed on as short orders in its zone |
@@ -352,12 +357,14 @@ pointed (`windowPlanet`) — is no longer part of the game and is ignored on loa
 ## Ids and types
 
 The reference tables in `game/world.ts` fix the ids: `PlanetId`, `MoonId`
-(together `BodyId`), `ShipId`, `GoodId`, `PostId` and `HubId` are the keys of
+(together `BodyId`), `ShipId` and `GoodId` are the keys of
 their tables, so a typo in `'earht'` is a compile error. A place is a `NodeId`,
 `` `${BodyId}.${Level}` `` with `Level` one of `surf`, `orbit`, `capt`, and
 `splitNode()` takes it apart; landing sites stay plain strings, since each body
 has its own. Ids from outside (a save, the console) go through the guards
-`isPlanet`, `isMoon`, `isNode`, `isShip`, `isGood` and `isPost`.
+`isPlanet`, `isMoon`, `isNode`, `isShip` and `isGood`. Starports are game state, so
+their ids (`StarportId`) are plain strings: a save names its own starports, and
+its orders may only lead between them.
 
 `tsconfig.json` runs `strict` plus `noUncheckedIndexedAccess` and
 `exactOptionalPropertyTypes`: a lookup in a table that does not cover every key

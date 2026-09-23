@@ -54,7 +54,4 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 ## Where the code does not follow yet
 
-- **Starports, hubs and industries** still take their name, place, goods and hub data from the
-  starport table (through `def`) instead of holding them themselves, the save does not keep that
-  data, and their ids are the fixed ones of the table (`PostId`), so no starport can be added or
-  changed during a game yet.
+Nothing at the moment.

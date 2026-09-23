@@ -67,7 +67,7 @@ async function run(b,name,vp,gl){
     report.push(`${name}: legend open=${lg}, the cargo tile opens "${v1}"`);
 
     // --- 5. the playing bot (the bookkeeping now lives in click(), see above), from a random post
-    const start=await f.evaluate(id=>{ const k=TO.POST_BY_ID[id]||TO.POSTS[Math.floor(Math.random()*TO.POSTS.length)]; TO.arrive(k.node,k.site); TO.changed(); return k.id; }, process.env.START||'');
+    const start=await f.evaluate(id=>{ const all=TO.S.market.list, k=(id&&TO.S.market.has(id)?TO.S.market.post(id):null)||all[Math.floor(Math.random()*all.length)]; TO.arrive(k.at.node,k.at.site); TO.changed(); return k.id; }, process.env.START||'');
     report.push(`${name}: starts at ${start}, 3D ${await f.evaluate(()=>TO.GL.on?'on':'off')}`);
     let deliveries=0, trips=0, stuck=0;
     for(let i=0;i<STEPS;i++){
@@ -123,7 +123,7 @@ async function run(b,name,vp,gl){
         await f.evaluate(()=>TO.openView('main'));
       }
       // nothing to do: fly to the nearest post that has orders (pick card -> route)
-      const tgt=await f.evaluate(()=>{ const cand=TO.POSTS.filter(k=>TO.S.market.post(k.id).offers.length&&!(TO.S.player.ship.place&&TO.postAt(TO.S.player.ship.place)?.id===k.id));
+      const tgt=await f.evaluate(()=>{ const cand=TO.S.market.list.filter(k=>k.offers.length&&!(TO.S.player.ship.place&&TO.S.market.at(TO.S.player.ship.place)===k));
         const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.S.player.ship.dvAvail-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
         if(!pl) return null; TO.openRoute(TO.kTarget(pl.k)); return pl.k.name; });
       if(tgt){ log.push('flying to '+tgt); const go=await click('#panel button:has-text("Start the autopilot")','autopilot');

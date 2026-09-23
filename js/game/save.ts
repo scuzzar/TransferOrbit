@@ -1,8 +1,8 @@
 // Reading a save back: old ids and field names are mapped first, then the JSON is checked
 // and rebuilt, object by object, into a Game. Writing is Game.toSave() in game/state.ts.
 
-import { GoodId, PostId, byPost, isGood, isNode, isPost, isShip, nodeAt } from './world.js';
-import { Amounts, Docked, Game, Hub, Industry, Market, Order, Player, Ship, Starport, demandsFrom, storesFrom } from './state.js';
+import { BodyId, GoodId, SHIP_IDS, STARPORT_TABLE, ShipId, ZONES, isBody, isGood, isNode, isShip, nodeAt } from './world.js';
+import { Amounts, Docked, Game, Hub, Industry, Market, Order, Player, SaveStarport, Ship, Starport, demandsFrom, storesFrom } from './state.js';
 
 // Saves written before the code was translated carry the old German ids, and saves
 // written before the state got readable names carry the old field names. One lookup
@@ -46,43 +46,63 @@ function migrate(o:Raw){
 }
 
 // An order and where it lies, or null if anything is missing or unknown
-function parseOrder(x:unknown):{order:Order; aboard:boolean}|null{
+function parseOrder(x:unknown, known:Set<string>):{order:Order; aboard:boolean}|null{
   if(!isObj(x)) return null;
   const {id,containers,reward,dv,days,deadline,created,expires,good,from,to,state}=x;
   if(!isNum(id) || !isNum(containers) || !isNum(reward) || !isNum(dv) || !isNum(days) || !isNum(deadline) || !isNum(created) || !isNum(expires)) return null;
-  if(!isGood(good) || !isPost(from) || !isPost(to) || (state!=='open' && state!=='aboard')) return null;
+  if(!isGood(good) || !isStr(from) || !known.has(from) || !isStr(to) || !known.has(to) || (state!=='open' && state!=='aboard')) return null;
   const order=new Order({id, good, containers, from, to, reward, dv, days, deadline, created, expires,
     fromHubStore:x.fromHubStore===true, toHub:isBool(x.toHub) && x.toHub, isBulk:isBool(x.isBulk) && x.isBulk});
   return {order, aboard:state==='aboard'};
 }
 
-// post -> good -> amount, keeping only known posts and goods; null if it isn't such a table
-function parseTable(x:unknown):Partial<Record<PostId,Amounts>>|null{
+// starport -> good -> amount, keeping only known goods; null if it isn't such a table
+function parseTable(x:unknown):Record<string,Amounts>|null{
   if(!isObj(x)) return null;
-  const t:Partial<Record<PostId,Amounts>>={};
+  const t:Record<string,Amounts>={};
   for(const [k,row] of Object.entries(x)){
     if(!isObj(row) || !Object.values(row).every(isNum)) return null;
-    if(!isPost(k)) continue;
     const a:Amounts=t[k]={}; for(const [g,v] of Object.entries(row)) if(isGood(g) && isNum(v)) a[g]=v;
   }
   return t;
 }
 
+// The starports a save keeps, or null if one of them is broken. Saves from before the starports
+// became game state have none; they get those a new game starts with.
+const isList = <T,>(x:unknown, is:(y:unknown)=>y is T):x is T[] => Array.isArray(x) && x.every(is);
+function parseStarports(x:unknown):SaveStarport[]|null{
+  if(x===undefined) return STARPORT_TABLE.map(k=>({id:k.id, name:k.name, node:k.node, site:k.site, makes:k.makes, needs:k.needs,
+    ...(k.hub?{hub:{zone:[...ZONES[k.id]??[]], sells:[...SHIP_IDS]}}:{})}));
+  if(!Array.isArray(x)) return null;
+  const out:SaveStarport[]=[], ids=new Set<string>();
+  for(const k of x){
+    if(!isObj(k) || !isStr(k.id) || ids.has(k.id) || !isStr(k.name) || !isNode(k.node) || !(k.site===null || isStr(k.site))) return null;
+    if(!nodeAt(k.node, k.site) || !isList(k.makes, isGood) || !isList(k.needs, isGood)) return null;
+    let hub:{zone:BodyId[]; sells:ShipId[]}|undefined;
+    if(k.hub!==undefined){ const h=k.hub; if(!isObj(h) || !isList(h.zone, isBody) || !isList(h.sells, isShip)) return null; hub={zone:h.zone, sells:h.sells}; }
+    ids.add(k.id); out.push({id:k.id, name:k.name, node:k.node, site:k.site, makes:k.makes, needs:k.needs, ...(hub?{hub}:{})});
+  }
+  return out;
+}
+
 // Only the goods an industry deals in
 const only = (a:Amounts|undefined, goods:readonly GoodId[]):Amounts => Object.fromEntries(Object.entries(a??{}).filter(([g])=>isGood(g) && goods.includes(g)));
 
-// The market with its posts and their open orders, and the orders aboard. Posts added since
-// the save start empty; a row for a good the industry does not deal in is dropped.
+// The market with its starports and their open orders, and the orders aboard. A starport the
+// tables do not know starts empty; a row for a good the industry does not deal in is dropped.
 function parseMarket(e:unknown):{market:Market; aboard:Order[]}|null{
   if(!isObj(e) || !isNum(e.nextId) || !isNum(e.simulatedTo) || !Array.isArray(e.orders)) return null;
-  const orders=e.orders.map(parseOrder), produced=parseTable(e.produced), hubStore=parseTable(e.hubStore), need=parseTable(e.need);
+  const defs=parseStarports(e.starports); if(!defs) return null;
+  const known=new Set(defs.map(k=>k.id));
+  const orders=e.orders.map(x=>parseOrder(x,known)), produced=parseTable(e.produced), hubStore=parseTable(e.hubStore), need=parseTable(e.need);
   // older saves also kept the size the next bulk order waited for (bulkLot); the game draws it anew
   const bulkStore=e.bulkStore===undefined ? {} : parseTable(e.bulkStore);
   if(!produced || !hubStore || !need || !bulkStore) return null;
-  const posts=byPost(k=>{
+  const posts=defs.map(k=>{
+    const at=nodeAt(k.node, k.site); if(!at) throw new Error('checked above');
     const industry=new Industry(k, {stores:storesFrom(only(produced[k.id],k.makes)), demands:demandsFrom(only(need[k.id],k.needs)),
       bulk:storesFrom(only(bulkStore[k.id],k.makes))});
-    return k.hub ? new Hub(k, industry, storesFrom(hubStore[k.id]??{})) : new Starport(k, industry);
+    return k.hub ? new Hub(k.id, k.name, at, industry, {...k.hub, transship:storesFrom(hubStore[k.id]??{})}) : new Starport(k.id, k.name, at, industry);
   });
   const market=new Market(posts, e.nextId, e.simulatedTo), aboard:Order[]=[];
   for(const o of orders){ if(!o) return null; if(o.aboard) aboard.push(o.order); else market.post(o.order.from).offer(o.order); }

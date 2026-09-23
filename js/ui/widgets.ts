@@ -2,7 +2,8 @@
 
 import { changed } from '../events.js';
 import { esc, find, isDesk } from '../basics.js';
-import { GOODS, GoodId, Node, postLabel, Post, nodeOf } from '../game/world.js';
+import { GOODS, GoodId, Node } from '../game/world.js';
+import { Starport, postLabel } from '../game/state.js';
 import { UI, View } from './state.js';
 
 // The label of the back button, per view it returns to.
@@ -39,7 +40,7 @@ export function openView(v: View, back?: View|null){ UI.rmsg=false; UI.back = v=
 
 export function openRoute(target: Node, back: View|null){ UI.route = {target, mode:'eco'}; openView('route', back); }
 
-export const kTarget = (k: Post): Node => nodeOf(k.node, k.site);
+export const kTarget = (k: Starport): Node => k.at;
 
-export function routeLink(k: Post, back: View|null){ const b = document.createElement('button'); b.type = 'button'; b.className = 'olink';
+export function routeLink(k: Starport, back: View|null){ const b = document.createElement('button'); b.type = 'button'; b.className = 'olink';
   b.innerHTML = `${icon('route',15)}Route`; b.title = `Plan a route to ${postLabel(k)}`; b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openRoute(kTarget(k), back); }; return b; }

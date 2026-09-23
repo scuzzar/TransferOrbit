@@ -2,8 +2,8 @@
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, SHIPS, hubFor, bodyName, fmtCr, isNode, nodeOf, postLabel, postPlace, siteOf, splitNode, postAt } from '../game/world.js';
-import { Order, RouteMode, S } from '../game/state.js';
+import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, SHIPS, bodyName, fmtCr, isNode, siteOf, splitNode } from '../game/world.js';
+import { Hub, Order, RouteMode, S, postLabel, postPlace } from '../game/state.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
 import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
 import { abortOrder, acceptOrders, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
@@ -14,9 +14,9 @@ import { btn, dots, gchip, ibtn, openRoute, openView, phead, routeLink } from '.
 export function acceptSelected(){ if(acceptOrders(UI.sel)) openView('cargo'); }
 
 function panelPost(p:HTMLElement){
-  const k=(S.player.ship.near ? postAt(S.player.ship.near) : null); if(!k){ openView('main'); return; }
+  const k=(S.player.ship.near ? S.market.at(S.player.ship.near) : null); if(!k){ openView('main'); return; }
   const post=S.market.post(k.id), locked=!S.canAct, free=S.player.ship.def.slots-S.player.ship.slotsUsed;
-  p.appendChild(phead(`${k.name} Trading Post`, `${esc(postPlace(k))}. ${fmtCr(S.player.credits)}, ${free} cargo ${free===1?'slot':'slots'} free.`, k.hub?'Hub':''));
+  p.appendChild(phead(`${k.name} Trading Post`, `${esc(postPlace(k))}. ${fmtCr(S.player.credits)}, ${free} cargo ${free===1?'slot':'slots'} free.`, (k instanceof Hub)?'Hub':''));
   const del=deliverables();
   if(del.length){
     const b=document.createElement('div'); b.className='banner';
@@ -33,14 +33,14 @@ function panelPost(p:HTMLElement){
   const list=document.createElement('div'); list.className='ogroups';
   if(!offers.length) list.innerHTML='<p class="hint">No orders right now. The stores fill up over time.</p>';
   // Group by destination, sort the groups by the delta-v of the route
-  const groups=new Map<PostId,[Order,...Order[]]>();
+  const groups=new Map<string,[Order,...Order[]]>();
   offers.forEach(o=>{ const g=groups.get(o.to); if(g) g.push(o); else groups.set(o.to,[o]); });
   const glist=[...groups].map(([to,os])=>{
-    const tk=POST_BY_ID[to], tpl=planRoute(nodeOf(tk.node, tk.site),'eco');
+    const tk=S.market.post(to), tpl=planRoute(tk.at,'eco');
     return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
   }).sort((a,b)=>a.dv-b.dv);
   glist.forEach(dest=>{
-    const {tk,os,tpl}=dest, dl=freshDeadline(os[0],S.day), lateBy=tpl?tpl.arrive-dl:0;
+    const {tk,os,tpl}=dest, dl=freshDeadline(S.market,os[0],S.day), lateBy=tpl?tpl.arrive-dl:0;
     const gSel=os.filter(o=>UI.sel.has(o.id));
     const lightest=os.filter(o=>!UI.sel.has(o.id)).reduce((m,o)=>Math.min(m,o.containers*GOODS[o.good].mass),Infinity);
     const after = gSel.length ? S.player.ship.dvWith(S.player.ship.fuel,S.player.ship.cargoMass+selM) : S.player.ship.dvWith(S.player.ship.fuel,S.player.ship.cargoMass+selM+(isFinite(lightest)?lightest:0));
@@ -48,7 +48,7 @@ function panelPost(p:HTMLElement){
     const afterFull = gSel.length ? S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass+selM) : S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass+selM+(isFinite(lightest)?lightest:0));
     const grp=document.createElement('section'); grp.className='ogroup'+(gSel.length?' on':'');
     const nDel=S.player.ship.hold.filter(o=>o.to===tk.id).length;
-    grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(postLabel(tk))}</b>${tk.hub?' <span class="tag">Hub</span>':''}${nDel?` <span class="mtag deliver">${nDel} already on board</span>`:''}</div>
+    grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(postLabel(tk))}</b>${(tk instanceof Hub)?' <span class="tag">Hub</span>':''}${nDel?` <span class="mtag deliver">${nDel} already on board</span>`:''}</div>
       <div class="og-meta"><span class="${short?'badc':''}">${km(dest.dv)} km/s</span><span>${fmtDays(dest.days)}</span><span class="${lateBy>0?'badc':''}">Due ${dateStr(dl)}</span></div>
       ${tpl&&lateBy>0?`<div class="o-warn bad">The deadline cannot be met: earliest arrival ${dateStr(tpl.arrive)}.</div>`:
         short?`<div class="o-warn">${gSel.length?'With your selection':'Even with the lightest order'} you would have ${km(after)} km/s left. ${afterFull<dest.dv?`Too heavy: even with a full tank it would only be ${km(afterFull)} km/s.`:'Refuel first.'}</div>`:''}</div>`;
@@ -66,13 +66,13 @@ function panelPost(p:HTMLElement){
   });
   p.appendChild(list);
 
-  if(k.needs.length){
+  if(k.industry.needs.length){
     const h2=document.createElement('h3'); h2.textContent='Wanted here'; p.appendChild(h2);
     const g=document.createElement('div'); g.className='needgrid';
-    g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(post.industry.levelOf(x))}</div>`).join('');
+    g.innerHTML=k.industry.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(post.industry.levelOf(x))}</div>`).join('');
     p.appendChild(g);
     const n=document.createElement('p'); n.className='hint';
-    n.textContent=k.hub?`The dots show demand. As a hub, ${k.name} also takes any goods for transhipment; ${HUB_CAP-hubRoom(S.market,k)} of ${HUB_CAP} slots are taken.`:'The dots show demand. Orders coming here are created at other posts.';
+    n.textContent=(k instanceof Hub)?`The dots show demand. As a hub, ${k.name} also takes any goods for transhipment; ${HUB_CAP-hubRoom(S.market,k)} of ${HUB_CAP} slots are taken.`:'The dots show demand. Orders coming here are created at other posts.';
     p.appendChild(n);
   }
 
@@ -85,7 +85,7 @@ function panelPost(p:HTMLElement){
 }
 
 function panelCargo(p:HTMLElement){
-  const locked=!S.canAct, co=S.player.ship.hold, near=S.player.ship.near, hereK=(near ? postAt(near) : null);
+  const locked=!S.canAct, co=S.player.ship.hold, near=S.player.ship.near, hereK=(near ? S.market.at(near) : null);
   p.appendChild(phead(`Cargo hold of the ${S.player.ship.def.name}`, near?`Currently in ${esc(near.label)}.`:'Under way.', ''));
   const slots=document.createElement('div'); slots.className='bigslots';
   const cells:string[]=[]; co.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<div style="background:${GOODS[o.good].color}" title="${GOODS[o.good].name}"><b>${GOODS[o.good].shortName}</b><span>${GOODS[o.good].mass} t</span></div>`); });
@@ -104,7 +104,7 @@ function panelCargo(p:HTMLElement){
   const list=document.createElement('div'); list.className='acts';
   if(!co.length) list.innerHTML='<p class="hint">The hold is empty. Orders are offered at trading posts.</p>';
   co.forEach(o=>{
-    const G=GOODS[o.good], to=POST_BY_ID[o.to], left=o.deadline-S.day, pay=o.payout(S.day);
+    const G=GOODS[o.good], to=S.market.post(o.to), left=o.deadline-S.day, pay=o.payout(S.day);
     const span=Math.max(1,o.deadline-(o.created??(o.deadline-60))), frac=Math.max(0,Math.min(1,left/span));
     const el=document.createElement('div'); el.className='order';
     el.innerHTML=`<div class="o-top">${gchip(o.good)}<b>${o.containers} × ${G.name} to ${esc(postLabel(to))}</b><span class="num">${fmtCr(pay)}</span></div>
@@ -155,7 +155,7 @@ function panelRefuel(p:HTMLElement){
     <p>Cost ${fmtCr(cost)}.${needDv?` Your cargo needs up to ${km(needDv)} km/s from here, ${dvA>=needDv?'which is enough':'which is not enough yet'}.`:''}</p>`;
   p.appendChild(cmp);
   const h=document.createElement('h3'); h.textContent='Prices in this region'; p.appendChild(h);
-  const zone=hubFor(place.body), rows=DEPOT_LIST.filter(d=>hubFor(d.at.body)===zone).sort((a,b)=>a.fuelPrice-b.fuelPrice);
+  const zone=S.market.hubFor(place.body), rows=DEPOT_LIST.filter(d=>S.market.hubFor(d.at.body)===zone).sort((a,b)=>a.fuelPrice-b.fuelPrice);
   const lst=document.createElement('div'); lst.className='pricelist';
   lst.innerHTML=rows.map(d=>{ const me=d.at===place;
     return `<div class="${me?'me':''}"><span>${esc(depotLabel(d.at.key))}${me?' (here)':''}</span><span>${d.fuelPrice} Cr/t</span></div>`; }).join('');
@@ -166,7 +166,7 @@ function panelRefuel(p:HTMLElement){
 }
 
 function panelShipyard(p:HTMLElement){
-  const k=(S.player.ship.near ? postAt(S.player.ship.near) : null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
+  const k=(S.player.ship.near ? S.market.at(S.player.ship.near) : null), hub=k?S.market.hub(k.id):null; if(!k||!hub){ openView('main'); return; }
   const locked=!S.canAct, cur=S.player.ship.def;
   p.appendChild(phead('Shipyard', `${esc(postLabel(k))}. Balance ${fmtCr(S.player.credits)}.`, ''));
   const note=document.createElement('p'); note.className='kinfo';
@@ -194,17 +194,17 @@ function panelShipyard(p:HTMLElement){
 
 export function renderPlace(){
   const w=byId('placecard',HTMLElement); w.innerHTML='';
-  const near=S.player.ship.near, k=(near ? postAt(near) : null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
+  const near=S.player.ship.near, k=(near ? S.market.at(near) : null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
   const c=document.createElement('div'); c.className='place';
   const tr=S.player.ship.transit, where=near?near.label:tr?`Under way to ${BODIES[tr.to].name}`:'Under way';
-  const info = k ? `${k.makes.length?'Produces '+k.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`
+  const info = k ? `${k.industry.makes.length?'Produces '+k.industry.makes.map(g=>GOODS[g].name).join(', ')+'. ':''}Needs ${k.industry.needs.map(g=>GOODS[g].name).join(', ')}.${r?` Fuel ${r.price} Cr/t.`:''}`
     : r ? `Fuel depot, ${r.price} Cr/t.` : '';
-  c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Location</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${k.hub?'Hub':'Trading post'}</span>`:''}</div>`;
+  c.innerHTML=`<div class="phdr"><div class="pname"><div class="muted small">Location</div><b>${esc(where)}</b></div>${info?`<p class="kinfo">${esc(info)}</p>`:''}${k?`<span class="tag">${(k instanceof Hub)?'Hub':'Trading post'}</span>`:''}</div>`;
   const g=document.createElement('div'); g.className='pbtns';
   if(del.length){ const b=ibtn('deliver',`Deliver (${del.length}), ${fmtCr(del.reduce((s,o)=>s+o.payout(S.day),0))}`,'go full',locked,deliverAll); b.style.minHeight='44px'; b.style.display='inline-flex'; b.style.alignItems='center'; b.style.justifyContent='center'; b.style.gap='6px'; c.appendChild(b); }
   if(k){ const n=S.market.post(k.id).offers.length; g.appendChild(ibtn('orders',`Orders (${n})`,del.length?'':'go',S.player.ship.underWay,()=>openView('post'))); }
   if(r) g.appendChild(ibtn('fuel','Refuel','',S.player.ship.underWay,()=>openView('refuel')));
-  if(k&&k.hub) g.appendChild(ibtn('yard','Shipyard','',S.player.ship.underWay,()=>openView('shipyard')));
+  if(k&&(k instanceof Hub)) g.appendChild(ibtn('yard','Shipyard','',S.player.ship.underWay,()=>openView('shipyard')));
   // Equal columns: in German "Aufträge (11)" needed extra room, "Orders (8)" does not,
   // and weighting it that way squeezed "Shipyard" into an ellipsis.
   if(g.children.length) c.appendChild(g);
@@ -277,7 +277,7 @@ function panelRoute(p:HTMLElement){
   p.appendChild(tl);
   const have=S.player.ship.dvAvail, ok=plan.dv<=have+0.5; R.strand=false;
   const sum=document.createElement('div'); sum.className='pfoot';
-  const deadl=S.player.ship.hold.filter(o=>{ const k=POST_BY_ID[o.to]; return k.node===R.target.node && (!k.site||k.site===R.target.site); });
+  const deadl=S.player.ship.hold.filter(o=>{ const k=S.market.post(o.to); return k.at===R.target; });
   const late=deadl.filter(o=>plan.arrive>o.deadline);
   sum.innerHTML=`<div class="row"><span class="muted">Needs ${km(plan.dv)} of ${km(have)} km/s</span><b class="${ok?'okc':'badc'}">${ok?km(have-plan.dv)+' km/s left':km(plan.dv-have)+' km/s short'}</b></div>
     <div class="massbar"><i style="width:${Math.min(100,plan.dv/Math.max(have,1)*100).toFixed(0)}%;background:${ok?'var(--accent)':'var(--bad)'}"></i></div>

@@ -76,8 +76,9 @@ test('A node knows its body, level and planet; a moon counts as its planet', asy
   assert.equal(nodeOf('mars.surf', 'pavonis').port, true);
 });
 
-test('The starport table finds the starport at a node, by site where the body has several', async () => {
-  const { world: { nodeOf, postAt } } = await ready;
+test('The market finds the starport at a node, by site where the body has several', async () => {
+  const { world: { nodeOf }, state } = await fresh();
+  const postAt = n => state.S.market.at(n);
   assert.equal(postAt(nodeOf('moon.surf', 'shackleton'))?.id, 'shackleton');
   assert.equal(postAt(nodeOf('moon.surf', 'tranquillitatis'))?.id, 'tranq');
   assert.equal(postAt(nodeOf('earth.surf', 'kourou'))?.id, 'kourou');     // every Earth spaceport is a starport of its own
@@ -87,12 +88,12 @@ test('The starport table finds the starport at a node, by site where the body ha
 });
 
 test('The Earth has four starports, one per spaceport, that together make and need what the Earth did', async () => {
-  const { world } = await ready;
-  const earth = world.POSTS.filter(k => k.node === 'earth.surf');
+  const { world, state } = await fresh();
+  const earth = world.STARPORT_TABLE.filter(k => k.node === 'earth.surf');
   assert.deepEqual(earth.map(k => k.site), ['kourou', 'canaveral', 'baikonur', 'plesetsk']);
   assert.deepEqual(earth.flatMap(k => k.makes).sort(), ['elec', 'food', 'hab', 'mach']);
   assert.deepEqual([...new Set(earth.flatMap(k => k.needs))].sort(), ['he3', 'rare']);
-  for (const k of earth) { assert.equal(world.postLabel(k), `${k.name}, Earth`); assert.equal(world.fuelHere(k.node, k.site), true); }
+  for (const k of earth) { assert.equal(state.postLabel(state.S.market.post(k.id)), `${k.name}, Earth`); assert.equal(world.fuelHere(k.node, k.site), true); }
   assert.equal(world.fuelHere('earth.surf', null), false);    // no fuel price for the surface as a whole any more
 });
 
@@ -224,9 +225,9 @@ test('A new game: Cog at the shipyard, full tank, 20,000 Cr, orders at the posts
 });
 
 test('Market: every order lies at the post it comes from, ids are unique and below nextId', async () => {
-  const { state, world } = await fresh(3);
+  const { state } = await fresh(3);
   const S = state.S, seen = new Set();
-  for (const k of world.POSTS) for (const o of S.market.post(k.id).offers) {
+  for (const k of S.market.list) for (const o of S.market.post(k.id).offers) {
     assert.equal(o.from, k.id); assert.ok(!seen.has(o.id)); seen.add(o.id); assert.ok(o.id < S.market.nextId);
   }
   const ids = S.market.offers.map(o => o.id);
@@ -237,7 +238,8 @@ test('Every body lies in the zone of influence of exactly one hub; every hub sel
   const { state, world } = await fresh();
   for (const b of [...world.PLANETS, ...world.MOONS])
     assert.equal(Object.values(world.ZONES).filter(z => z.includes(b)).length, 1, b);
-  assert.equal(world.hubFor('titan'), 'valhalla'); assert.equal(world.hubFor('ceres'), 'pavonis'); assert.equal(world.hubFor('moon'), 'shipyard');
+  const hubFor = b => state.S.market.hubFor(b)?.id;
+  assert.equal(hubFor('titan'), 'valhalla'); assert.equal(hubFor('ceres'), 'pavonis'); assert.equal(hubFor('moon'), 'shipyard');
   const h = state.S.market.hub('pavonis');
   assert.deepEqual(h.zone, world.ZONES.pavonis); assert.deepEqual(h.sells, world.SHIP_IDS);
   assert.equal(h.name, 'Pavonis Mons'); assert.equal(h.at, world.nodeOf('mars.surf', 'pavonis'));
@@ -256,8 +258,8 @@ test('Market over five years: stores stay within bounds, expired orders go back,
   const { state, world, commands } = await fresh(7);
   const S = state.S;
   for (let i = 0; i < 60; i++) commands.waitDays(30);
-  for (const k of world.POSTS) {
-    const p = S.market.post(k.id);
+  for (const p of S.market.list) {
+    const k = { id: p.id, makes: p.industry.makes, needs: p.industry.needs };
     // production stops at 12; an expired order may bring its containers back on top
     for (const g of k.makes) { const n = state.stockOf(p.industry.stores, g); assert.ok(n >= 0 && n <= 12 + world.GOODS[g].lot[1], `${k.id} ${g} ${n}`); }
     for (const g of k.needs) { const n = p.industry.levelOf(g); assert.ok(n >= 0 && n <= 3, `${k.id} needs ${g}`); }
@@ -271,7 +273,7 @@ test('Market over five years: stores stay within bounds, expired orders go back,
 test('An order that expires gives its goods back to the post: none are lost, none are made up', async () => {
   const { state, commands, world } = await fresh(2);
   const S = state.S;
-  const o = S.market.offers.find(x => !x.isBulk && !x.fromHubStore && world.POST_BY_ID[x.from].makes.includes(x.good));
+  const o = S.market.offers.find(x => !x.isBulk && !x.fromHubStore && S.market.post(x.from).industry.makes.includes(x.good));
   const post = S.market.post(o.from), g = o.good;
   o.expires = S.day;                                  // gone with the next market day
   const before = state.stockOf(post.industry.stores, g), made = 1 / world.GOODS[g].rate;
@@ -371,8 +373,7 @@ test('Delivering pays, empties the hold and fills a hub store for transhipments'
   const { state, commands, world } = await fresh();
   const S = state.S, o = S.postHere.offers.find(x => x.containers <= 3);
   commands.acceptOrders([o.id]);
-  const to = world.POST_BY_ID[o.to];
-  S.player.ship.dock(world.nodeOf(to.node, to.site));
+  S.player.ship.dock(S.market.post(o.to).at);
   assert.deepEqual(commands.deliverables(), [o]);
   const cr = S.player.credits, hub = o.toHub ? S.market.hub(o.to) : null, stored = hub ? state.stockOf(hub.transship, o.good) : 0;
   commands.deliverAll();
@@ -381,8 +382,8 @@ test('Delivering pays, empties the hold and fills a hub store for transhipments'
 });
 
 test('A hub counts its store and the orders offered towards it against its room, not what the ship carries', async () => {
-  const { state, economy, world } = await fresh();
-  const S = state.S, hub = world.POST_BY_ID.pavonis;
+  const { state, economy } = await fresh();
+  const S = state.S, hub = S.market.post('pavonis');
   const room = economy.hubRoom(S.market, hub);
   const o = new state.Order({ id: 9999, good: 'mach', containers: 3, from: 'shipyard', to: 'pavonis', reward: 1, dv: 1, days: 1,
     deadline: S.day + 100, created: S.day, expires: S.day + 90, fromHubStore: false, toHub: true });
@@ -517,6 +518,54 @@ test('Save and load give the same game back, cargo and stores included', async (
   assert.ok(g.market.hub('valhalla') instanceof state.Hub);
 });
 
+test('Starports, hubs and industries are game state: a save keeps them, changes included', async () => {
+  const { state, save, world, commands } = await fresh(4);
+  const S = state.S, m = S.market;
+  const a = S.toSave();
+  assert.deepEqual(a.market.starports.map(k => k.id), world.STARPORT_TABLE.map(k => k.id));   // a new game founds the table's starports
+  assert.deepEqual(a.market.starports.find(k => k.id === 'kourou'), { id: 'kourou', name: 'Kourou', node: 'earth.surf', site: 'kourou',
+    makes: ['mach'], needs: ['he3'] });
+  assert.deepEqual(a.market.starports.find(k => k.id === 'pavonis').hub, { zone: world.ZONES.pavonis, sells: world.SHIP_IDS });
+  // change all three during the game
+  const k = m.post('jezero'); k.name = 'Jezero Base'; k.at = world.nodeOf('mars.surf', 'northpole');
+  k.industry.makes.push('elec'); k.industry.needs.splice(0);
+  const h = m.hub('valhalla'); const old = m.hubFor('mercury'); old.zone.splice(old.zone.indexOf('mercury'), 1); h.zone.push('mercury');
+  h.sells.splice(0, h.sells.length, 'cog');
+  commands.waitDays(20);                                          // the market runs on what they are now
+  const b = S.toSave(), g = save.parseSave(JSON.parse(JSON.stringify(b)));
+  assert.ok(g); assert.deepEqual(g.toSave(), b);
+  const k2 = g.market.post('jezero');
+  assert.equal(k2.name, 'Jezero Base'); assert.equal(k2.at, world.nodeOf('mars.surf', 'northpole'));
+  assert.deepEqual(k2.industry.makes, [...world.STARPORT_TABLE.find(x => x.id === 'jezero').makes, 'elec']); assert.deepEqual(k2.industry.needs, []);
+  assert.equal(g.market.at(world.nodeOf('mars.surf', 'northpole')), k2); assert.equal(g.market.at(world.nodeOf('mars.surf', 'jezero')), null);
+  assert.deepEqual(g.market.hub('valhalla').sells, ['cog']); assert.equal(g.market.hubFor('mercury'), g.market.hub('valhalla'));
+  assert.equal(state.postLabel(k2), 'Jezero Base, Mars');
+});
+
+test('A starport founded during a game trades, and a save keeps it', async () => {
+  const { state, save, world, commands } = await fresh(8);
+  const S = state.S, m = S.market;
+  const k = new state.Starport('ishtar', 'Ishtar Terra', world.nodeOf('venus.surf', 'ishtar'),
+    new state.Industry({ makes: ['rare'], needs: ['food'] }, { stores: new Map(), demands: new Map() }));
+  m.posts.set(k.id, k);
+  assert.equal(m.at(world.nodeOf('venus.surf', 'ishtar')), k); assert.equal(m.post('ishtar'), k);
+  for (let i = 0; i < 12; i++) commands.waitDays(30);
+  assert.ok(state.stockOf(k.industry.stores, 'rare') > 0 || m.offers.some(o => o.from === 'ishtar'), 'it makes goods');
+  assert.ok(m.offers.some(o => o.from === 'ishtar' || o.to === 'ishtar'), 'orders from or to it');
+  const a = S.toSave(), g = save.parseSave(JSON.parse(JSON.stringify(a)));
+  assert.ok(g); assert.deepEqual(g.toSave(), a);
+  assert.equal(g.market.post('ishtar').name, 'Ishtar Terra'); assert.ok(!(g.market.post('ishtar') instanceof state.Hub));
+});
+
+test('A save from before the starports were game state gets those of a new game', async () => {
+  const { state, save, world } = await fresh();
+  const a = state.S.toSave(); delete a.market.starports;
+  const g = save.parseSave(JSON.parse(JSON.stringify(a)));
+  assert.ok(g);
+  assert.deepEqual(g.market.list.map(k => k.id), world.STARPORT_TABLE.map(k => k.id));
+  assert.deepEqual(g.toSave().market.starports, state.S.toSave().market.starports);
+});
+
 test('commands.save and load go through localStorage', async () => {
   const { state, commands } = await fresh(6);
   const S = state.S; S.player.credits = 12345; commands.save();
@@ -567,5 +616,14 @@ test('A broken save is refused', async () => {
   assert.equal(bad(s => { s.market.orders[0].state = 'lost'; }), null);
   assert.equal(bad(s => { s.market.orders[0].from = 'atlantis'; }), null);
   assert.equal(bad(s => { s.market.produced.kourou.mach = 'x'; }), null);
+  assert.equal(bad(s => { s.market.starports = {}; }), null);
+  assert.equal(bad(s => { s.market.starports[1].id = s.market.starports[0].id; }), null);       // two starports with one id
+  assert.equal(bad(s => { s.market.starports[0].node = 'pluto.surf'; }), null);
+  assert.equal(bad(s => { s.market.starports[0].site = 'atlantis'; }), null);
+  assert.equal(bad(s => { s.market.starports[0].makes = ['gold']; }), null);
+  assert.equal(bad(s => { delete s.market.starports[0].name; }), null);
+  assert.equal(bad(s => { s.market.starports.find(k => k.hub).hub.sells = ['dinghy']; }), null);
+  assert.equal(bad(s => { s.market.starports.find(k => k.hub).hub.zone = ['pluto']; }), null);
+  assert.equal(bad(s => { const o = s.market.orders[0]; s.market.starports = s.market.starports.filter(k => k.id !== o.from); }), null);   // an order from a starport that is gone
   assert.equal(save.parseSave(null), null); assert.equal(save.parseSave([]), null);
 });

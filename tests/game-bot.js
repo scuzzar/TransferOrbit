@@ -17,12 +17,12 @@ const AI = String.raw`
     const byTo={}; offers.forEach(o=>(byTo[o.to]=byTo[o.to]||[]).push(o));
     let best=null;
     for(const [to,os] of Object.entries(byTo)){
-      const tk=TO.POST_BY_ID[to], tgt=TO.kTarget(tk), pl=planFrom(start,tgt); if(!pl) continue;
+      const tk=TO.S.market.post(to), tgt=TO.kTarget(tk), pl=planFrom(start,tgt); if(!pl) continue;
       os.sort((a,b)=>b.reward/(b.containers*TO.GOODS[b.good].mass+2)-a.reward/(a.containers*TO.GOODS[a.good].mass+2));
       let pick=[], slots=0, cm=0;
       for(const o of os){ if(slots+o.containers>TO.S.player.ship.def.slots) continue; const m=o.containers*TO.GOODS[o.good].mass;
         if(shipAt(fuel,cm+m)<pl.dv+60) continue;
-        const dl=start.day+TO.legWait(TO.route(TO.POST_BY_ID[o.from],TO.POST_BY_ID[o.to]),start.day)+1.5*o.days+30; if(pl.arrive>dl) continue;
+        const dl=start.day+TO.legWait(TO.route(TO.S.market.post(o.from),TO.S.market.post(o.to)),start.day)+1.5*o.days+30; if(pl.arrive>dl) continue;
         pick.push(o); slots+=o.containers; cm+=m; }
       if(!pick.length) continue;
   // reserve: after delivering there must be enough left to reach the nearest depot
@@ -50,7 +50,7 @@ const AI = String.raw`
     log('route to '+target.label+' not reached after 40 steps'); return false;
   }
   function tryBuy(){
-    const pl=TO.S.player.ship.place, k=pl?TO.postAt(pl):null; if(!k||!k.hub) return;
+    const pl=TO.S.player.ship.place, k=pl?TO.S.market.at(pl):null; if(!k||!(k instanceof TO.Hub)) return;
     const order=['hulk','galleon','carrack'];
     for(const id of order.slice().reverse()){
       if(id===TO.S.player.ship.type) return; const sh=TO.SHIPS[id]; if(sh.price<=TO.S.player.ship.def.price) continue;
@@ -67,11 +67,11 @@ const AI = String.raw`
     refuel(); tryBuy();
     if(TO.S.player.ship.type==='carrack') return 'done';
     const start={node:TO.S.player.ship.place.node,site:TO.S.player.ship.place.site,day:TO.S.day};
-    const pl=TO.S.player.ship.place, k=pl?TO.postAt(pl):null;
+    const pl=TO.S.player.ship.place, k=pl?TO.S.market.at(pl):null;
     let here=k?bestLoad(k,start,TO.S.player.ship.fuel):null;
     // alternative: fly empty to another post and load there
     let alt=null;
-    for(const kk of TO.POSTS){ if(k&&kk.id===k.id) continue;
+    for(const kk of TO.S.market.list){ if(k&&kk.id===k.id) continue;
       if(!TO.S.market.post(kk.id).offers.length) continue;
       const t=TO.kTarget(kk), pl=planFrom(start,t); if(!pl||pl.dv>TO.S.player.ship.dvAvail-100) continue;
       const m0=TO.S.player.ship.def.dry+TO.S.player.ship.cargoMass+TO.S.player.ship.fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.S.player.ship.def.isp*TO.G0))-TO.S.player.ship.def.dry-TO.S.player.ship.cargoMass);

@@ -1,7 +1,7 @@
 // The drawing code itself: solar system, system, body, with draw() as the entry point.
 
 import { $, TAU, reduce } from '../basics.js';
-import { BODIES, BodyId, POST_BY_ID, POSTS, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, bodyOf, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
+import { BODIES, BodyId, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
 import { keplerNu, theta, transfer, transferConic } from '../game/physics.js';
 import { S } from '../game/state.js';
 import { UI, Pick } from '../ui/state.js';
@@ -37,7 +37,7 @@ function drawSol(){
     ctx.lineWidth=2; ctx.beginPath(); ctx.arc(c,c,26,-thA,-thG,t.phiStar>0); ctx.stroke();
   }
   ctx.font=`500 12px 'Saira Semi Condensed', 'Arial Narrow', sans-serif`; ctx.textBaseline='middle';
-  const dests=new Set(S.player.ship.hold.map(o=>planetOfBody(bodyOf(POST_BY_ID[o.to]))));
+  const dests=new Set(S.player.ship.hold.map(o=>planetOfBody(S.market.post(o.to).at.body)));
   PLANETS.forEach(k=>{
     const [x,y]=pos(k,S.day), big=k==='jupiter'||k==='saturn'?6:k==='ceres'?3.5:4.5;
     ctx.fillStyle=bodyColor(k); ctx.beginPath(); ctx.arc(x,y,big,0,TAU); ctx.fill();
@@ -137,7 +137,7 @@ function drawSys(p:PlanetId){
   const drawMoon=(m:MoonId,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk:Pick={type:'body',body:m}, sel=isPick(pk);
     glPut(m, moonW(m,S.day), 5.5);
     if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
-    if(cargoTo(kk=>bodyOf(kk)===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
+    if(cargoTo(kk=>kk.at.body===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
     if(sel){ w.strokeStyle=v('--accent'); w.lineWidth=2; w.beginPath(); w.arc(x,y,15,0,TAU); w.stroke(); }
     font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(BODIES[m].name,x,y-12); w.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
@@ -149,7 +149,7 @@ function drawSys(p:PlanetId){
   // edge length is the outer ring radius; inside it stays transparent.
   if(p==='saturn') glSaturnRing(Rp*2.24);
   const pp:Pick={type:'body',body:p};
-  if(cargoTo(kk=>bodyOf(kk)===p && kk.node!==`${p}.capt` && kk.node!==`${p}.orbit`).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
+  if(cargoTo(kk=>kk.at.body===p && kk.at.level==='surface').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
   if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }
   HITS.push({canvas:sc,x:cx,y:cy,r:Rp+3,pick:pp});
   front.forEach(f=>f());
@@ -255,7 +255,7 @@ function drawBody(b:BodyId){
 // landing sites (faded on the far side, still tappable)
   (SITES[b]||[]).forEach(st=>{
     const p=P(bvec(b,st.lat,st.lon)), x=p.x, y=p.y, hid=p.z<0;
-    const pk:Pick={type:'node',node:`${b}.surf`,site:st.id}, sel=isPick(pk), kon=POSTS.find(kk=>kk.node===pk.node && (!kk.site||kk.site===st.id));
+    const pk:Pick={type:'node',node:`${b}.surf`,site:st.id}, sel=isPick(pk), kon=S.market.list.find(kk=>kk.at.node===pk.node && kk.at.site===st.id);
     g.globalAlpha=hid?0.45:1;
     if(cargoTo(kkk=>!!kon && kkk.id===kon.id).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(sel){ g.strokeStyle=v('--accent'); g.lineWidth=2.5; g.beginPath(); g.arc(x,y,17,0,TAU); g.stroke(); }

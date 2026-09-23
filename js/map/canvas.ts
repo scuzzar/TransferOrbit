@@ -1,8 +1,7 @@
 // The three drawing layers (2D behind, three.js, 2D in front) and their helpers.
 
 import { byId, ctx2d, isDesk } from '../basics.js';
-import { POST_BY_ID, Post } from '../game/world.js';
-import { S } from '../game/state.js';
+import { S, Starport } from '../game/state.js';
 import { SCENE } from './geometry.js';
 import { UI, Pick } from '../ui/state.js';
 
@@ -41,7 +40,7 @@ export function isPick(p:Pick){
   return p.type==='node' && q.node===p.node && (q.site||null)===(p.site||null);
 }
 
-export const cargoTo = (test:(p:Post)=>boolean) => S.player.ship.hold.filter(o=>test(POST_BY_ID[o.to]));
+export const cargoTo = (test:(p:Starport)=>boolean) => S.player.ship.hold.filter(o=>test(S.market.post(o.to)));
 
 export function prep(canvas:HTMLCanvasElement,g:CanvasRenderingContext2D,W:number,H:number){ const dpr=window.devicePixelRatio||1;
   if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }

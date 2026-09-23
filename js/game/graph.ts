@@ -45,12 +45,13 @@ export function connectionsFrom(from:Node): Connection[]{
 // launch: the route rides a launcher up from a surface; first: its first connection
 export interface RouteResult { dv:number; days:number; legs:[PlanetId,PlanetId][]; launch:boolean; first:Connection|null }
 const routeCache: Record<string, RouteResult> = {};
-// Anything route() can start or end at: a trading post, or the ship's node ('@'+key)
-export interface RoutePoint { id:string; node:NodeId; site:string|null }
+// Anything route() can start or end at: a starport, or the ship's node. A route only depends on
+// the two places, so a starport that moves finds its new routes.
+export interface RoutePoint { node:NodeId; site:string|null }
 
 export function route(from: RoutePoint, to: RoutePoint): RouteResult{
-  const key=from.id+'>'+to.id, hit=routeCache[key]; if(hit) return hit;
   const start=nodeOf(from.node, from.site), goalNode=nodeOf(to.node, to.site);
+  const key=start.key+'>'+goalNode.key, hit=routeCache[key]; if(hit) return hit;
   const dist=new Map<Node, {c:number; dv:number; days:number}>(), prev=new Map<Node, {n:Node; ed:Connection}>(), done=new Set<Node>();
   const q=[{n:start,c:0}]; dist.set(start,{c:0,dv:0,days:0});
   let goal:Node|null=null;

@@ -18,7 +18,8 @@ export interface ShipClass { name:string; drive:string; isp:number; dry:number; 
 // A good: mass per container (t), value per container (Cr), order size (containers), the mean
 // size of a bulk order (containers), one container made every rate days
 export interface Good { name:string; shortName:string; mass:number; value:number; lot:[number,number]; bulkLot:number; rate:number; color:string }
-export interface Post { id:PostId; name:string; node:NodeId; site:string|null; makes:GoodId[]; needs:GoodId[]; hub?:HubId }
+// A row of the starport table: how a new game founds a starport
+export interface StarportRow { id:string; name:string; node:NodeId; site:string|null; makes:GoodId[]; needs:GoodId[]; hub?:boolean }
 
 // Circular orbits with real mean longitudes (J2000) and periods
 const PLANET_TABLE = {
@@ -167,20 +168,21 @@ export type GoodId = keyof typeof GOOD_TABLE;
 export const GOODS: Record<GoodId, Good> = GOOD_TABLE;
 export const isGood = (x: unknown): x is GoodId => keyOf(GOODS, x);
 
-const post = <I extends string>(id:I, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:HubId) => ({id,name,node,site,makes,needs,...(hub?{hub}:{})});
+const post = (id:string, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:'hub'):StarportRow => ({id,name,node,site,makes,needs,...(hub?{hub:true}:{})});
 
-const POST_LIST = [
+// The starport table: what a new game starts with. The game's starports are game state.
+export const STARPORT_TABLE:readonly StarportRow[] = [
   // The Earth: every spaceport a starport of its own
   post('kourou','Kourou','earth.surf','kourou',['mach'],['he3']),
   post('canaveral','Cape Canaveral','earth.surf','canaveral',['elec'],['he3']),
   post('baikonur','Baikonur','earth.surf','baikonur',['food'],['rare']),
   post('plesetsk','Plesetsk','earth.surf','plesetsk',['hab'],['rare']),
-  post('shipyard','Orbital Shipyard','earth.orbit',null,['elec'],['water','food','metal','rare'],'shipyard'),
+  post('shipyard','Orbital Shipyard','earth.orbit',null,['elec'],['water','food','metal','rare'],'hub'),
   post('shackleton','Shackleton','moon.surf','shackleton',['water'],['food','mach','hab']),
   post('tranq','Tranquillitatis','moon.surf','tranquillitatis',['metal','he3'],['water','mach']),
   post('caloris','Caloris','mercury.surf','caloris',['metal','rare'],['water','food','mach']),
   post('prokofiev','Prokofiev','mercury.surf','prokofiev',['water'],['elec','hab']),
-  post('pavonis','Pavonis Mons','mars.surf','pavonis',['mach','hab'],['he3','elec','metal','rare'],'pavonis'),
+  post('pavonis','Pavonis Mons','mars.surf','pavonis',['mach','hab'],['he3','elec','metal','rare'],'hub'),
   post('jezero','Jezero','mars.surf','jezero',['food'],['water','mach']),
   post('marsnorth','North Polar Cap','mars.surf','northpole',['water'],['food','hab']),
   post('stickney','Stickney','phobos.surf','stickney',['metal'],['water','food']),
@@ -190,34 +192,20 @@ const POST_LIST = [
   post('loki','Loki Patera','io.surf','loki',['rare'],['water','food','mach']),
   post('conamara','Conamara','europa.surf','conamara',['water'],['elec','hab']),
   post('uruk','Uruk Sulcus','ganymede.surf','uruk',['food'],['water','mach']),
-  post('valhalla','Valhalla','callisto.surf','valhalla',['hab'],['he3','food','metal','elec'],'valhalla'),
+  post('valhalla','Valhalla','callisto.surf','valhalla',['hab'],['he3','food','metal','elec'],'hub'),
   post('jupgas','Jupiter Gas Collector','jupiter.capt',null,['he3'],['food','mach']),
   post('satgas','Saturn Gas Collector','saturn.capt',null,['he3'],['food','elec']),
   post('tiger','Tiger Stripes','enceladus.surf','tigerstripes',['water'],['mach']),
   post('kraken','Kraken Mare','titan.surf','kraken',[],['mach','hab','elec']),
 ];
-export type PostId = typeof POST_LIST[number]['id'];
-export const POSTS: Post[] = POST_LIST;
-// A value for every post. fromEntries only knows string keys, but every id of POSTS is in there.
-export const byPost = <T>(f:(k:Post)=>T) => Object.fromEntries(POSTS.map(k=>[k.id,f(k)])) as Record<PostId, T>;
-export const POST_BY_ID = byPost(k=>k);
-export const isPost = (x: unknown): x is PostId => keyOf(POST_BY_ID, x);
-
-export type HubId = 'shipyard'|'pavonis'|'valhalla';
-export const HUBS: Record<HubId, Post> = {shipyard:POST_BY_ID.shipyard, pavonis:POST_BY_ID.pavonis, valhalla:POST_BY_ID.valhalla};
-
-// A hub's zone of influence: the bodies it serves. It decides where goods for other zones are
-// transhipped, where the orders from a hub's store go, how long a rescue takes and which fuel
-// prices the refuel panel lists.
-export const ZONES: Record<HubId, readonly BodyId[]> = {
+// The hubs' zones of influence in a new game: the bodies each serves. A zone decides where goods
+// for other zones are transhipped, where the orders from a hub's store go, how long a rescue
+// takes and which fuel prices the refuel panel lists.
+export const ZONES: Readonly<Record<string, readonly BodyId[]>> = {
   shipyard:['earth','moon','mercury','venus'],
   pavonis:['mars','phobos','deimos','ceres'],
   valhalla:['jupiter','io','europa','ganymede','callisto','saturn','enceladus','titan'],
 };
-// The hub in whose zone a body lies
-export function hubFor(b: BodyId): HubId {
-  const h=keysOf(ZONES).find(k=>ZONES[k].includes(b)); if(!h) throw new Error(`No hub for ${b}`); return h;
-}
 
 export const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 12000; // no ship manages a longer route
 
@@ -235,15 +223,9 @@ export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + sh
 
 export const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Bulk orders: least and largest size, restock slower than single goods, premium, lifetime
 
-export const bodyOf = (k: Post): BodyId => splitNode(k.node)[0];
-
 export const planetOfBody = (b: BodyId): PlanetId => isMoon(b) ? M[b].parent : b;
 
 export const bodyName = (b: BodyId): string => BODIES[b].name;
-
-export const postPlace = (k: Post): string => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${bodyName(bodyOf(k))}` : bodyName(bodyOf(k));
-
-export const postLabel = (k: Post): string => `${k.name}, ${postPlace(k)}`;
 
 export const fmtCr = (n: number): string => `${Math.round(n).toLocaleString('en-GB')} Cr`;
 
@@ -372,9 +354,5 @@ export const DEPOT_LIST:readonly Depot[] = Object.entries(FUEL_PRICE).map(([key,
   return new Depot(at,price,days);
 });
 const DEPOT_AT = new Map(DEPOT_LIST.map(d=>[d.at.key,d]));
-
-// The starport table's row for the starport at a node, if there is one there: a query on the
-// table, the node itself does not point to its starport
-export function postAt(n: Node): Post|null { return POSTS.find(k=>k.node===n.node && k.site===n.site) || null; }
 
 export function fuelHere(node: NodeId, site: string|null): boolean{ return !!nodeAt(node,site)?.depot; }
