@@ -12,9 +12,7 @@ picture again with `java -jar plantuml.jar -tpng docs/domain-model.puml`; it nee
 
 The diagram shows data and relations only, no operations. Blue is the game state that a save
 keeps, grey with a dashed frame exists only while time runs or the autopilot flies and is never
-saved, green is the world: fixed tables, the same in every game. Green turning orange with a
-dotted frame is fixed in what it is, but built anew for every game, because the game's state
-hangs on it. White boxes are value lists.
+saved, green is the world: fixed tables, the same in every game. White boxes are value lists.
 
 ## Rules the picture does not show
 
@@ -46,16 +44,17 @@ hangs on it. White boxes are value lists.
   likelier the closer the store gets to the good's `bulkLot`, certain at the largest size, so the
   sizes average `bulkLot`. The order takes the whole containers in the store; if more piled up
   while an earlier bulk order was on offer, it takes one order's worth and the rest stays.
-- **Starports, hubs and industries** are the same in every game (name, place, what they make and
-  need, which hub), yet every game builds its own, owned by its market: the stores, demands and
-  offers of that game hang on them, and a starport shared by all games could not say which game's
-  store is meant. Their fixed data comes from the starport table in `game/world.ts`. So every
-  arrow between the game and the world points from the game into the world, never back: a
-  starport knows the node it lies `at`, and which starport lies at a node is a question to the
-  game's market.
+- **Starports, hubs and industries** are game state, so they can change during a game: their
+  name, where they lie, what they make and need, a hub's zone and the ships it sells. A new game
+  takes them from the starport table in `game/world.ts`, the save keeps them. Every arrow between
+  the game and the world points from the game into the world, never back: a starport knows the
+  node it lies `at`, and which starport lies at a node is a question to the game's market.
 - **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
   no reason to stop. `target` is where it ends.
 
 ## Where the code does not follow yet
 
-Nothing at the moment.
+- **Starports, hubs and industries** still take their name, place, goods and hub data from the
+  starport table (through `def`) instead of holding them themselves, the save does not keep that
+  data, and their ids are the fixed ones of the table (`PostId`), so no starport can be added or
+  changed during a game yet.
