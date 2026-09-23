@@ -26,7 +26,7 @@ export const ANIM = {active:false, fast:false, long:false, instant:false};
 export const $ = (id: string) => document.getElementById(id);
 
 const ESC: Record<string, string> = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'};
-export const esc = (s: unknown) => String(s).replace(/[&<>"]/g, c => ESC[c]);
+export const esc = (s: unknown) => String(s).replace(/[&<>"]/g, c => ESC[c] ?? c);
 
 export const tons = (t: number) => `${t.toLocaleString('en-GB',{maximumFractionDigits:1})} t`;
 

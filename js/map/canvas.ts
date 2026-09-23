@@ -18,11 +18,11 @@ export const HITS:Hit[]=[];
 // Drop the hit targets of one layer; without an argument, all of them.
 export function clearHits(layer?:HTMLCanvasElement){
   if(!layer){ HITS.length=0; return; }
-  for(let i=HITS.length-1;i>=0;i--) if(HITS[i].canvas===layer) HITS.splice(i,1);
+  for(let i=HITS.length-1;i>=0;i--) if(HITS[i]?.canvas===layer) HITS.splice(i,1);
 }
 
 // Fit the canvas to the space: full width on mobile, on desktop as large as width and window height allow
-export function fitCanvas(canvas:HTMLCanvasElement, aspect:number){
+export function fitCanvas(canvas:HTMLCanvasElement, aspect:number):[number,number]{
   const st=stageEl('stage'); let W=st.clientWidth;
   if(W<1){ const cw=parseFloat(canvas.style.width)||0; return [cw, cw/aspect]; } // hidden: keep the size
   if(isDesk()){ const h=st.clientHeight; if(h>60) W=Math.min(W, h*aspect); }

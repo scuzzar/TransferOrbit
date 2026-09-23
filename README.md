@@ -54,9 +54,11 @@ A single HTML file (for artifacts or attachments) is built by `python3 tools/sin
 npm install            # Playwright
 npx playwright install chromium
 npm run serve          # in a second terminal: server on port 8765 (with the CORS header)
-npm test               # regression test + UI bot (desktop and phone)
+npm run typecheck      # tsc --noEmit
+npm test               # build, then regression test + UI bot (desktop and phone)
 npm run game-bot       # plays sensibly up to the Carrack and logs the balance
 ```
+The tests load the built `dist/index.html`. It is checked in, and every build rewrites it; the Pages workflow builds its own, so reset it with `git checkout -- dist/index.html` once the tests are through rather than committing it. The bot plays with chance: a reported bankruptcy is not a failure, `errors: none` and `invariants: ok` are what count. Without network access three.js does not load and the 3D code does not run at all (`TO.GL.on` stays false); to test it anyway, serve `three@0.169.0` locally, for instance through Playwright's `page.route` with an `access-control-allow-origin: *` header.
 - `tests/regress.js` checks restart, save and load, the stranding logic, refuelling in the route planner and that the two route modes really do differ.
 - `tests/test-bot.js` clicks its way through the interface, inside a locked iframe like the one on claude.ai (`tests/harness.html`). Configurable with the environment variables `STEPS`, `ONLY` and `LOG`.
 - `tests/game-bot.js` plays through the game functions, with `ANIM.instant` and no animations.

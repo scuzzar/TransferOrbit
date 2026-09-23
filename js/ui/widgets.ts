@@ -1,14 +1,14 @@
 // Small pieces of HTML: button, icon, chip, panel heading.
 
 import { esc } from '../basics.js';
-import { GOODS, postLabel, Post } from '../game/world.js';
-import { S, Target } from '../game/state.js';
+import { GOODS, GoodId, postLabel, Post } from '../game/world.js';
+import { S, Target, View } from '../game/state.js';
 import { openView } from '../game/commands.js';
 
 // The label of the back button, per view it returns to.
-const BACK_LABEL: Record<string, string> = {main:'Map', post:'Order board', cargo:'Cargo hold', route:'Route'};
+const BACK_LABEL: Partial<Record<View, string>> = {main:'Map', post:'Order board', cargo:'Cargo hold', route:'Route'};
 
-export const gchip = (g: string) => `<span class="gchip" style="background:${GOODS[g].color}"></span>`;
+export const gchip = (g: GoodId) => `<span class="gchip" style="background:${GOODS[g].color}"></span>`;
 
 export function dots(n: number){ return `<span class="dots">${[0,1,2].map(i=>`<i class="${i<n?'on':''}"></i>`).join('')}</span>`; }
 
@@ -34,9 +34,9 @@ const icon = (k: string, sz = 18) => `<svg width="${sz}" height="${sz}" viewBox=
 
 export function ibtn(ic: string, label: string, cls: string, disabled: boolean, fn: () => void){ const b = btn('', cls, disabled, fn); b.innerHTML = `${icon(ic)}<span>${label}</span>`; return b; }
 
-export function openRoute(target: Target, back: string|null){ S.ui.route = {target, mode:'eco'}; openView('route', back); }
+export function openRoute(target: Target, back: View|null){ S.ui.route = {target, mode:'eco'}; openView('route', back); }
 
 export const kTarget = (k: Post): Target => ({node: k.node, site: k.site||null});
 
-export function routeLink(k: Post, back: string|null){ const b = document.createElement('button'); b.type = 'button'; b.className = 'olink';
+export function routeLink(k: Post, back: View|null){ const b = document.createElement('button'); b.type = 'button'; b.className = 'olink';
   b.innerHTML = `${icon('route',15)}Route`; b.title = `Plan a route to ${postLabel(k)}`; b.onclick = (e) => { (e as MouseEvent).preventDefault(); (e as MouseEvent).stopPropagation(); openRoute(kTarget(k), back); }; return b; }

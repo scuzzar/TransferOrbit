@@ -3,8 +3,8 @@
 
 import { changed } from '../events.js';
 import { $, esc, fmtDays, km } from '../basics.js';
-import { B, FUEL_PRICE, GOODS, POSTS, M, ROT, SITES, Site, bodyName, bodyOf, fuelHere, hasAtm, hasDepot, latStr, moonsOf, planetOfBody, rotPenalty, siteOf } from '../game/world.js';
-import { transfer } from '../game/physics.js';
+import { B, FUEL_PRICE, GOODS, POSTS, M, ROT, SITES, Site, bodyName, bodyOf, fuelHere, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
+import { bodyDown, bodyUp, transfer } from '../game/physics.js';
 import { S, ViewLevel, atTarget, homePlanet, pickTarget, targetName } from '../game/state.js';
 import { idealTransfer } from '../game/graph.js';
 import { cargoTo } from '../map/canvas.js';
@@ -21,9 +21,9 @@ export function renderPick(){
   if(p.type==='planet'){
     const k = p.planet, hp = homePlanet(), posts = POSTS.filter(x=>planetOfBody(bodyOf(x))===k);
     const n = cargoTo(x=>planetOfBody(bodyOf(x))===k).length;
-    title = B[k]!.name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
+    title = B[k].name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);
-    info = `${ms.length?'With '+ms.map(m=>M[m]!.name).join(', ')+'. ':''}${posts.length?posts.length+(posts.length>1?' trading posts':' trading post')+(posts.some(x=>x.hub)?', one of them a hub.':'.'):'No trading post.'}`;
+    info = `${ms.length?'With '+ms.map(m=>M[m].name).join(', ')+'. ':''}${posts.length?posts.length+(posts.length>1?' trading posts':' trading post')+(posts.some(x=>x.hub)?', one of them a hub.':'.'):'No trading post.'}`;
     if(hp && hp!==k){ const t = transfer(hp,k,S.domain.day), id = idealTransfer(hp,k);
       stats.push(['Transfer at a window',`${km(id.total)} km/s`]);
       stats.push(['Next window', t.d<0.04?'<span class="ok">open</span>':`<span class="wait">in ${fmtDays(t.wait)}</span>`]); }
@@ -37,12 +37,11 @@ export function renderPick(){
     if(posts.length) tags.push(tag('post',posts.length>1?`${posts.length} trading posts`:'Trading post'));
     if(hasDepot(b)) tags.push(tag('toward','Fuel depot'));
     info = st.length ? `${st.length} landing ${st.length>1?'sites':'site'}: ${st.map((s:Site)=>s.name).join(', ')}.` : 'No solid surface.';
-    if(st.length){ const down = M[b]?M[b]!.down:B[b]!.surf!.down, up = M[b]?M[b]!.up:B[b]!.surf!.up;
-      stats.push(['Landing from orbit',`from ${km(down)} km/s`]); stats.push(['Getting back up',B[b]?.surf?.launcher?'Launcher':`from ${km(up)} km/s`]); }
+    if(st.length){ stats.push(['Landing from orbit',`from ${km(bodyDown(b))} km/s`]); stats.push(['Getting back up',launcherAt(b)?'Launcher':`from ${km(bodyUp(b))} km/s`]); }
     if(st.length) btns.push(['Show the landing sites','',()=>setView({level:'body',planet:planetOfBody(b),body:b})]);
     const t = pickTarget(p); if(!atTarget(t)) btns.push([`Route: ${st.length?'orbit':'high orbit'}`,'go',()=>openRoute(t,null)]);
   } else {
-    const t = pickTarget(p), nd = p.node, [b,l] = nd.split('.'), post = POSTS.find(x=>x.node===nd && (!x.site||x.site===p.site));
+    const t = pickTarget(p), nd = p.node, [b,l] = splitNode(nd), post = POSTS.find(x=>x.node===nd && (!x.site||x.site===p.site));
     title = targetName(t).replace(/ \(.*\)$/,'');
     const n = post?cargoTo(x=>x.id===post.id).length:0;
     if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
@@ -50,10 +49,10 @@ export function renderPick(){
     if(p.site){
       const st = siteOf(b,p.site)!, fp = FUEL_PRICE[nd+'@'+p.site]??FUEL_PRICE[nd];
       if(st.depot && fp!==undefined) tags.push(tag('toward',`Fuel depot, ${fp} Cr/t`));
-      info = `${latStr(st.lat)}, ${bodyName(b)}.${post?(post.makes.length?' Produces '+post.makes.map(g=>GOODS[g]!.name).join(', ')+'.':'')+' Needs '+post.needs.map(g=>GOODS[g]!.name).join(', ')+'.':''}${st.note?' '+st.note+'.':''}`;
-      const pen = rotPenalty(b,st.lat), down = (M[b]?M[b]!.down:B[b]!.surf!.down)+(hasAtm(b)?0:pen), up = (M[b]?M[b]!.up:B[b]!.surf!.up)+pen;
+      info = `${latStr(st.lat)}, ${bodyName(b)}.${post?(post.makes.length?' Produces '+post.makes.map(g=>GOODS[g].name).join(', ')+'.':'')+' Needs '+post.needs.map(g=>GOODS[g].name).join(', ')+'.':''}${st.note?' '+st.note+'.':''}`;
+      const pen = rotPenalty(b,st.lat), rot = ROT[b]||0, down = bodyDown(b)+(hasAtm(b)?0:pen), up = bodyUp(b)+pen;
       stats.push(['Landing from orbit',`${km(down)} km/s`]);
-      stats.push([(ROT[b]||0)>=20?`Getting back up, ${Math.round((ROT[b]||0)-pen)} of ${ROT[b]} m/s bonus`:'Getting back up', B[b]?.surf?.launcher?`Launcher${pen>1?', '+km(pen)+' km/s yourself':''}`:`${km(up)} km/s`]);
+      stats.push([rot>=20?`Getting back up, ${Math.round(rot-pen)} of ${rot} m/s bonus`:'Getting back up', launcherAt(b)?`Launcher${pen>1?', '+km(pen)+' km/s yourself':''}`:`${km(up)} km/s`]);
     } else {
       info = l==='capt' ? 'Gateway to the other planets and to the moons.' : 'Gateway to the surface.';
       if(fuelHere(nd,null)) tags.push(tag('toward',`Fuel depot, ${FUEL_PRICE[nd]} Cr/t`));

@@ -4,11 +4,11 @@
 import type * as THREE from 'three';
 import { tick } from '../events.js';
 import { TAU } from '../basics.js';
-import { bodyColor } from '../game/world.js';
+import { BodyId, bodyColor } from '../game/world.js';
 import { D2R, bodyLon0 } from './geometry.js';
 import { CAPS, DESERT, EARTH_LAND, LAND, LIGHT, WATER } from './surface.js';
 import { cssVar, cvb, glc, layFor, prep } from './canvas.js';
-import { RKT, RKT_HEX, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
+import { RKT, RKT_FACES, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
 
 // three.js draws the bodies only: textured spheres, Saturn's ring and the rocket model.
 // Labels, orbits, markers, flames and the hit targets stay on the 2D canvases.
@@ -32,7 +32,7 @@ interface Scene3D {
   root:THREE.Group; flat:THREE.Group; sphere:THREE.SphereGeometry; plane:THREE.PlaneGeometry;
   rocket:THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>;
   qa:THREE.Quaternion; qb:THREE.Quaternion; AX:THREE.Vector3; AY:THREE.Vector3; AZ:THREE.Vector3; aniso:number;
-  mat:Record<string, THREE.MeshLambertMaterial>; mesh:Record<string, THREE.Mesh>; path:Record<string, Ribbon>; ring:THREE.Mesh|null;
+  mat:Partial<Record<BodyId, THREE.MeshLambertMaterial>>; mesh:Partial<Record<BodyId, THREE.Mesh>>; path:Record<string, Ribbon>; ring:THREE.Mesh|null;
 }
 let G: Scene3D|null = null;
 const glcEl:HTMLCanvasElement = glc as HTMLCanvasElement;
@@ -61,15 +61,15 @@ export function glNote(canvas:HTMLCanvasElement,g:CanvasRenderingContext2D,W:num
 
 // Rocket: the same data as the hand-rolled 2D renderer, only as a triangle mesh with vertex colours.
 function glRocketGeo(T:Three){
-  const n=RKT.f.length/4, pos=new Float32Array(n*9), col=new Float32Array(n*9), c=new T.Color();
-  for(let k=0;k<n;k++){
-    c.set(RKT_HEX[RKT.f[4*k+3]]);
-    for(let j=0;j<3;j++){
-      const vi=RKT.f[4*k+j], o=k*9+j*3;
-      pos[o]=RKT.v[3*vi]*RKT.s; pos[o+1]=RKT.v[3*vi+1]*RKT.s; pos[o+2]=RKT.v[3*vi+2]*RKT.s;
+  const n=RKT_FACES.length, pos=new Float32Array(n*9), col=new Float32Array(n*9), c=new T.Color();
+  RKT_FACES.forEach((f,k)=>{
+    c.set(f.hex);
+    f.v.forEach((v,j)=>{
+      const o=k*9+j*3;
+      pos[o]=v[0]*RKT.s; pos[o+1]=v[1]*RKT.s; pos[o+2]=v[2]*RKT.s;
       col[o]=c.r; col[o+1]=c.g; col[o+2]=c.b;
-    }
-  }
+    });
+  });
   const gm=new T.BufferGeometry();
   gm.setAttribute('position', new T.BufferAttribute(pos,3));
   gm.setAttribute('color', new T.BufferAttribute(col,3));
@@ -85,7 +85,7 @@ function texCanvas(w:number,h:number){ const c=document.createElement('canvas');
 // the map itself is always centred on 0°.
 const texX = (lon:number) => (lon+180)/360*TEX_W, texY = (lat:number) => (90-lat)/180*TEX_H;
 
-function texPoly(g:CanvasRenderingContext2D,pts:number[][],fill:string){
+function texPoly(g:CanvasRenderingContext2D,pts:[number,number][],fill:string){
   g.fillStyle=fill;
   for(const dx of [-TEX_W,0,TEX_W]){ // drawn three times so nothing is cut off at the date line
     g.beginPath();
@@ -121,7 +121,7 @@ function texBands(g:CanvasRenderingContext2D){
 }
 
 // The map of a body. With no features there is no map, and the base colour is enough.
-function glSurface({T,aniso}:Scene3D,b:string){
+function glSurface({T,aniso}:Scene3D,b:BodyId){
   const caps=CAPS[b]||[], gas=b==='jupiter'||b==='saturn', earth=b==='earth';
   if(!caps.length && !gas && !earth) return null;
   const col=bodyColor(b), cn=texCanvas(TEX_W,TEX_H), g=cn.getContext('2d')!;
@@ -129,7 +129,7 @@ function glSurface({T,aniso}:Scene3D,b:string){
   if(earth){
     LAND.forEach((pts,i)=>texPoly(g,pts,EARTH_LAND(i)));
     DESERT.forEach(([pts,fill])=>texPoly(g,pts,fill));
-    WATER.forEach(pts=>texPoly(g,pts,col)); // Binnenmeere wieder aufmachen
+    WATER.forEach(pts=>texPoly(g,pts,col)); // open the inland seas up again
   }
   if(gas) texBands(g);
   caps.forEach(([lat,a])=>texCap(g,lat,a));
@@ -186,13 +186,13 @@ export function glInit(T:Three){
   tick();
 }
 
-function glMat(G:Scene3D,key:string){
+function glMat(G:Scene3D,key:BodyId){
   if(G.mat[key]) return G.mat[key];
   const T=G.T, map=glSurface(G,key);
   return G.mat[key]=new T.MeshLambertMaterial(map?{map}:{color:new T.Color(bodyColor(key))});
 }
 
-function glBody(G:Scene3D,key:string){
+function glBody(G:Scene3D,key:BodyId){
   if(G.mesh[key]) return G.mesh[key];
   const m=new G.T.Mesh(G.sphere, glMat(G,key));
   m.rotation.y=-bodyLon0(key)*D2R; // turn the body's centre of view towards +Z
@@ -232,7 +232,7 @@ export function glBegin(W:number,H:number,cx:number,cy:number,scale:number,el:nu
 }
 
 // Place a body somewhere in the group (p in group coordinates, r in group units)
-export function glPut(key:string,p:[number,number,number]|null,r:number){
+export function glPut(key:BodyId,p:[number,number,number]|null,r:number){
   if(!G) return;
   const m=glBody(G,key); m.visible=true; m.scale.setScalar(r);
   m.position.set(p?p[0]:0, p?p[1]:0, p?p[2]:0);
@@ -245,10 +245,9 @@ type PathPt = {x:number;y:number;z:number};
 function glPathGeo(pts:PathPt[],w:number,dash:[number,number]|null){
   const out:number[]=[], hw=w/2;
   let on=true, rem=dash?dash[0]:Infinity;
-  for(let i=0;i<pts.length-1;i++){
-    const a=pts[i], b=pts[i+1];
+  const segment=(a:PathPt, b:PathPt)=>{
     const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy);
-    if(!(L>1e-6)) continue;
+    if(!(L>1e-6)) return;
     const ux=dx/L, uy=dy/L, nx=-uy*hw, ny=ux*hw;
     let t=0;
     while(t<L-1e-9){
@@ -263,7 +262,9 @@ function glPathGeo(pts:PathPt[],w:number,dash:[number,number]|null){
       t+=step; rem-=step;
       if(dash && rem<=1e-9){ on=!on; rem=on?dash[0]:dash[1]; }
     }
-  }
+  };
+  let a=pts[0];
+  for(const b of pts.slice(1)){ if(a) segment(a,b); a=b; }
   return out;
 }
 

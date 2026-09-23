@@ -2,8 +2,8 @@
 
 import { changed } from '../events.js';
 import { $ } from '../basics.js';
-import { B, SITES, SYSNAME, bodyName, moonsOf, planetOfBody } from '../game/world.js';
-import { S, ViewLevel, Pick, cargoOrders, here, homePlanet } from '../game/state.js';
+import { B, SITES, SYSNAME, bodyName, moonsOf, planetOfBody, splitNode } from '../game/world.js';
+import { S, ViewLevel, Pick, cargoOrders, homePlanet } from '../game/state.js';
 import { cargoHints } from '../game/planner.js';
 import { Hit, HITS, cv, sc } from './canvas.js';
 
@@ -11,9 +11,9 @@ import { Hit, HITS, cv, sc } from './canvas.js';
 // in high orbit -> system map, unless the next step towards the cargo is an interplanetary transfer.
 export function autoView():ViewLevel{
   if(S.action.transit || !S.domain.node) return {level:'sol'};
-  const [k,l]=here(), hp=homePlanet(), moons=moonsOf(hp).length>0;
+  const [k,l]=splitNode(S.domain.node), hp=planetOfBody(k), moons=moonsOf(hp).length>0;
   if(S.render.move){
-    const [fb,fl]=S.render.move.from.node.split('.'), [tb,tl]=S.render.move.to.node.split('.');
+    const [fb,fl]=splitNode(S.render.move.from.node), [tb,tl]=splitNode(S.render.move.to.node);
     if(fb===tb && fl!=='capt' && tl!=='capt' && SITES[fb]) return {level:'body', planet:hp, body:fb};
     if(moons) return {level:'sys', planet:hp};
     if(SITES[fb]) return {level:'body', planet:hp, body:fb};
@@ -25,7 +25,7 @@ export function autoView():ViewLevel{
     if(!cargoOrders().length || (Object.keys(h.transfer).length && !h.step.length)) return {level:'sol'};
     return {level:'sys', planet:hp};
   }
-  if(typeof k==='string' && SITES[k]) return {level:'body', planet:hp, body:k};
+  if(SITES[k]) return {level:'body', planet:hp, body:k};
   return moons ? {level:'sys', planet:hp} : {level:'sol'};
 }
 
@@ -81,7 +81,7 @@ let lastTap:{key:string|null;t:number}={key:null,t:0};
 function deeperView(pk:Pick):ViewLevel|null{
   if(pk.type==='planet'){ const k=pk.planet; return moonsOf(k).length?{level:'sys',planet:k}:SITES[k]?{level:'body',planet:k,body:k}:null; }
   if(pk.type==='body') return SITES[pk.body]?{level:'body',planet:planetOfBody(pk.body),body:pk.body}:null;
-  if(pk.type==='node'){ const b=pk.node.split('.')[0]; if(pk.node.endsWith('.orbit') && SITES[b]) return {level:'body',planet:planetOfBody(b),body:b}; }
+  if(pk.type==='node'){ const [b,l]=splitNode(pk.node); if(l==='orbit' && SITES[b]) return {level:'body',planet:planetOfBody(b),body:b}; }
   return null;
 }
 

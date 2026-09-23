@@ -239,8 +239,31 @@ ship ids (`kogge` → `cog`, `holk` → `hulk`, `hulk` → `galleon`,
 `karacke` → `carrack`), site ids (`nordpol` → `northpole`,
 `tigerstreifen` → `tigerstripes`) and trading post ids (`erde` → `earth`,
 `werft` → `shipyard`, …) in the visited set, in the orders and in the three
-economy maps. Everything else in a save is language-neutral. The mapping runs
-before the sanity check, which would otherwise reject an old save outright.
+economy maps, and the landing sites inside the `refuel:` flags. Everything else
+in a save is language-neutral. The mapping runs before the check, which would
+otherwise reject an old save outright.
+
+The check is `parseSave()` in `game/commands.ts`. What comes out of
+`localStorage` is `unknown` until it has been through it: the place, the ship
+and every order must use ids the game knows, the numbers must be numbers, or
+the save is refused. Fields added after a save was written get their defaults,
+trading posts added since get empty stock and demand rows, and the state is
+rebuilt field by field rather than cast.
+
+## Ids and types
+
+The reference tables in `game/world.ts` fix the ids: `PlanetId`, `MoonId`
+(together `BodyId`), `ShipId`, `GoodId`, `PostId` and `HubId` are the keys of
+their tables, so a typo in `'earht'` is a compile error. A place is a `NodeId`,
+`` `${BodyId}.${Level}` `` with `Level` one of `surf`, `orbit`, `capt`, and
+`splitNode()` takes it apart; landing sites stay plain strings, since each body
+has its own. Ids from outside (a save, the console) go through the guards
+`isPlanet`, `isMoon`, `isNode`, `isShip`, `isGood` and `isPost`.
+
+`tsconfig.json` runs `strict` plus `noUncheckedIndexedAccess`: a lookup in a
+table that does not cover every key (`SITES`, `ROT`, `FUEL_PRICE`, the economy
+rows) is `undefined`-able and has to be checked. three.js is typed through
+`@types/three`, pinned to the version `start.ts` loads from the CDN.
 
 ## What the split changed
 

@@ -2,8 +2,8 @@
 
 import { changed } from '../events.js';
 import { $, dateStr, esc, fmtDays, km, tons } from '../basics.js';
-import { B, FUEL_PRICE, G0, GOODS, HUB_CAP, POST_BY_ID, REGION, SHIPS, bodyName, fmtCr, postLabel, postPlace, siteOf } from '../game/world.js';
-import { Order, S, atTarget, cargoMass, cargoOrders, dvAvail, dvWith, eng, here, postAt, locKey, nodeName, slotsUsed, targetName } from '../game/state.js';
+import { B, FUEL_PRICE, G0, GOODS, HUB_CAP, POST_BY_ID, PostId, REGION, SHIPS, SHIP_IDS, bodyName, fmtCr, isNode, postLabel, postPlace, siteOf, splitNode } from '../game/world.js';
+import { Order, RouteMode, S, atTarget, cargoMass, cargoOrders, dvAvail, dvWith, eng, here, postAt, locKey, nodeName, slotsUsed, targetName } from '../game/state.js';
 import { lateFactor, payout } from '../game/graph.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
 import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
@@ -30,9 +30,9 @@ function panelPost(p:HTMLElement){
   const list=document.createElement('div'); list.className='ogroups';
   if(!offers.length) list.innerHTML='<p class="hint">No orders right now. The stores fill up over time.</p>';
   // Group by destination, sort the groups by the delta-v of the route
-  const groups: Record<string, Order[]> = {};
-  offers.forEach(o=>{ (groups[o.to]=groups[o.to]||[]).push(o); });
-  const glist=Object.entries(groups).map(([to,os])=>{
+  const groups=new Map<PostId,[Order,...Order[]]>();
+  offers.forEach(o=>{ const g=groups.get(o.to); if(g) g.push(o); else groups.set(o.to,[o]); });
+  const glist=[...groups].map(([to,os])=>{
     const tk=POST_BY_ID[to], tpl=planRoute({node:tk.node, site:tk.site||(tk.node==='earth.surf'?'kourou':null)},'eco');
     return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
   }).sort((a,b)=>a.dv-b.dv);
@@ -66,7 +66,7 @@ function panelPost(p:HTMLElement){
   if(k.needs.length){
     const h2=document.createElement('h3'); h2.textContent='Wanted here'; p.appendChild(h2);
     const g=document.createElement('div'); g.className='needgrid';
-    g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(eco.demand[k.id][x])}</div>`).join('');
+    g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(eco.demand[k.id][x]??0)}</div>`).join('');
     p.appendChild(g);
     const n=document.createElement('p'); n.className='hint';
     n.textContent=k.hub?`The dots show demand. As a hub, ${k.name} also takes any goods for transhipment; ${HUB_CAP-hubRoom(k)} of ${HUB_CAP} slots are taken.`:'The dots show demand. Orders coming here are created at other posts.';
@@ -121,7 +121,8 @@ function panelCargo(p:HTMLElement){
 function depotLabel(key:string){
   if(key==='earth.orbit') return 'Orbital Shipyard, Earth orbit';
   if(key==='earth.surf') return 'Earth, all spaceports';
-  const [node,site]=key.split('@'), body=node.split('.')[0], st=siteOf(body,site);
+  const [node,site=null]=key.split('@'); if(!isNode(node)) return key;
+  const [body]=splitNode(node), st=siteOf(body,site);
   return `${st?st.name:''}, ${bodyName(body)}`;
 }
 
@@ -149,8 +150,8 @@ function panelRefuel(p:HTMLElement){
     <p>Cost ${fmtCr(cost)}.${needDv?` Your cargo needs up to ${km(needDv)} km/s from here, ${dvA>=needDv?'which is enough':'which is not enough yet'}.`:''}</p>`;
   p.appendChild(cmp);
   const h=document.createElement('h3'); h.textContent='Prices in this region'; p.appendChild(h);
-  const reg=REGION[here()[0]!];
-  const rows=Object.entries(FUEL_PRICE).filter(([key])=>REGION[key.split('.')[0]]===reg).sort((a,b)=>a[1]-b[1]);
+  const [hb]=here(), reg=hb && REGION[hb], inReg=(key:string)=>{ const [n]=key.split('@'); return isNode(n) && REGION[splitNode(n)[0]]===reg; };
+  const rows=Object.entries(FUEL_PRICE).filter(([key])=>inReg(key)).sort((a,b)=>a[1]-b[1]);
   const lst=document.createElement('div'); lst.className='pricelist';
   const me=locKey();
   lst.innerHTML=rows.map(([key,pr])=>`<div class="${key===me||key===S.domain.node&&!FUEL_PRICE[me!]?'me':''}"><span>${esc(depotLabel(key))}${key===me||key===S.domain.node&&!FUEL_PRICE[me!]?' (here)':''}</span><span>${pr} Cr/t</span></div>`).join('');
@@ -170,7 +171,7 @@ function panelShipyard(p:HTMLElement){
   const list=document.createElement('div'); list.className='acts';
   const dvFull=(sh:{isp:number;dry:number;cap:number;slots:number})=>sh.isp*G0*Math.log((sh.dry+sh.cap+8*sh.slots)/(sh.dry+8*sh.slots));
   const dvEmpty=(sh:{isp:number;dry:number;cap:number})=>sh.isp*G0*Math.log((sh.dry+sh.cap)/sh.dry);
-  Object.entries(SHIPS).forEach(([id,sh])=>{
+  SHIP_IDS.forEach(id=>{ const sh=SHIPS[id];
     const mine=id===S.domain.ship, net=sh.price-0.7*cur.price, fits=slotsUsed()<=sh.slots, diff=sh.slots-cur.slots;
     const el=document.createElement('div'); el.className='shipcard'+(mine?' mine':'');
     el.innerHTML=`<div class="row"><div><b class="big">${sh.name}</b><div class="muted">${sh.drive}, Isp ${sh.isp} s</div></div>
@@ -239,13 +240,13 @@ function panelRoute(p:HTMLElement){
     if(del.length){ const f=document.createElement('div'); f.className='pfoot'; f.appendChild(btn(`Deliver (${del.length}), ${fmtCr(del.reduce((s,o)=>s+payout(o),0))}`,'go wide',locked,()=>{ deliverAll(); })); p.appendChild(f); }
     return;
   }
-  const plans: Record<string, ReturnType<typeof planRoute>> = {eco:planRoute(R.target,'eco'), now:planRoute(R.target,'now')};
+  const plans: Record<RouteMode, ReturnType<typeof planRoute>> = {eco:planRoute(R.target,'eco'), now:planRoute(R.target,'now')};
   const plan=plans[R.mode];
   p.appendChild(phead(`Route: ${targetName(R.target)}`, `From ${esc(nodeName(S.domain.node))}.`, ''));
   if(S.ui.rmsg && S.ui.msg){ const m=document.createElement('div'); m.className='msg'; m.style.margin='0 0 12px'; m.textContent=S.ui.msg; p.appendChild(m); }
   if(!plan){ const e=document.createElement('p'); e.className='hint'; e.textContent='There is no route to that place.'; p.appendChild(e); return; }
   const chips=document.createElement('div'); chips.className='chips';
-  ([['eco','Economical'],['now','Leave now']] as Array<[string,string]>).forEach(([m,t])=>{
+  ([['eco','Economical'],['now','Leave now']] as const).forEach(([m,t])=>{
     const pl=plans[m], ok=pl && pl.dv<=dvAvail()+0.5;
     const b=btn(`${t}: ${pl?km(pl.dv)+' km/s, '+fmtDays(pl.days):'–'}`, R.mode===m?'chip on':'chip'+(ok?'':' bad'), false, ()=>{ R.mode=m; changed(); });
     b.setAttribute('aria-pressed',String(R.mode===m)); chips.appendChild(b);
@@ -310,7 +311,7 @@ function panelRoute(p:HTMLElement){
     sum.appendChild(box);
   }
   const g=document.createElement('div'); g.className='two';
-  g.appendChild(btn('Next step only','',locked||!!S.ui.auto||!plan.steps.length,()=>{ const st=plan.steps[0]; S.ui.rmsg=true; if(!execStep(st)){ S.ui.msg=`"${st.label}" is not possible right now. ${stepBlocker(st)}`; } changed(); }));
+  g.appendChild(btn('Next step only','',locked||!!S.ui.auto||!plan.steps.length,()=>{ const st=plan.steps[0]; if(!st) return; S.ui.rmsg=true; if(!execStep(st)){ S.ui.msg=`"${st.label}" is not possible right now. ${stepBlocker(st)}`; } changed(); }));
   if(S.ui.auto) g.appendChild(btn('Stop the autopilot','',false,()=>stopAutopilot('Autopilot stopped.')));
   else g.appendChild(R.strand ? btn('Start anyway','',locked||!ok,startAutopilot) : btn('Start the autopilot','go',locked||!ok,startAutopilot));
   sum.appendChild(g); p.appendChild(sum);

@@ -3,9 +3,9 @@
 
 import { changed, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, isDesk, km, reduce, tons } from '../basics.js';
-import { B, BANKRUPT, DEPOTS, G0, GOODS, POST_BY_ID, POSTS, M, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, START_DAY, fmtCr, planetOfBody, siteOf } from './world.js';
+import { B, BANKRUPT, DEPOTS, G0, GOODS, HubId, NodeId, POST_BY_ID, POSTS, PlanetId, PostId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, byPost, fmtCr, isGood, isMoon, isNode, isPlanet, isPost, isShip, planetOfBody, siteOf, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, DomainState, Eco, Flags, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName, Order } from './state.js';
+import { S, Amounts, DomainState, Eco, Flags, View, atTarget, burn, cargoMass, cargoOrders, dvAvail, dvWith, eng, fuelPrice, here, homePlanet, postAt, locKey, nodeName, setState, slotsUsed, targetName, Order } from './state.js';
 import { payout, route } from './graph.js';
 import { econAdvance, freshDeadline, newEconomy } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
@@ -15,8 +15,8 @@ import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
 // A save as written: the domain with visited as an array, since JSON has no Set
 type SaveObj = Omit<DomainState,'visited'> & { visited:string[] };
 
-// smallest ship that can carry n containers
-export const shipFor = (n:number):ShipDef => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
+// smallest ship that can carry n containers; none for more than the largest one holds
+export const shipFor = (n:number):ShipDef|undefined => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
 
 export function newGame(){
   setState({
@@ -32,10 +32,10 @@ export function newGame(){
   S.domain.eco.orders.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
 }
 
-export function arrive(node:string, site:string){
+export function arrive(node:NodeId, site:string){
   S.domain.node=node; S.domain.visited.add(node);
   S.domain.site = node.endsWith('.surf') ? site : null;
-  if(site) S.domain.visited.add(node.split('.')[0]+'@'+site);
+  if(site) S.domain.visited.add(splitNode(node)[0]+'@'+site);
   if(node==='mars.surf') S.domain.flags.marsLanded=true;
   if(S.domain.flags.marsLanded && node.startsWith('earth.')) S.domain.flags.marsReturn=true;
 }
@@ -53,7 +53,7 @@ function showMap(el?:Element){
 export function planMove(a:LocalAction):Move{
   const node=S.domain.node!, orb=S.render.orb;
   const spec:MoveSpec={from:{node, site:S.domain.site}, to:{node:a.to, site:a.site||null}, d0:S.domain.day, d1:S.domain.day+a.days, aero:!!a.aero,
-    orb: orb?.body===node.split('.')[0] ? {...orb} : null};
+    orb: orb?.body===splitNode(node)[0] ? {...orb} : null};
   return {...spec, path:bodyPath(spec), sys:sysPlan(spec)};
 }
 
@@ -64,27 +64,28 @@ export function doAction(a:LocalAction){
 // remember the move so the system and body views can show the ship under way
   const mv=planMove(a); S.render.move=mv;
   changed();
-  if(a.to && (M[a.to.split('.')[0]] && a.to.endsWith('.orbit') && !S.domain.node!.endsWith('.surf') || M[here()[0]!] && a.to.endsWith('.capt'))) showMap();
+  const [tb,tl]=splitNode(a.to), [hb]=here();
+  if(isMoon(tb) && tl==='orbit' && !S.domain.node!.endsWith('.surf') || hb && isMoon(hb) && tl==='capt') showMap();
   const ms = mv.sys ? (mv.aero ? 3400 : 2400) : mv.path ? (a.to.endsWith('.surf')&&!a.hop ? 2600 : 1900) : Math.max(800, Math.min(1500, 400+a.days*20));
   animateTo(S.domain.day+a.days, ms*SLOW, ()=>{
     const pth=mv.path, spl=mv.sys; S.render.move=null;
-    if(spl) Object.assign(sysState(planetOfBody(a.to.split('.')[0])), spl.final);
+    if(spl) Object.assign(sysState(planetOfBody(tb)), spl.final);
 // orbit state for the 3D view: the launch orbit after lift-off, otherwise equatorial and in front
-    if(a.to.endsWith('.orbit')){ const tb=a.to.split('.')[0]; S.render.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); } else if(a.to.endsWith('.surf')) S.render.orb=null;
+    if(tl==='orbit') S.render.orb = pth && pth.finalOrb ? {...pth.finalOrb} : defaultOrb(tb); else if(tl==='surf') S.render.orb=null;
     arrive(a.to,a.site as string); S.ui.msg=`${a.label}: ${km(a.dv)} km/s used. Now: ${nodeName(a.to)}.`;
     S.action.busy=false; changed(); autoFill();
   });
 }
 
-export function doTransfer(b:string){
-  const a=homePlanet(); if(S.action.busy || S.domain.over || S.domain.node!==a+'.capt') return;
+export function doTransfer(b:PlanetId){
+  const a=homePlanet(); if(!a || S.action.busy || S.domain.over || S.domain.node!==`${a}.capt`) return;
   const t=transfer(a,b,S.domain.day); if(t.total>dvAvail()) return;
   burn(t.total);
   const dep=S.domain.day, arr=S.domain.day+t.tof;
   S.action.transit={a,b,dep,arr,th0:theta(a,dep),th1:theta(b,arr)};
   S.domain.node=null; S.action.busy=true; S.ui.mapView=null; S.ui.msg=`Under way to ${B[b].name}. Arrival on ${dateStr(arr)}.`; changed(); showMap();
   animateTo(arr, 2800*SLOW, ()=>{
-    S.action.transit=null; arrive(b+'.capt','');
+    S.action.transit=null; arrive(`${b}.capt`,'');
     S.ui.msg=`Arrived: high orbit of ${B[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`;
     S.action.busy=false; changed(); autoFill();
   });
@@ -124,7 +125,7 @@ function removeOrder(o:Order){ S.domain.eco.orders=S.domain.eco.orders.filter(x=
 export function deliverOrder(o:Order, silent?:boolean){
   if(S.action.busy||S.domain.over) return;
   const pay=payout(o); S.domain.credits+=pay; removeOrder(o);
-  if(o.transship){ const f=S.domain.eco.fwd[o.to]; f[o.good]=(f[o.good]||0)+o.n; S.domain.flags.hubDelivery=true; }
+  if(o.transship){ const f=S.domain.eco.fwd[o.to]??={}; f[o.good]=(f[o.good]||0)+o.n; S.domain.flags.hubDelivery=true; }
   S.domain.flags.delivered=(S.domain.flags.delivered||0)+1;
   if(silent) return;
   S.ui.msg=`Delivered: ${o.n} × ${GOODS[o.good].name}. ${fmtCr(pay)} credited${pay<o.reward?' (late)':''}.`; changed();
@@ -139,11 +140,11 @@ export function abortOrder(o:Order){
   const pen=Math.round(o.reward*0.2);
   if(S.action.busy||S.domain.over||pen>S.domain.credits) return;
   S.domain.credits-=pen; removeOrder(o);
-  if(!o.transship) S.domain.eco.demand[o.to][o.good]=Math.min(3,S.domain.eco.demand[o.to][o.good]+1);
+  if(!o.transship){ const d=S.domain.eco.demand[o.to]; d[o.good]=Math.min(3,(d[o.good]??0)+1); }
   S.ui.msg=`Order cancelled. Penalty ${fmtCr(pen)}, the cargo is lost.`; changed();
 }
 
-export function buyShip(id:string){
+export function buyShip(id:ShipId){
   const net=SHIPS[id].price-0.7*eng().price;
   if(S.action.busy||S.domain.over||net>S.domain.credits||slotsUsed()>SHIPS[id].slots) return;
   S.action.busy=true; changed();
@@ -181,13 +182,13 @@ export function stranded(){
 }
 
 // Emergency refuelling: a tanker brings a full tank to you. Travel time depends on the region.
-const RESCUE_DAYS: Record<string, number> = {shipyard:20, pavonis:90, valhalla:200};
+const RESCUE_DAYS: Record<HubId, number> = {shipyard:20, pavonis:90, valhalla:200};
 
 export function rescueInfo(){
   const ri=refuelInfo(), amount=eng().cap-S.domain.fuel;
   if(ri) return {amount, cost:Math.round(2000+ri.price*amount), days:ri.days, lift:false, local:true};
   const cost=Math.round(RESCUE_BASE+RESCUE_PER_T*amount);
-  const days=RESCUE_DAYS[REGION[here()[0]!]]||60;
+  const [b]=here(), days=b ? RESCUE_DAYS[REGION[b]] : 60;
 // If not even a full tank allows any manoeuvre (the surface of Venus), the tanker lifts the ship into orbit
   const lift=!localActions().some(a=>a.to && a.dv<=dvWith(eng().cap,cargoMass())+0.5);
   return {amount,cost,days,lift};
@@ -199,7 +200,7 @@ export function rescue(){
   S.domain.credits-=r.cost; S.action.busy=true; changed(); showMap();
   animateTo(S.domain.day+r.days, 900, ()=>{
     S.domain.fuel=eng().cap;
-    if(r.lift){ S.domain.node=here()[0]!+'.orbit'; S.domain.site=null; }
+    const [b]=here(); if(r.lift && b){ S.domain.node=`${b}.orbit`; S.domain.site=null; }
     S.action.busy=false;
     if(S.domain.credits<BANKRUPT){ S.domain.over=true; S.ui.msg=`Bankrupt. Your balance stands at ${fmtCr(S.domain.credits)}. Start again to have another go.`; }
     else if(r.local) S.ui.msg=`Fuelled on credit: ${tons(r.amount)} for ${fmtCr(r.cost)}. Your balance is ${fmtCr(S.domain.credits)}.`;
@@ -208,7 +209,7 @@ export function rescue(){
   });
 }
 
-export function openView(v:string, back?:string|null){ S.ui.rmsg=false; S.ui.back = v==='main' ? null : (back||null); S.ui.view=v; S.ui.sel=new Set<number>(); S.ui.tank=null; changed();
+export function openView(v:View, back?:View|null){ S.ui.rmsg=false; S.ui.back = v==='main' ? null : (back||null); S.ui.view=v; S.ui.sel=new Set<number>(); S.ui.tank=null; changed();
   if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
 
 export function refuelInfo(){
@@ -260,7 +261,7 @@ const OLD_SAVE_KEY='transferfenster-v2', OLD_SLOT_KEY='transferfenster-slot1';
 // Saves written before the code was translated carry the old German ids. Everything
 // else in a save is language-neutral, so one lookup per kind is enough. Runs before
 // the sanity check below, which would otherwise reject an old save outright.
-const OLD_IDS: Record<string, Record<string,string>> = {
+const OLD_IDS: Record<'ship'|'site'|'post', Record<string,string>> = {
   ship: {kogge:'cog', holk:'hulk', hulk:'galleon', karacke:'carrack'},
   site: {nordpol:'northpole', tigerstreifen:'tigerstripes', aeqator:'equator'},
   post: {erde:'earth', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
@@ -285,15 +286,39 @@ function migrate(o:Raw){
   return o;
 }
 
-const isOrder = (x:unknown) => isObj(x) && [x.id,x.n,x.reward,x.dv,x.days,x.deadline,x.created,x.expires].every(isNum)
-  && isStr(x.good) && !!GOODS[x.good] && isStr(x.from) && isStr(x.to) && (x.state==='open'||x.state==='aboard');
-const isTable = (x:unknown) => isObj(x) && Object.values(x).every(r=>isObj(r) && Object.values(r).every(isNum));
+const isBool = (x:unknown):x is boolean => typeof x==='boolean';
 
-// The economy is checked field by field, then taken over as it is
+// A fresh, typed order, or null if anything is missing or unknown
+function parseOrder(x:unknown):Order|null{
+  if(!isObj(x)) return null;
+  const {id,n,reward,dv,days,deadline,created,expires,good,from,to,state}=x;
+  if(!isNum(id) || !isNum(n) || !isNum(reward) || !isNum(dv) || !isNum(days) || !isNum(deadline) || !isNum(created) || !isNum(expires)) return null;
+  if(!isGood(good) || !isPost(from) || !isPost(to) || (state!=='open' && state!=='aboard')) return null;
+  const o:Order={id, good, n, from, to, reward, dv, days, deadline, created, expires, state, fwdOrder:x.fwdOrder===true};
+  if(isBool(x.transship)) o.transship=x.transship; if(isBool(x.bulk)) o.bulk=x.bulk;
+  return o;
+}
+
+// post -> good -> amount, keeping only known posts and goods; null if it isn't such a table
+function parseTable(x:unknown):Partial<Record<PostId,Amounts>>|null{
+  if(!isObj(x)) return null;
+  const t:Partial<Record<PostId,Amounts>>={};
+  for(const [k,row] of Object.entries(x)){
+    if(!isObj(row) || !Object.values(row).every(isNum)) return null;
+    if(!isPost(k)) continue;
+    const a:Amounts=t[k]={}; for(const [g,v] of Object.entries(row)) if(isGood(g) && isNum(v)) a[g]=v;
+  }
+  return t;
+}
+
+// The economy, rebuilt field by field. Posts added since the save get empty rows.
 function parseEco(e:unknown):Eco|null{
-  if(!isObj(e) || !isNum(e.nextId) || !isNum(e.day) || !Array.isArray(e.orders) || !e.orders.every(isOrder)) return null;
-  if(![e.stock,e.fwd,e.demand].every(isTable) || [e.bulk,e.bulkN].some(t=>t!==undefined && !isTable(t))) return null;
-  return e as unknown as Eco;
+  if(!isObj(e) || !isNum(e.nextId) || !isNum(e.day) || !Array.isArray(e.orders)) return null;
+  const orders=e.orders.map(parseOrder), stock=parseTable(e.stock), fwd=parseTable(e.fwd), demand=parseTable(e.demand);
+  if(!orders.every(o=>o!==null) || !stock || !fwd || !demand) return null;
+  const eco:Eco={stock:byPost(k=>stock[k.id]??{}), fwd, demand:byPost(k=>demand[k.id]??{}), orders, nextId:e.nextId, day:e.day};
+  for(const f of ['bulk','bulkN'] as const){ if(e[f]===undefined) continue; const t=parseTable(e[f]); if(!t) return null; eco[f]=t; }
+  return eco;
 }
 
 // Unchecked JSON from localStorage -> a domain state, or null if it isn't a usable save.
@@ -301,14 +326,14 @@ function parseEco(e:unknown):Eco|null{
 export function parseSave(raw:unknown):DomainState|null{
   if(!isObj(raw)) return null;
   const o=migrate(raw), eco=parseEco(o.eco);
-  if(!eco || !isStr(o.node) || !o.node || !isStr(o.ship) || !SHIPS[o.ship] || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
+  if(!eco || !isNode(o.node) || !isShip(o.ship) || !isNum(o.day) || !isNum(o.fuel) || !isNum(o.credits)) return null;
   const f=isObj(o.flags)?o.flags:{}, flags:Flags={delivered:isNum(f.delivered)?f.delivered:0};
   for(const [k,v] of Object.entries(f)) if(v===true){
     if(k.startsWith('refuel:')) flags[k as `refuel:${string}`]=true;
     else if(k==='marsLanded'||k==='marsReturn'||k==='hubDelivery'||k==='bought') flags[k]=true;
   }
   return {day:o.day, node:o.node, site:isStr(o.site)?o.site:null, ship:o.ship, fuel:o.fuel, used:isNum(o.used)?o.used:0, credits:o.credits,
-    visited:new Set(Array.isArray(o.visited)?o.visited.filter(isStr):[]), flags, target:isStr(o.target)?o.target:null,
+    visited:new Set(Array.isArray(o.visited)?o.visited.filter(isStr):[]), flags, target:isPlanet(o.target)?o.target:null,
     over:o.over===true, autoFill:o.autoFill===true, eco};
 }
 
@@ -343,7 +368,7 @@ export function load(key?: string|null){
 export function execStep(st:PlanStep){
   if(!st || S.action.busy || S.domain.over) return false;
   if(st.kind==='wait'){ const [a,b]=st.leg, t=transfer(a,b,S.domain.day); if(t.d<0.04) return true; waitDays(t.wait); return true; }
-  if(st.kind==='leg'){ const hp=homePlanet(); if(S.domain.node!==hp+'.capt' || transfer(hp,st.leg[1],S.domain.day).total>dvAvail()) return false; doTransfer(st.leg[1]); return true; }
+  if(st.kind==='leg'){ const hp=homePlanet(); if(!hp || S.domain.node!==`${hp}.capt` || transfer(hp,st.leg[1],S.domain.day).total>dvAvail()) return false; doTransfer(st.leg[1]); return true; }
   const a=localActions().find(al=>al.to===st.node && (al.site||null)===(st.site||null) && Math.abs(al.dv-st.dv)<1);
   if(!a || a.dv>dvAvail()+0.5 || feeBlocked(a)) return false;
   doAction(a); return true;
@@ -368,8 +393,8 @@ function autoTick(){
   if(atTarget(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   if(locKey()!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${postAt()!.name}.`,true);
   const plan=planRoute(A.target, A.mode);
-  if(!plan || !plan.steps.length) return stopAutopilot('Autopilot: no route found.');
-  const st=plan.steps[0];
+  const st=plan?.steps[0];
+  if(!st) return stopAutopilot('Autopilot: no route found.');
   if(st.kind!=='wait' && st.dv>dvAvail()+0.5) return stopAutopilot(`Autopilot stopped: "${st.label}" needs ${km(st.dv)} km/s, you have ${km(dvAvail())}. Refuel or drop cargo.`);
   if(!execStep(st)) return stopAutopilot(`Autopilot stopped at "${st.label}": ${stepBlocker(st)}`);
   A.start=null; // after the first step every post with a delivery counts as a stop

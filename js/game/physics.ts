@@ -1,18 +1,18 @@
 // Orbital mechanics: circular orbits, escape velocity, Hohmann transfers, ballistic hops.
 
 import { TAU, wrap } from '../basics.js';
-import { AU, B, M, MU_SUN, hasAtm, siteOf } from './world.js';
+import { AU, B, BodyId, M, MU_SUN, PlanetId, hasAtm, isMoon, launcherAt, siteOf } from './world.js';
 
 // Circular orbital speed at the surface in m/s (moons: approximate)
-const VSURF: Record<string, number> = {mercury:3005, venus:7326, earth:7910, mars:3555, ceres:365, moon:1680, phobos:8, deimos:4,
+const VSURF: Partial<Record<BodyId, number>> = {mercury:3005, venus:7326, earth:7910, mars:3555, ceres:365, moon:1680, phobos:8, deimos:4,
   io:1810, europa:1430, ganymede:1950, callisto:1730, enceladus:170, titan:1870};
 
-export const bodyUp = (b: string): number => M[b] ? M[b].up : B[b].surf!.up;
+export const bodyUp = (b: BodyId): number => isMoon(b) ? M[b].up : B[b].surf!.up;
 
-export const bodyDown = (b: string): number => M[b] ? M[b].down : B[b].surf!.down;
+export const bodyDown = (b: BodyId): number => isMoon(b) ? M[b].down : B[b].surf!.down;
 
 // Central angle between two landing sites (great circle)
-function siteAngle(b: string, s1: string|null, s2: string|null): number{
+function siteAngle(b: BodyId, s1: string|null, s2: string|null): number{
   const a=siteOf(b,s1), c=siteOf(b,s2); if(!a||!c) return Math.PI;
   const r=Math.PI/180, f1=a.lat*r, f2=c.lat*r, dl=((a.lon||0)-(c.lon||0))*r;
   return Math.acos(Math.max(-1,Math.min(1,Math.sin(f1)*Math.sin(f2)+Math.cos(f1)*Math.cos(f2)*Math.cos(dl))));
@@ -21,42 +21,42 @@ function siteAngle(b: string, s1: string|null, s2: string|null): number{
 // Minimum-energy ballistic path over the central angle th: v^2 = vs^2 * 2 sin(th/2) / (1 + sin(th/2)).
 // Without an atmosphere, lifting off and slowing down cost v each. With one, launch losses scale like an
 // ascent, but the air helps on the way down. On Earth a small launcher flies the hop.
-export function hopCost(b: string, s1: string|null, s2: string|null): {dv:number; days:number; th:number; launcher:boolean}{
-  const th=siteAngle(b,s1,s2), vs=VSURF[b]||1000, x=Math.sin(th/2);
+export function hopCost(b: BodyId, s1: string|null, s2: string|null): {dv:number; days:number; th:number; launcher:boolean}{
+  const th=siteAngle(b,s1,s2), vs=VSURF[b]||1000, x=Math.sin(th/2), launcher=launcherAt(b);
   const v=vs*Math.sqrt(2*x/(1+x)), f=v/vs;
   const full=bodyUp(b)+bodyDown(b);
   let dv;
   if(!hasAtm(b)) dv=2*v*1.03;
-  else if(B[b]&&B[b].surf&&B[b].surf.launcher) dv=bodyDown(b);
+  else if(launcher) dv=bodyDown(b);
   else dv=v+Math.max(0,bodyUp(b)-vs)*f+bodyDown(b)*f;
   dv=Math.min(dv, 0.9*full);
   const days=Math.max(0.05, th/Math.PI*0.25);
-  return {dv, days, th, launcher:!!(B[b]&&B[b].surf&&B[b].surf.launcher)};
+  return {dv, days, th, launcher};
 }
 
 export const HOP_FEE_SHARE = 0.4; // share of the launch fee for a suborbital flight on Earth
 
-export const theta = (k: string, day: number): number => B[k].L0*Math.PI/180 + TAU*day/B[k].T;
+export const theta = (k: PlanetId, day: number): number => B[k].L0*Math.PI/180 + TAU*day/B[k].T;
 
-const nn = (k: string): number => TAU/B[k].T;
+const nn = (k: PlanetId): number => TAU/B[k].T;
 
-const vc = (k: string): number => Math.sqrt(B[k].mu/(B[k].R+B[k].alt));   // km/s
+const vc = (k: PlanetId): number => Math.sqrt(B[k].mu/(B[k].R+B[k].alt));   // km/s
 
-const vesc = (k: string): number => Math.SQRT2*vc(k);
+const vesc = (k: PlanetId): number => Math.SQRT2*vc(k);
 
-export const captDv = (k: string): number => (0.98*vesc(k)-vc(k))*1000;            // high <-> low orbit, m/s
+export const captDv = (k: PlanetId): number => (0.98*vesc(k)-vc(k))*1000;            // high <-> low orbit, m/s
 
-const hyp = (k: string, vinf: number): number => (Math.sqrt(vinf*vinf+vesc(k)**2)-0.98*vesc(k))*1000; // Brennen am Periapsis (Oberth)
+const hyp = (k: PlanetId, vinf: number): number => (Math.sqrt(vinf*vinf+vesc(k)**2)-0.98*vesc(k))*1000; // burn at periapsis (Oberth)
 
-export function transfer(a: string, b: string, day: number): {dep:number; arr:number; total:number; tof:number; d:number; wait:number; phiStar:number}{
+export function transfer(a: PlanetId, b: PlanetId, day: number): {dep:number; arr:number; total:number; tof:number; d:number; wait:number; phiStar:number}{
   const r1=B[a].a*AU, r2=B[b].a*AU, at=(r1+r2)/2;
   const v1=Math.sqrt(MU_SUN/r1), v2=Math.sqrt(MU_SUN/r2);
   const vp=Math.sqrt(MU_SUN*(2/r1-1/at)), va=Math.sqrt(MU_SUN*(2/r2-1/at));
   const vi1=Math.abs(vp-v1), vi2=Math.abs(v2-va);
   const tH=Math.PI*Math.sqrt(at**3/MU_SUN)/86400;
-  const phiStar=wrap(Math.PI-nn(b)*tH);                 // idealer Phasenwinkel
-  const phi=wrap(theta(b,day)-theta(a,day));             // aktueller Phasenwinkel
-  const d=Math.abs(wrap(phi-phiStar))/Math.PI;           // 0 = perfekt, 1 = maximal daneben
+  const phiStar=wrap(Math.PI-nn(b)*tH);                 // ideal phase angle
+  const phi=wrap(theta(b,day)-theta(a,day));             // current phase angle
+  const d=Math.abs(wrap(phi-phiStar))/Math.PI;           // 0 = perfect, 1 = as far off as it gets
   const f=1+2.2*Math.pow(d,1.5);                         // penalty on the excess velocity
   const dep=hyp(a,vi1*f), arr=hyp(b,vi2*f);
   const tof=tH*(1-0.3*d);

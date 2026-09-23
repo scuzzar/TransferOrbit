@@ -5,16 +5,19 @@ export const AU = 1.495978707e8, MU_SUN = 1.32712440018e11, G0 = 9.80665;
 
 export const START_DAY = 10957.5; // days since J2000 -> 1 Jan 2030
 
+// The keys of a fixed table. Object.keys only promises strings; the tables below never change.
+const keysOf = <T extends object>(t: T) => Object.keys(t) as (keyof T & string)[];
+
 export interface BodySurf { up:number; down:number; launcher?:boolean; note?:string }
 export interface Body { name:string; a:number; T:number; L0:number; mu:number; R:number; alt:number; atm:boolean; surf:BodySurf|null; color:string }
-export interface Moon { name:string; parent:string; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
+export interface Moon { name:string; parent:PlanetId; xfer:number; days:number; up:number; down:number; P:number; rv:number; orbitName?:string; surfName?:string; downNote?:string; upNote?:string }
 export interface Site { id:string; name:string; lat:number; lon:number; port?:boolean; depot?:number; note?:string }
 export interface ShipDef { name:string; drive:string; isp:number; dry:number; cap:number; slots:number; price:number }
-export interface GoodDef { name:string; sh:string; m:number; w:number; lot:number[]; rate:number; color:string }
-export interface Post { id:string; name:string; node:string; site:string|null; makes:string[]; needs:string[]; hub?:string }
+export interface GoodDef { name:string; sh:string; m:number; w:number; lot:[number,number]; rate:number; color:string }
+export interface Post { id:PostId; name:string; node:NodeId; site:string|null; makes:GoodId[]; needs:GoodId[]; hub?:HubId }
 
 // Circular orbits with real mean longitudes (J2000) and periods
-export const B: Record<string, Body> = {
+const PLANET_TABLE = {
   mercury:{name:'Mercury', a:0.387, T:87.97,  L0:252.25, mu:22032,     R:2440,  alt:50,    atm:false, surf:{up:3100, down:3100}, color:'#a39e98'},
   venus:  {name:'Venus',  a:0.723, T:224.70, L0:181.98, mu:324859,    R:6052,  alt:250,   atm:true,  surf:{up:27000,down:100, note:'Getting back up costs 27 km/s'}, color:'#d9b36c'},
   earth:  {name:'Earth',   a:1.000, T:365.256,L0:100.46, mu:398600,    R:6371,  alt:200,   atm:true,  surf:{up:9400, down:100, launcher:true, note:'Heat shield and parachutes'}, color:'#4f8fd8'},
@@ -22,13 +25,15 @@ export const B: Record<string, Body> = {
   ceres:  {name:'Ceres',  a:2.767, T:1681.6, L0:153.0,  mu:62.6,      R:470,   alt:30,   atm:false, surf:{up:400,  down:400}, color:'#9a958d'},
   jupiter:{name:'Jupiter',a:5.203, T:4332.6, L0:34.40,  mu:126686534, R:69911, alt:10000, atm:true,  surf:null, color:'#d2a679'},
   saturn: {name:'Saturn', a:9.537, T:10759,  L0:49.94,  mu:37931187,  R:58232, alt:8000,  atm:true,  surf:null, color:'#e3cf8e'},
-};
+} satisfies Record<string, Body>;
+export type PlanetId = keyof typeof PLANET_TABLE;
+export const B: Record<PlanetId, Body> = PLANET_TABLE;
 
-export const PLANETS = Object.keys(B);
+export const PLANETS = keysOf(PLANET_TABLE);
 
 // Moons: nodes "orbit" and "surf", joined to the high orbit of the parent planet.
 // xfer = delta-v from the planet's high orbit down to low moon orbit (approximate), P = period in days, rv = orbital radius in km
-export const M: Record<string, Moon> = {
+const MOON_TABLE = {
   moon:     {name:'Moon',      parent:'earth',  xfer:800,  days:3,  up:1870, down:1870, P:27.32, rv:384400, orbitName:'lunar orbit', surfName:'the lunar surface'},
   phobos:   {name:'Phobos',    parent:'mars',   xfer:550,  days:1,  up:10,   down:10,   P:0.319, rv:9376,   downNote:'Barely any gravity, more docking than landing'},
   deimos:   {name:'Deimos',    parent:'mars',   xfer:350,  days:2,  up:6,    down:6,    P:1.263, rv:23460,  downNote:'Barely any gravity, more docking than landing'},
@@ -38,21 +43,37 @@ export const M: Record<string, Moon> = {
   callisto: {name:'Callisto',  parent:'jupiter',xfer:1100, days:8,  up:1750, down:1750, P:16.69, rv:1882700, downNote:'Outside the heavy radiation belts'},
   enceladus:{name:'Enceladus', parent:'saturn', xfer:2400, days:5,  up:180,  down:180,  P:1.370, rv:238000, downNote:'Geysers from the south pole'},
   titan:    {name:'Titan',     parent:'saturn', xfer:700,  days:10, up:7600, down:100,  P:15.95, rv:1221900, downNote:'Thick atmosphere, parachutes are enough', upNote:'The thick atmosphere makes getting back up expensive'},
-};
+} satisfies Record<string, Moon>;
+export type MoonId = keyof typeof MOON_TABLE;
+export const M: Record<MoonId, Moon> = MOON_TABLE;
 
-export const MOONS = Object.keys(M);
+export const MOONS = keysOf(MOON_TABLE);
 
-export const moonsOf = (p: string): string[] => MOONS.filter(m=>M[m].parent===p);
+// Places are "<body>.<level>": earth.surf, earth.orbit (low), earth.capt (high orbit)
+export type BodyId = PlanetId|MoonId;
+export type Level = 'surf'|'orbit'|'capt';
+export type NodeId = `${BodyId}.${Level}`;
+
+// Checks for ids from outside (a save, the console); they take anything
+const keyOf = (t: object, x: unknown) => typeof x==='string' && Object.hasOwn(t, x);
+export const isPlanet = (b: unknown): b is PlanetId => keyOf(B, b);
+export const isMoon = (b: unknown): b is MoonId => keyOf(M, b);
+export const isBody = (b: unknown): b is BodyId => isPlanet(b) || isMoon(b);
+export const isLevel = (l: unknown): l is Level => l==='surf' || l==='orbit' || l==='capt';
+export const isNode = (n: unknown): n is NodeId => { if(typeof n!=='string') return false; const [b,l,x]=n.split('.'); return x===undefined && isBody(b) && isLevel(l); };
+export const splitNode = (n: NodeId) => n.split('.') as [BodyId, Level];
+
+export const moonsOf = (p: BodyId): MoonId[] => MOONS.filter(m=>M[m].parent===p);
 
 // Orbital fuel depots; depots on the ground belong to the landing sites
-export const DEPOTS: Record<string, number> = {'earth.orbit':5, 'mars.orbit':10};
+export const DEPOTS: Partial<Record<NodeId, number>> = {'earth.orbit':5, 'mars.orbit':10};
 
 // Equatorial rotation speed in m/s. Launching further from the equator is given less of a head start.
-export const ROT: Record<string, number> = {mercury:3, venus:2, earth:465, mars:241, ceres:92, moon:5, phobos:3, deimos:1,
+export const ROT: Partial<Record<BodyId, number>> = {mercury:3, venus:2, earth:465, mars:241, ceres:92, moon:5, phobos:3, deimos:1,
   io:75, europa:32, ganymede:27, callisto:11, enceladus:13, titan:12};
 
 // Landing sites: lat in degrees, port = spaceport, depot = days to fill the tank
-export const SITES: Record<string, Site[]> = {
+export const SITES: Partial<Record<BodyId, Site[]>> = {
   earth:[
     {id:'kourou', name:'Kourou', lat:5.2, lon:-52.8, port:true, depot:3, note:'Almost on the equator, full rotation bonus'},
     {id:'canaveral', name:'Cape Canaveral', lat:28.5, lon:-80.6, port:true, depot:3},
@@ -98,26 +119,33 @@ export const SITES: Record<string, Site[]> = {
   ],
 };
 
-export const siteOf = (body: string, id: string|null): Site | undefined => (SITES[body]||[]).find(x=>x.id===id);
+export const siteOf = (body: BodyId, id: string|null): Site | undefined => (SITES[body]||[]).find(x=>x.id===id);
 
-export const hasDepot = (body: string): boolean => (SITES[body]||[]).some(x=>!!x.depot);
+export const hasDepot = (body: BodyId): boolean => (SITES[body]||[]).some(x=>!!x.depot);
 
-export const rotPenalty = (body: string, lat: number): number => (ROT[body]||0)*(1-Math.cos(lat*Math.PI/180)); // m/s
+export const rotPenalty = (body: BodyId, lat: number): number => (ROT[body]||0)*(1-Math.cos(lat*Math.PI/180)); // m/s
 
-export const hasAtm = (body: string): boolean => B[body] ? B[body].atm : body==='titan';
+// Earth: a commercial launcher flies you up (for a fee)
+export const launcherAt = (body: BodyId): boolean => isPlanet(body) && !!B[body].surf?.launcher;
+
+export const hasAtm = (body: BodyId): boolean => isPlanet(body) ? B[body].atm : body==='titan';
 
 export const latStr = (lat: number): string => `${Math.abs(lat).toLocaleString('en-GB',{maximumFractionDigits:1})}° ${lat>=0?'N':'S'}`;
 
-export const LVL = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
+export const LVL: Record<Level, string> = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
 
-export const SHIPS: Record<string, ShipDef> = {
+const SHIP_TABLE = {
   cog:    {name:'Cog',     drive:'chemical', isp:450, dry:12, cap:80,  slots:6,  price:150000},
   hulk:   {name:'Hulk',    drive:'hybrid',   isp:600, dry:20, cap:160, slots:12, price:400000},
   galleon:{name:'Galleon', drive:'hybrid',   isp:650, dry:45, cap:280, slots:20, price:900000},
   carrack:{name:'Carrack', drive:'nuclear',  isp:900, dry:30, cap:150, slots:8,  price:1200000},
-};
+} satisfies Record<string, ShipDef>;
+export type ShipId = keyof typeof SHIP_TABLE;
+export const SHIPS: Record<ShipId, ShipDef> = SHIP_TABLE;
+export const SHIP_IDS = keysOf(SHIP_TABLE);
+export const isShip = (x: unknown): x is ShipId => keyOf(SHIPS, x);
 
-export const GOODS: Record<string, GoodDef> = {
+const GOOD_TABLE = {
   he3:  {name:'Helium-3', sh:'He-3',        m:1,  w:8000, lot:[1,2], rate:45, color:'#b78cf0'},
   elec: {name:'Electronics', sh:'Electronics',   m:1,  w:5000, lot:[1,2], rate:30, color:'#5cc9e0'},
   hab:  {name:'Habitat modules', sh:'Habitat',  m:10, w:4000, lot:[1,1], rate:30, color:'#e0a15c'},
@@ -126,11 +154,14 @@ export const GOODS: Record<string, GoodDef> = {
   food: {name:'Food', sh:'Food',                m:3,  w:600,  lot:[1,2], rate:20, color:'#7cc56a'},
   metal:{name:'Metals', sh:'Metals',            m:8,  w:400,  lot:[1,3], rate:10, color:'#b0a18f'},
   water:{name:'Water', sh:'Water',              m:8,  w:200,  lot:[1,3], rate:10, color:'#4f8fd8'},
-};
+} satisfies Record<string, GoodDef>;
+export type GoodId = keyof typeof GOOD_TABLE;
+export const GOODS: Record<GoodId, GoodDef> = GOOD_TABLE;
+export const isGood = (x: unknown): x is GoodId => keyOf(GOODS, x);
 
-export const post = (id:string, name:string, node:string, site:string|null, makes:string[], needs:string[], hub?:string): Post => ({id,name,node,site,makes,needs,hub});
+const post = <I extends string>(id:I, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:HubId) => ({id,name,node,site,makes,needs,hub});
 
-export const POSTS: Post[] = [
+const POST_LIST = [
   post('earth','Earth','earth.surf',null,['food','mach','elec','hab'],['he3','rare']),
   post('shipyard','Orbital Shipyard','earth.orbit',null,['elec'],['water','food','metal','rare'],'shipyard'),
   post('shackleton','Shackleton','moon.surf','shackleton',['water'],['food','mach','hab']),
@@ -153,12 +184,17 @@ export const POSTS: Post[] = [
   post('tiger','Tiger Stripes','enceladus.surf','tigerstripes',['water'],['mach']),
   post('kraken','Kraken Mare','titan.surf','kraken',[],['mach','hab','elec']),
 ];
+export type PostId = typeof POST_LIST[number]['id'];
+export const POSTS: Post[] = POST_LIST;
+// A value for every post. fromEntries only knows string keys, but every id of POSTS is in there.
+export const byPost = <T>(f:(k:Post)=>T) => Object.fromEntries(POSTS.map(k=>[k.id,f(k)])) as Record<PostId, T>;
+export const POST_BY_ID = byPost(k=>k);
+export const isPost = (x: unknown): x is PostId => keyOf(POST_BY_ID, x);
 
-export const POST_BY_ID: Record<string, Post> = Object.fromEntries(POSTS.map(k=>[k.id,k]));
+export type HubId = 'shipyard'|'pavonis'|'valhalla';
+export const HUBS: Record<HubId, Post> = {shipyard:POST_BY_ID.shipyard, pavonis:POST_BY_ID.pavonis, valhalla:POST_BY_ID.valhalla};
 
-export const HUBS = {shipyard:POST_BY_ID.shipyard, pavonis:POST_BY_ID.pavonis, valhalla:POST_BY_ID.valhalla};
-
-export const REGION: Record<string, string> = {earth:'shipyard',moon:'shipyard',mercury:'shipyard',venus:'shipyard',
+export const REGION: Record<BodyId, HubId> = {earth:'shipyard',moon:'shipyard',mercury:'shipyard',venus:'shipyard',
   mars:'pavonis',phobos:'pavonis',deimos:'pavonis',ceres:'pavonis',
   jupiter:'valhalla',io:'valhalla',europa:'valhalla',ganymede:'valhalla',callisto:'valhalla',
   saturn:'valhalla',enceladus:'valhalla',titan:'valhalla'};
@@ -178,26 +214,27 @@ export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + sh
 
 export const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Bulk orders: size, restock slower than single goods, premium, lifetime
 
-export const bodyOf = (k: Post): string => k.node.split('.')[0];
+export const bodyOf = (k: Post): BodyId => splitNode(k.node)[0];
 
-export const planetOfBody = (b: string): string => M[b] ? M[b].parent : b;
+export const planetOfBody = (b: BodyId): PlanetId => isMoon(b) ? M[b].parent : b;
 
-export const bodyName = (b: string): string => M[b] ? M[b].name : B[b].name;
+export const bodyName = (b: BodyId): string => isMoon(b) ? M[b].name : B[b].name;
 
-export const postPlace = (k: Post): string => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${B[bodyOf(k)].name}` : bodyName(bodyOf(k));
+export const postPlace = (k: Post): string => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${bodyName(bodyOf(k))}` : bodyName(bodyOf(k));
 
 export const postLabel = (k: Post): string => k.id==='earth' ? 'Earth' : `${k.name}, ${postPlace(k)}`;
 
 export const fmtCr = (n: number): string => `${Math.round(n).toLocaleString('en-GB')} Cr`;
 
 
-export const SYSNAME: Record<string, string> = {earth:'Earth system', mars:'Mars system', jupiter:'Jupiter system', saturn:'Saturn system'};
+export const SYSNAME: Partial<Record<PlanetId, string>> = {earth:'Earth system', mars:'Mars system', jupiter:'Jupiter system', saturn:'Saturn system'};
 
-const BODYCOL: Record<string, string> = {moon:'#a8a49c', phobos:'#8e8378', deimos:'#9a9086', io:'#d8c35a', europa:'#cfc6b2', ganymede:'#a89f92', callisto:'#7f776d', enceladus:'#e6ecf0', titan:'#d9a441'};
+const BODYCOL: Record<MoonId, string> = {moon:'#a8a49c', phobos:'#8e8378', deimos:'#9a9086', io:'#d8c35a', europa:'#cfc6b2', ganymede:'#a89f92', callisto:'#7f776d', enceladus:'#e6ecf0', titan:'#d9a441'};
 
-export const bodyColor = (b: string): string => B[b] ? B[b].color : (BODYCOL[b]||'#9a958d');
+export const bodyColor = (b: BodyId): string => isPlanet(b) ? B[b].color : BODYCOL[b];
 
 // How much delta-v from a place to the nearest fuel depot? 0 if there is one right there.
-export const FUEL_SPOTS: {node:string; site:string|null}[] = Object.keys(FUEL_PRICE).map(k=>{ const [node,site]=k.split('@'); return {node, site:site||(node==='earth.surf'?'kourou':null)}; });
+export const FUEL_SPOTS: {node:NodeId; site:string|null}[] = Object.keys(FUEL_PRICE).map(k=>{ const [node='',site]=k.split('@');
+  if(!isNode(node)) throw new Error(`FUEL_PRICE: unknown place ${k}`); return {node, site:site||(node==='earth.surf'?'kourou':null)}; });
 
-export function fuelHere(node: string, site: string|null): boolean{ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }
+export function fuelHere(node: NodeId, site: string|null): boolean{ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }

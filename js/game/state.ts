@@ -1,25 +1,30 @@
 // The game state S and the queries on it. Never writes anything by itself.
 
-import { B, FUEL_PRICE, G0, GOODS, POSTS, LVL, M, SHIPS, SITES, bodyName, Post, siteOf } from './world.js';
+import { B, BodyId, FUEL_PRICE, G0, GOODS, GoodId, POSTS, LVL, M, MoonId, NodeId, PlanetId, PostId, SHIPS, SITES, ShipId, bodyName, isMoon, isPlanet, Post, siteOf, splitNode } from './world.js';
 
-export type Target = { node:string; site?:string|null };
-export type Pick = { type:'planet'; planet:string } | { type:'body'; body:string } | { type:'node'; node:string; site?:string|null };
-export type ViewLevel = { level:'sol' } | { level:'sys'; planet:string } | { level:'body'; planet:string; body:string };
+export type Target = { node:NodeId; site?:string|null };
+export type Pick = { type:'planet'; planet:PlanetId } | { type:'body'; body:BodyId } | { type:'node'; node:NodeId; site?:string|null };
+export type ViewLevel = { level:'sol' } | { level:'sys'; planet:PlanetId } | { level:'body'; planet:PlanetId; body:BodyId };
+export type View = 'main'|'post'|'cargo'|'refuel'|'shipyard'|'route';
+export type RouteMode = 'eco'|'now';
 export type OrderState = 'open'|'aboard';
 export interface Order {
-  id:number; good:string; n:number; from:string; to:string;
+  id:number; good:GoodId; n:number; from:PostId; to:PostId;
   reward:number; dv:number; days:number; deadline:number; created:number; expires:number;
   state:OrderState; fwdOrder:boolean; transship?:boolean; bulk?:boolean;
 }
+// Amounts per post and good. stock and demand have a row for every post, the rest only
+// where something is stored.
+export type Amounts = Partial<Record<GoodId,number>>;
 export interface Eco {
-  stock:Record<string,Record<string,number>>;
-  fwd:Record<string,Record<string,number>>;
-  demand:Record<string,Record<string,number>>;
+  stock:Record<PostId,Amounts>;
+  fwd:Partial<Record<PostId,Amounts>>;
+  demand:Record<PostId,Amounts>;
   orders:Order[];
   nextId:number;
   day:number;
-  bulk?:Record<string,Record<string,number>>;
-  bulkN?:Record<string,Record<string,number>>;
+  bulk?:Partial<Record<PostId,Amounts>>;
+  bulkN?:Partial<Record<PostId,Amounts>>;
 }
 
 // Milestones of the run; refuel:<body>@<site> marks each depot used once
@@ -31,15 +36,15 @@ export interface Flags {
 // The simulation itself: everything a save file needs to reproduce the game exactly.
 export interface DomainState {
   day:number;
-  node:string|null;
+  node:NodeId|null;
   site:string|null;
-  ship:string;
+  ship:ShipId;
   fuel:number;
   used:number;
   credits:number;
   visited:Set<string>;
   flags:Flags;
-  target:string|null;       // the planet the transfer window on the solar system map points at
+  target:PlanetId|null;     // the planet the transfer window on the solar system map points at
   over:boolean;
   eco:Eco;
   autoFill:boolean;
@@ -49,15 +54,15 @@ export interface DomainState {
 // refuse while busy is true, so there is never a transit to persist.
 export interface ActionState {
   busy:boolean;
-  transit:{ a:string; b:string; dep:number; arr:number; th0:number; th1:number }|null;
+  transit:{ a:PlanetId; b:PlanetId; dep:number; arr:number; th0:number; th1:number }|null;
 }
 
 // What the screen is showing: open panel, selection, dialogs, the toast message.
 export interface UIState {
-  view:string; sel:Set<number>; tank:number|null; pick:Pick|null;
-  route:{ target:Target; mode:string; strand?:boolean }|null;
-  auto:{ target:Target; mode:string; start:string|null }|null;
-  mapView:ViewLevel|null; mapKey:string|null; rmsg:boolean; back:string|null;
+  view:View; sel:Set<number>; tank:number|null; pick:Pick|null;
+  route:{ target:Target; mode:RouteMode; strand?:boolean }|null;
+  auto:{ target:Target; mode:RouteMode; start:string|null }|null;
+  mapView:ViewLevel|null; mapKey:string|null; rmsg:boolean; back:View|null;
   msg:string|null;
 }
 
@@ -67,15 +72,18 @@ export type Vec3 = [number,number,number];
 // An orbital plane: inclination i and ascending node Om, both in degrees
 export interface Plane { i:number; Om:number }
 // The ship's orbit around a body; u is its position along the orbit in radians
-export interface Orbit extends Plane { body:string; u:number }
-export interface PathAt { p:Vec3; burn?:'pro'|'retro'|null; glow?:boolean; att?:string }
+export interface Orbit extends Plane { body:BodyId; u:number }
+// Which way the engine fires, if at all; how the rocket is held when it isn't along the path
+export type Burn = 'pro'|'retro'|null;
+export interface Attitude { mode:'up'|'retro'; up:number }
+export interface PathAt { p:Vec3; burn?:Burn; glow?:boolean; att?:'retro' }
 // Path of a manoeuvre in the body frame, t runs from 0 to 1
-export interface BodyPath { b:string; finalOrb:Orbit|null; at:(t:number)=>PathAt; fade?:boolean }
-export interface SysState { p:string; capU:number; lowU:number; moonU:number }
+export interface BodyPath { b:BodyId; finalOrb:Orbit|null; at:(t:number)=>PathAt; fade?:boolean }
+export interface SysState { p:PlanetId; capU:number; lowU:number; moonU:number }
 // Plan of a manoeuvre in the system view (angles only, independent of scale)
 export type SysPlan =
-  | { kind:'toMoon'; m:string; p0:number; aArr:number; final:{moonU:number} }
-  | { kind:'fromMoon'; m:string; m0:number; aDep:number; final:{capU:number} }
+  | { kind:'toMoon'; m:MoonId; p0:number; aArr:number; final:{moonU:number} }
+  | { kind:'fromMoon'; m:MoonId; m0:number; aDep:number; final:{capU:number} }
   | { kind:'raise'; u0:number; final:{capU:number} }
   | { kind:'lower'; u0:number; aero:boolean; th:number; final:{lowU:number} };
 // A manoeuvre: from where to where over which days, plus the pictures it is drawn with
@@ -125,24 +133,25 @@ export const locKey = ():string|null => S.domain.node ? S.domain.node+(S.domain.
 
 export const postAt = ():Post|null => S.domain.node ? POSTS.find(k=>k.node===S.domain.node && (!k.site || k.site===S.domain.site)) || null : null;
 
-export const fuelPrice = ():number|undefined => S.domain.node ? (FUEL_PRICE[locKey()!] ?? FUEL_PRICE[S.domain.node!]) : undefined;
+export const fuelPrice = ():number|undefined => { const n=S.domain.node; return n ? (FUEL_PRICE[locKey()!] ?? FUEL_PRICE[n]) : undefined; };
 
-export const here = ():[string|null,string|null] => S.domain.node ? (S.domain.node.split('.') as [string,string]) : [null,null];
+export const here = () => S.domain.node ? splitNode(S.domain.node) : [null,null] as const;
 
-export const homePlanet = ():string => { const [k]=here(); return (k && M[k]) ? M[k].parent : (k||''); };
+// The planet the ship is at (a moon counts as its planet); null while under way
+export const homePlanet = ():PlanetId|null => { const [k]=here(); return !k ? null : isMoon(k) ? M[k].parent : k; };
 
-export const nodeName = (node:string) => { const [k,l]=node.split('.');
-  if(l==='surf' && S.domain.site){ const st=siteOf(k,S.domain.site); if(st) return `${st.name} (${M[k]?M[k].name:B[k].name})`; }
-  if(M[k]) return l==='surf' ? (M[k].surfName||`the surface of ${M[k].name}`) : (M[k].orbitName||`orbit around ${M[k].name}`);
-  return `${(LVL as Record<string,string>)[l]} of ${B[k].name}`; };
+export const nodeName = (node:NodeId) => { const [k,l]=splitNode(node);
+  if(l==='surf' && S.domain.site){ const st=siteOf(k,S.domain.site); if(st) return `${st.name} (${bodyName(k)})`; }
+  if(isMoon(k)) return l==='surf' ? (M[k].surfName||`the surface of ${M[k].name}`) : (M[k].orbitName||`orbit around ${M[k].name}`);
+  return `${LVL[l]} of ${B[k].name}`; };
 
-export const pickTarget = (p:Pick):Target => p.type==='planet' ? {node:p.planet+'.capt'} : p.type==='body' ? {node:p.body+(B[p.body]&&!SITES[p.body]?'.capt':'.orbit')} : {node:p.node, site:p.site||null};
+export const pickTarget = (p:Pick):Target => p.type==='planet' ? {node:`${p.planet}.capt`} : p.type==='body' ? {node:isPlanet(p.body)&&!SITES[p.body] ? `${p.body}.capt` : `${p.body}.orbit`} : {node:p.node, site:p.site||null};
 
 export const atTarget = (t:Target) => S.domain.node===t.node && (!t.site || S.domain.site===t.site);
 
 export function targetName(t:Target){
-  const [b,l]=t.node.split('.');
+  const [b,l]=splitNode(t.node);
   if(t.site){ const st=siteOf(b,t.site); return `${st?st.name:''} (${bodyName(b)})`; }
-  if(l==='capt') return `High orbit of ${M[b]?M[b].name:B[b].name}`;
-  return M[b] ? (M[b].orbitName||`orbit around ${M[b].name}`) : `Low orbit of ${B[b].name}`;
+  if(l==='capt') return `High orbit of ${bodyName(b)}`;
+  return isMoon(b) ? (M[b].orbitName||`orbit around ${M[b].name}`) : `Low orbit of ${B[b].name}`;
 }

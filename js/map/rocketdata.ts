@@ -5,7 +5,19 @@ export const RKT = {s:0.00495309,v:[-10,-8,-52,13,8,-51,-12,7,-51,16,-8,-51,30,9
 
 export const RKT_HEX=['#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8','#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8','#ffccaa'];
 
-export const RKT_PAL=RKT_HEX.map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
+type V3 = [number,number,number];
+const rgb = (h:string):V3 => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+
+// The same model as triangles that point straight at their corners and colour. Built once;
+// a broken index in the arrays above stops the game here instead of drawing garbage.
+export interface RktFace { v:[V3,V3,V3]; hex:string; rgb:V3 }
+const groups = (a:number[], n:number) => Array.from({length:a.length/n}, (_,i)=>a.slice(i*n, i*n+n));
+const RKT_VERTS = groups(RKT.v,3).map(([x,y,z]):V3 => { if(z===undefined || x===undefined || y===undefined) throw new Error('rocket model: odd vertex list'); return [x,y,z]; });
+export const RKT_FACES: RktFace[] = groups(RKT.f,4).map(([a=-1,b=-1,c=-1,k=-1]) => {
+  const A=RKT_VERTS[a], B=RKT_VERTS[b], C=RKT_VERTS[c], hex=RKT_HEX[k];
+  if(!A || !B || !C || !hex) throw new Error('rocket model: face points past the data');
+  return {v:[A,B,C], hex, rgb:rgb(hex)};
+});
 
 export const RKT_LEN=22, RKT_TILT=0.38; // length in px; nose tilted slightly towards the viewer so the shape reads
 

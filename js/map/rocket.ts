@@ -1,11 +1,13 @@
 import { ANIM, FAST, TAU } from '../basics.js';
-import { RKT, RKT_LEN, RKT_PAL, RKT_TILT, rollOf } from './rocketdata.js';
+import { RKT, RKT_FACES, RKT_LEN, RKT_TILT, rollOf } from './rocketdata.js';
 import { glRocket } from './gl.js';
+import type { Attitude, Burn } from '../game/state.js';
 
 const HEAD: Record<string, {a:number; t:number} | undefined> = {};
 
-export let rocketMode: string = 'gl';
-export function setRocketMode(art: string) { rocketMode=art; }
+export type RocketMode = 'gl'|'flat';
+export let rocketMode: RocketMode = 'gl';
+export function setRocketMode(art: RocketMode) { rocketMode=art; }
 export const LAST_ROCKET: {x:number; y:number; layer: HTMLElement|null} = {x:0, y:0, layer:null};
 
 const angNorm = (a:number) => ((a+Math.PI)%TAU+TAU)%TAU-Math.PI;
@@ -16,15 +18,14 @@ export function drawRocket(
   x: number,
   y: number,
   velAng: number,
-  burn: string | null,
-  soon: string | null,
-  att: {mode:string; up:number} | null,
+  burn: Burn,
+  soon: Burn,
+  att: Attitude | null,
   z?: number | null,
   alpha?: number | null
 ) {
-  const want = (s:string)=> s==='retro' ? velAng+Math.PI : s==='up' ? att!.up : velAng;
-  const mode = burn || soon || (att && att.mode) || 'pro';
-  const target = mode==='up' ? att!.up : want(mode);
+  const mode = burn || soon || att?.mode || 'pro';
+  const target = att && mode==='up' ? att.up : mode==='retro' ? velAng+Math.PI : velAng;
   const now=performance.now(), h=HEAD[key];
   let a=target, turning=0;
   if(h && now-h.t<400){
@@ -64,35 +65,33 @@ export function drawRocket(
 }
 
 export function rocketMesh(g: CanvasRenderingContext2D, x:number, y:number, a:number, key:string){
-  const n=RKT.v.length/3, sc2=RKT.s*RKT_LEN/1.25, roll=rollOf(key);
+  const sc2=RKT.s*RKT_LEN/1.25, roll=rollOf(key);
   const cr=Math.cos(roll), sr=Math.sin(roll),
         ct=Math.cos(RKT_TILT), st=Math.sin(RKT_TILT),
         ca=Math.cos(a-Math.PI/2), sa=Math.sin(a-Math.PI/2);
-  const X=new Float32Array(n), Y=new Float32Array(n), Z=new Float32Array(n);
-  for(let i=0;i<n;i++){
-    let px=RKT.v[3*i]*sc2, py=RKT.v[3*i+1]*sc2, pz=RKT.v[3*i+2]*sc2;
-    let qx=px*cr+pz*sr, qz=-px*sr+pz*cr;
-    let qy=py*ct-qz*st; qz=py*st+qz*ct;
-    X[i]=qx*ca-qy*sa; Y[i]=qx*sa+qy*ca; Z[i]=qz;
-  }
-  const F=RKT.f, m=F.length/4, ord=new Array<number>(m), dep=new Float32Array(m);
-  for(let k=0;k<m;k++){ ord[k]=k; dep[k]=Z[F[4*k]]+Z[F[4*k+1]]+Z[F[4*k+2]]; }
-  ord.sort((p,q)=>dep[p]-dep[q]);
+// roll around the long axis, tilt towards the viewer, turn to the screen angle
+  const proj=(v:[number,number,number]):[number,number,number]=>{
+    const px=v[0]*sc2, py=v[1]*sc2, pz=v[2]*sc2;
+    const qx=px*cr+pz*sr; let qz=-px*sr+pz*cr;
+    const qy=py*ct-qz*st; qz=py*st+qz*ct;
+    return [qx*ca-qy*sa, qx*sa+qy*ca, qz];
+  };
+  const tris=RKT_FACES.map(f=>{ const A=proj(f.v[0]), B=proj(f.v[1]), C=proj(f.v[2]); return {A,B,C,rgb:f.rgb,dep:A[2]+B[2]+C[2]}; });
+  tris.sort((p,q)=>p.dep-q.dep);
   const L:[number,number,number]=[-0.5,0.45,0.74];
   g.save(); g.lineJoin='round'; g.lineWidth=0.35;
-  for(const k of ord){
-    const A=F[4*k],B=F[4*k+1],C=F[4*k+2];
-    const ux=X[B]-X[A], uy=Y[B]-Y[A], uz=Z[B]-Z[A],
-          vx=X[C]-X[A], vy=Y[C]-Y[A], vz=Z[C]-Z[A];
+  for(const {A,B,C,rgb:c} of tris){
+    const ux=B[0]-A[0], uy=B[1]-A[1], uz=B[2]-A[2],
+          vx=C[0]-A[0], vy=C[1]-A[1], vz=C[2]-A[2];
     let nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
     const nl=Math.hypot(nx,ny,nz)||1;
     if(nz<0){nx=-nx;ny=-ny;nz=-nz;}
     const d=Math.max(0,(nx*L[0]+ny*L[1]+nz*L[2])/nl),
-          lum=0.32+0.78*d, c=RKT_PAL[F[4*k+3]];
+          lum=0.32+0.78*d;
     const col=`rgb(${Math.min(255,c[0]*lum)|0},${Math.min(255,c[1]*lum)|0},${Math.min(255,c[2]*lum)|0})`;
     g.fillStyle=col; g.strokeStyle=col;
     g.beginPath();
-    g.moveTo(x+X[A],y-Y[A]); g.lineTo(x+X[B],y-Y[B]); g.lineTo(x+X[C],y-Y[C]);
+    g.moveTo(x+A[0],y-A[1]); g.lineTo(x+B[0],y-B[1]); g.lineTo(x+C[0],y-C[1]);
     g.closePath(); g.fill(); g.stroke();
   }
   g.restore();
