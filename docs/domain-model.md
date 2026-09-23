@@ -53,11 +53,10 @@ The code in `js/game/` was written against an earlier model and departs from thi
 - **Places.** A `Place` is a value of node and landing site, and the autopilot's target is a
   `Target`; here a `Node` is a fixed object and a `LandingSite` is a `Node`. The autopilot's
   `start` is a key string, may be missing and is cleared after the first step.
-- **Starports.** The code has `TradingPost` and `Hub` as game state, built from the `Post` table
-  (name, node, site, makes, needs, hub). The amounts are maps on the post (`produced`, `need`,
-  `bulkStore`, `bulkLot`, and a hub's `store`) instead of `Store` and `Demand` objects at the
-  industry and the hub. `bulkLot` is rolled at random and saved instead of `Good.bulkLot` and a
-  daily test.
+- **Starports** are built for each game from the `Post` table (name, node, site, makes, needs,
+  hub) rather than being fixed objects, and they reach their definition through `def`. Their
+  industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random
+  and saved, instead of `Good.bulkLot` and a daily test.
 - **The Earth** has one post for all four spaceports and one fuel price for the whole surface.
 - **Zones of influence** are the `REGION` table (body to hub id); the shipyard opens at any post
   flagged as a hub.

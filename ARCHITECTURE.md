@@ -202,7 +202,7 @@ S.player                   credits, bankrupt, autoFill, and the ship they own
 S.player.ship              type, fuel, dvUsed, location, hold, autopilot, busy
 S.player.ship.location     Docked (at a Place) or InTransit (between two planets)
 S.player.ship.place        the Place it is docked at; null in transit
-S.market.posts[id]         a TradingPost: produced, need, bulk store, the orders it offers; a Hub also has a store
+S.market.posts[id]         a Starport: its industry (a Store per good it makes, one for bulk orders, a Demand per good it needs) and the orders it offers; a Hub also has stores for transhipment
 ```
 
 An order lies at the post it comes from (`post.offers`) until the ship takes it

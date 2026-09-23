@@ -199,8 +199,8 @@ test('Market over five years: stores stay within bounds, expired orders go back,
   for (let i = 0; i < 60; i++) commands.waitDays(30);
   for (const k of world.POSTS) {
     const p = S.market.post(k.id);
-    for (const g of k.makes) assert.ok(p.produced[g] >= 0 && p.produced[g] <= 12, `${k.id} ${g} ${p.produced[g]}`);
-    for (const g of k.needs) assert.ok(p.needOf(g) >= 0 && p.needOf(g) <= 3, `${k.id} needs ${g}`);
+    for (const g of k.makes) { const n = state.stockOf(p.industry.stores, g); assert.ok(n >= 0 && n <= 12, `${k.id} ${g} ${n}`); }
+    for (const g of k.needs) { const n = p.industry.levelOf(g); assert.ok(n >= 0 && n <= 3, `${k.id} needs ${g}`); }
     for (const o of p.offers) assert.ok(o.expires >= S.day, 'an expired order still on offer');
     for (const g of k.makes) assert.ok(p.offers.filter(o => o.good === g && !o.isBulk && !o.fromHubStore).length <= world.MAX_OPEN);
   }
@@ -214,11 +214,11 @@ test('An order that expires gives its goods back to the post: none are lost, non
   const o = S.market.offers.find(x => !x.isBulk && !x.fromHubStore && world.POST_BY_ID[x.from].makes.includes(x.good));
   const post = S.market.post(o.from), g = o.good;
   o.expires = S.day;                                  // gone with the next market day
-  const before = post.produced[g], made = 1 / world.GOODS[g].rate;
+  const before = state.stockOf(post.industry.stores, g), made = 1 / world.GOODS[g].rate;
   commands.waitDays(1);
   assert.ok(!post.offers.includes(o));
   const newer = post.offers.filter(x => x.good === g && x.created === S.market.simulatedTo && !x.isBulk && !x.fromHubStore);
-  const after = post.produced[g] + newer.reduce((s, x) => s + x.containers, 0);
+  const after = state.stockOf(post.industry.stores, g) + newer.reduce((s, x) => s + x.containers, 0);
   near(after, Math.min(12, before + made) + o.containers, 1e-9);
 });
 
@@ -253,11 +253,11 @@ test('Cancelling costs a fifth of the reward, loses the cargo and raises the nee
   const { state, commands } = await fresh();
   const S = state.S, o = S.postHere.offers.find(x => x.containers <= 2 && !x.toHub);
   commands.acceptOrders([o.id]);
-  const dest = S.market.post(o.to), need = dest.needOf(o.good), cr = S.player.credits;
+  const dest = S.market.post(o.to), need = dest.industry.levelOf(o.good), cr = S.player.credits;
   commands.abortOrder(o);
   assert.equal(S.player.credits, cr - Math.round(o.reward * 0.2));
   assert.equal(S.player.ship.hold.length, 0); assert.ok(!S.orders.includes(o));
-  assert.equal(dest.needOf(o.good), Math.min(3, need + 1));
+  assert.equal(dest.industry.levelOf(o.good), Math.min(3, need + 1));
 });
 
 test('Delivering pays, empties the hold and fills a hub store for transhipments', async () => {
@@ -267,10 +267,10 @@ test('Delivering pays, empties the hold and fills a hub store for transhipments'
   const to = world.POST_BY_ID[o.to];
   S.player.ship.dock(new state.Place(to.node, to.site || (to.node === 'earth.surf' ? 'kourou' : null)));
   assert.deepEqual(commands.deliverables(), [o]);
-  const cr = S.player.credits, hub = o.toHub ? S.market.hub(o.to) : null, stored = hub?.store[o.good] ?? 0;
+  const cr = S.player.credits, hub = o.toHub ? S.market.hub(o.to) : null, stored = hub ? state.stockOf(hub.transship, o.good) : 0;
   commands.deliverAll();
   assert.equal(S.player.credits, cr + o.payout(S.day)); assert.equal(S.player.ship.hold.length, 0);
-  if (hub) assert.equal(hub.store[o.good], stored + o.containers);
+  if (hub) assert.equal(state.stockOf(hub.transship, o.good), stored + o.containers);
 });
 
 test('A hub counts the orders heading to it, open or aboard, against its room', async () => {
@@ -394,7 +394,7 @@ test('A save is refused while in transit', async () => {
 });
 
 test('A save from before the translation and the renaming still loads', async () => {
-  const { save } = await fresh();
+  const { save, state } = await fresh();
   const old = {
     day: 11000, node: 'mars.surf', site: 'nordpol', ship: 'holk', fuel: 50, used: 1234, credits: 99000,
     visited: ['earth.orbit', 'mars@nordpol'], flags: { delivered: 3, marsLanded: true, 'refuel:mars@nordpol': true, junk: true },
@@ -413,8 +413,9 @@ test('A save from before the translation and the renaming still loads', async ()
   assert.equal(back.visited, undefined); assert.equal(back.flags, undefined); assert.equal(back.windowPlanet, undefined);
   assert.deepEqual(g.market.post('earth').offers.map(o => [o.id, o.to, o.containers, o.toHub]), [[7, 'shipyard', 2, true]]);
   assert.deepEqual(g.player.ship.hold.map(o => [o.id, o.from, o.isBulk]), [[8, 'marsnorth', true]]);
-  assert.equal(g.market.hub('shipyard').store.food, 4); assert.equal(g.market.post('earth').produced.food, 3);
-  assert.deepEqual(g.market.post('jezero').produced, {});    // a post the save does not know gets empty rows
+  assert.equal(state.stockOf(g.market.hub('shipyard').transship, 'food'), 4);
+  assert.equal(state.stockOf(g.market.post('earth').industry.stores, 'food'), 3);
+  assert.equal(g.market.post('jezero').industry.stores.size, 0);    // a post the save does not know starts empty
 });
 
 test('A broken save is refused', async () => {

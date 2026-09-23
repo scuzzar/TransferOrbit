@@ -1,18 +1,20 @@
 // The order board: creating orders, ageing them, deadlines, bulk cargo.
 
 import { randInt } from '../basics.js';
-import { BULK, GOODS, GoodId, HUBS, HUB_CAP, POST_BY_ID, POSTS, MAX_OPEN, MAX_ROUTE_DV, REGION, START_DAY, Post, bodyOf, byPost, isGood } from './world.js';
+import { BULK, GOODS, GoodId, HUBS, HUB_CAP, POST_BY_ID, POSTS, MAX_OPEN, MAX_ROUTE_DV, REGION, START_DAY, Post, bodyOf, byPost } from './world.js';
 import { transfer } from './physics.js';
-import { S, Amounts, Hub, Market, Order, TradingPost } from './state.js';
+import { S, Demand, Hub, Industry, Market, Order, PerGood, Starport, Store, stockOf, storeOf } from './state.js';
 import { rewardFor, route, RouteResult } from './graph.js';
 
 export function newMarket(): Market {
   const posts=byPost(k=>{
-    const produced:Amounts={}, need:Amounts={};
-    k.makes.forEach(g=>produced[g]=GOODS[g].lot[1]+Math.random()*2);
-    k.needs.forEach(g=>need[g]=2);
+    const stores:PerGood<Store>=new Map(), demands:PerGood<Demand>=new Map();
+    k.makes.forEach(g=>stores.set(g,new Store(g,GOODS[g].lot[1]+Math.random()*2)));
+    k.needs.forEach(g=>demands.set(g,new Demand(g,2)));
+    const industry=new Industry(k, {stores, demands});
     // Hubs start with something in store so there are short regional orders from day one
-    return k.hub ? new Hub(k, {produced, need}, {water:3, food:3, mach:3, hab:1}) : new TradingPost(k, {produced, need});
+    const start:[GoodId,number][]=[['water',3],['food',3],['mach',3],['hab',1]];
+    return k.hub ? new Hub(k, industry, new Map(start.map(([g,n])=>[g,new Store(g,n)]))) : new Starport(k, industry);
   });
   return new Market(posts, 1, START_DAY-30);
 }
@@ -33,10 +35,11 @@ function pickWeighted<T>(list:[T,...T[]], w:(x:T)=>number):T{
   let pick=list[0]; for(const x of list){ pick=x; r-=w(x); if(r<=0) break; } return pick;
 }
 const nonEmpty = <T,>(a:T[]):a is [T,...T[]] => a.length>0;
-const need = (k:Post, g:GoodId) => post(k).needOf(g);
+const need = (k:Post, g:GoodId) => post(k).industry.levelOf(g);
+const setNeed = (k:Post, g:GoodId, level:number) => { post(k).industry.demand(g).level=level; };
 
 function makeOrder(k:Post, g:GoodId, fromHubStore:boolean, day:number){
-  const market=S.market, G=GOODS[g], store=fromHubStore?market.hub(k.id)?.store:post(k).produced, have=store?.[g]||0;
+  const market=S.market, G=GOODS[g], store=fromHubStore?market.hub(k.id)?.transship:post(k).industry.stores, have=store?stockOf(store,g):0;
   if(!store || have<G.lot[0] || openCount(k,g)>=MAX_OPEN) return;
   const cand = POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && need(c,g)>0 &&
     (fromHubStore ? REGION[bodyOf(c)]===k.hub : bodyOf(c)!==bodyOf(k)) && route(k,c).dv<=MAX_ROUTE_DV);
@@ -51,9 +54,9 @@ function makeOrder(k:Post, g:GoodId, fromHubStore:boolean, day:number){
     }
   }
   const r=route(k,to); if(!isFinite(r.dv)) return;
-  if(!toHub) post(to).need[g]=need(to,g)-1;
+  if(!toHub) setNeed(to,g,need(to,g)-1);
   const wait=legWait(r,day);
-  store[g]=have-n;
+  storeOf(store,g).stock=have-n;
   post(k).offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:rewardFor(r,g,n),
     dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+30, created:day, expires:day+90, fromHubStore, toHub}));
 }
@@ -64,25 +67,25 @@ export function legWait(r:RouteResult, day:number){ const leg=r.legs[0]; if(!leg
 // Deadline if the order is accepted on day 'day'
 export function freshDeadline(o:Order, day:number){ const r=route(POST_BY_ID[o.from],POST_BY_ID[o.to]); return day+legWait(r,day)+1.5*o.days+30; }
 
-// Add n to one amount
-const addTo = (a:Amounts, g:GoodId, n:number) => { a[g]=(a[g]||0)+n; };
+// Add n to one store
+const addTo = (m:PerGood<Store>, g:GoodId, n:number) => { storeOf(m,g).stock+=n; };
 
 function marketTick(day:number){
   const market=S.market;
-  POSTS.forEach(k=>k.makes.forEach(g=>{ const p=post(k).produced; p[g]=Math.min(12,(p[g]||0)+1/GOODS[g].rate); }));
-  if(Math.round(day-START_DAY)%60===0) POSTS.forEach(k=>k.needs.forEach(g=>{ post(k).need[g]=Math.min(3,need(k,g)+1); }));
+  POSTS.forEach(k=>k.makes.forEach(g=>{ const s=storeOf(post(k).industry.stores,g); s.stock=Math.min(12,s.stock+1/GOODS[g].rate); }));
+  if(Math.round(day-START_DAY)%60===0) POSTS.forEach(k=>k.needs.forEach(g=>setNeed(k,g,Math.min(3,need(k,g)+1))));
   // orders that expired without being accepted are dropped, and their goods go back where they came from
   POSTS.forEach(k=>{ const p=post(k);
     p.offers.filter(o=>day>o.expires).forEach(o=>{
       p.withdraw(o);
       const hub=market.hub(k.id);
-      addTo(o.isBulk ? p.bulkStore : o.fromHubStore && hub ? hub.store : p.produced, o.good, o.containers);
-      if(!o.toHub) post(POST_BY_ID[o.to]).need[o.good]=Math.min(3,need(POST_BY_ID[o.to],o.good)+1);
+      addTo(o.isBulk ? p.industry.bulk : o.fromHubStore && hub ? hub.transship : p.industry.stores, o.good, o.containers);
+      if(!o.toHub) setNeed(POST_BY_ID[o.to],o.good,Math.min(3,need(POST_BY_ID[o.to],o.good)+1));
     });
   });
   POSTS.forEach(k=>{
     k.makes.forEach(g=>makeOrder(k,g,false,day));
-    const hub=market.hub(k.id); if(hub) Object.keys(hub.store).filter(isGood).forEach(g=>makeOrder(k,g,true,day));
+    const hub=market.hub(k.id); if(hub) [...hub.transship.keys()].forEach(g=>makeOrder(k,g,true,day));
   });
   bulkTick(day);
 }
@@ -92,9 +95,9 @@ function marketTick(day:number){
 function bulkTick(day:number){
   const market=S.market;
   POSTS.forEach(k=>k.makes.forEach(g=>{
-    const p=post(k), B_=p.bulkStore, N=p.bulkLot;
-    const n=N[g]??=randInt(BULK.min,BULK.max);
-    const have=B_[g]=(B_[g]||0)+1/(GOODS[g].rate*BULK.slow);
+    const p=post(k), bs=storeOf(p.industry.bulk,g), N=p.industry.bulkLot;
+    let n=N.get(g); if(n===undefined){ n=randInt(BULK.min,BULK.max); N.set(g,n); }
+    const have=bs.stock+=1/(GOODS[g].rate*BULK.slow);
     if(have<n || p.offers.some(o=>o.isBulk && o.good===g)) return;
     const cand=POSTS.filter(c=>c.id!==k.id && c.needs.includes(g) && need(c,g)>0 && bodyOf(c)!==bodyOf(k) && route(k,c).dv<=MAX_ROUTE_DV);
     const hubs=Object.values(HUBS).filter((h)=>h.id!==k.id && bodyOf(h)!==bodyOf(k) && hubRoom(h)>=n && route(k,h).dv<=MAX_ROUTE_DV);
@@ -103,8 +106,8 @@ function bulkTick(day:number){
     else if(nonEmpty(hubs)){ to=pickWeighted(hubs,()=>1); toHub=true; }
     else return;
     const r=route(k,to); if(!isFinite(r.dv)) return;
-    if(!toHub) post(to).need[g]=need(to,g)-1;
-    B_[g]=have-n; N[g]=randInt(BULK.min,BULK.max);
+    if(!toHub) setNeed(to,g,need(to,g)-1);
+    bs.stock=have-n; N.set(g,randInt(BULK.min,BULK.max));
     const wait=legWait(r,day);
     p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor(r,g,n)*BULK.premium/10)*10,
       dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+60, created:day, expires:day+BULK.life, fromHubStore:false, toHub, isBulk:true}));

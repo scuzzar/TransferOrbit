@@ -1,8 +1,8 @@
 // Reading a save back: old ids and field names are mapped first, then the JSON is checked
 // and rebuilt, object by object, into a Game. Writing is Game.toSave() in game/state.ts.
 
-import { PostId, byPost, isGood, isNode, isPost, isShip } from './world.js';
-import { Amounts, Docked, Game, Hub, Market, Order, Place, Player, Ship, TradingPost } from './state.js';
+import { GoodId, PostId, byPost, isGood, isNode, isPost, isShip } from './world.js';
+import { Amounts, Docked, Game, Hub, Industry, Market, Order, Place, Player, Ship, Starport, demandsFrom, storesFrom } from './state.js';
 
 // Saves written before the code was translated carry the old German ids, and saves
 // written before the state got readable names carry the old field names. One lookup
@@ -75,8 +75,9 @@ function parseMarket(e:unknown):{market:Market; aboard:Order[]}|null{
   const bulkStore=e.bulkStore===undefined ? {} : parseTable(e.bulkStore), bulkLot=e.bulkLot===undefined ? {} : parseTable(e.bulkLot);
   if(!produced || !hubStore || !need || !bulkStore || !bulkLot) return null;
   const posts=byPost(k=>{
-    const rows={produced:produced[k.id]??{}, need:need[k.id]??{}, bulkStore:bulkStore[k.id]??{}, bulkLot:bulkLot[k.id]??{}};
-    return k.hub ? new Hub(k, rows, hubStore[k.id]??{}) : new TradingPost(k, rows);
+    const lot=new Map<GoodId,number>(); for(const [g,n] of Object.entries(bulkLot[k.id]??{})) if(isGood(g) && n!==undefined) lot.set(g,n);
+    const industry=new Industry(k, {stores:storesFrom(produced[k.id]??{}), demands:demandsFrom(need[k.id]??{}), bulk:storesFrom(bulkStore[k.id]??{}), bulkLot:lot});
+    return k.hub ? new Hub(k, industry, storesFrom(hubStore[k.id]??{})) : new Starport(k, industry);
   });
   const market=new Market(posts, e.nextId, e.simulatedTo), aboard:Order[]=[];
   for(const o of orders){ if(!o) return null; if(o.aboard) aboard.push(o.order); else market.post(o.order.from).offer(o.order); }

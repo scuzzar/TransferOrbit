@@ -2,11 +2,11 @@
 // that relate the way the things in the game do. Never writes anything by itself; the
 // commands decide when a method runs. docs/domain-model.md draws the whole picture.
 
-import { B, BodyId, FUEL_PRICE, G0, GOODS, GoodId, LVL, Level, M, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, ShipId, bodyName, byPost, isMoon, siteOf, splitNode } from './world.js';
+import { B, BodyId, FUEL_PRICE, G0, GOODS, GoodId, LVL, Level, M, NodeId, POSTS, PlanetId, Post, PostId, SHIPS, ShipId, bodyName, byPost, isGood, isMoon, siteOf, splitNode } from './world.js';
 
 export type Target = { node:NodeId; site?:string|null };
 export type RouteMode = 'eco'|'now';
-// Amounts per good: what a post has made, how badly it needs something, what a hub stores
+// Amounts per good, as a save writes the stores and demands
 export type Amounts = Partial<Record<GoodId,number>>;
 
 export const locOf = (node:NodeId, site:string|null) => node+(site?'@'+site:'');
@@ -98,38 +98,73 @@ export class Order {
 function insertById(list:Order[], o:Order){ const i=list.findIndex(x=>x.id>o.id); if(i<0) list.push(o); else list.splice(i,0,o); }
 function removeFrom(list:Order[], o:Order){ const i=list.indexOf(o); if(i>=0) list.splice(i,1); return i>=0; }
 
-export interface PostRows { produced:Amounts; need:Amounts; bulkStore?:Amounts; bulkLot?:Amounts }
+// Containers of one good lying in store
+export class Store {
+  readonly good:GoodId;
+  stock:number;
+  constructor(good:GoodId, stock=0){ this.good=good; this.stock=stock; }
+}
 
-// A trading post as the game runs it: the fixed definition from world.ts plus what it has
-// made, what it needs and the orders it offers.
-export class TradingPost {
-  readonly def:Post;
-  produced:Amounts;             // made and not yet handed out as an order
-  need:Amounts;                 // how badly the post wants a good, 0 to 3: where orders go
-  bulkStore:Amounts;            // fills slowly beside produced; a full lot becomes a bulk order
-  bulkLot:Amounts;              // the lot size the next bulk order waits for, 7 to 18
-  readonly offers:Order[]=[];
-  constructor(def:Post, rows:PostRows){
-    this.def=def; this.produced=rows.produced; this.need=rows.need; this.bulkStore=rows.bulkStore??{}; this.bulkLot=rows.bulkLot??{};
+// How keen a starport is to get a good, 0 to 3: the keener, the likelier orders go there
+export class Demand {
+  readonly good:GoodId;
+  level:number;
+  constructor(good:GoodId, level=0){ this.good=good; this.level=level; }
+}
+
+// Stores or demands, one per good, in the order they came about
+export type PerGood<T> = Map<GoodId,T>;
+// The store of a good, made empty the first time it is needed
+export function storeOf(m:PerGood<Store>, g:GoodId):Store { let s=m.get(g); if(!s){ s=new Store(g); m.set(g,s); } return s; }
+export const stockOf = (m:PerGood<Store>, g:GoodId) => m.get(g)?.stock ?? 0;
+export const totalStock = (m:PerGood<Store>) => [...m.values()].reduce((a,s)=>a+s.stock,0);
+// Amounts as a save writes them, and back
+export const toAmounts = <T extends {good:GoodId}>(m:PerGood<T>, f:(x:T)=>number):Amounts => Object.fromEntries([...m.values()].map(x=>[x.good,f(x)]));
+export function storesFrom(a:Amounts):PerGood<Store> { const m:PerGood<Store>=new Map(); for(const [g,n] of Object.entries(a)) if(isGood(g) && n!==undefined) m.set(g,new Store(g,n)); return m; }
+export function demandsFrom(a:Amounts):PerGood<Demand> { const m:PerGood<Demand>=new Map(); for(const [g,n] of Object.entries(a)) if(isGood(g) && n!==undefined) m.set(g,new Demand(g,n)); return m; }
+
+// What a starport makes and needs: a store per good it makes for ordinary orders and one for
+// bulk orders, and a demand per good it needs
+export class Industry {
+  readonly makes:readonly GoodId[];
+  readonly needs:readonly GoodId[];
+  readonly stores:PerGood<Store>;
+  readonly bulk:PerGood<Store>;
+  readonly demands:PerGood<Demand>;
+  readonly bulkLot:Map<GoodId,number>;   // the lot size the next bulk order waits for, 7 to 18
+  constructor(def:{makes:readonly GoodId[]; needs:readonly GoodId[]}, rows:{stores:PerGood<Store>; bulk?:PerGood<Store>; demands:PerGood<Demand>; bulkLot?:Map<GoodId,number>}){
+    this.makes=def.makes; this.needs=def.needs;
+    this.stores=rows.stores; this.bulk=rows.bulk??new Map(); this.demands=rows.demands; this.bulkLot=rows.bulkLot??new Map();
   }
+  levelOf(g:GoodId){ return this.demands.get(g)?.level ?? 0; }
+  // the demand for a good, made at level 0 the first time it is needed
+  demand(g:GoodId):Demand { let d=this.demands.get(g); if(!d){ d=new Demand(g); this.demands.set(g,d); } return d; }
+}
+
+// A starport as the game runs it: the fixed definition from world.ts, its industry and the
+// orders it offers
+export class Starport {
+  readonly def:Post;
+  readonly industry:Industry;
+  readonly offers:Order[]=[];
+  constructor(def:Post, industry:Industry){ this.def=def; this.industry=industry; }
   get id():PostId { return this.def.id; }
-  needOf(g:GoodId){ return this.need[g]??0; }
   offer(o:Order){ insertById(this.offers,o); }
   withdraw(o:Order){ return removeFrom(this.offers,o); }
 }
 
-// A hub also stores goods delivered to it, and passes them on as short regional orders
-export class Hub extends TradingPost {
-  store:Amounts;
-  constructor(def:Post, rows:PostRows, store:Amounts){ super(def,rows); this.store=store; }
-  get stored(){ return Object.values(this.store).reduce((a,b)=>a+b,0); }
+// A hub also takes goods for transhipment and passes them on as short orders in its zone
+export class Hub extends Starport {
+  readonly transship:PerGood<Store>;
+  constructor(def:Post, industry:Industry, transship:PerGood<Store>){ super(def,industry); this.transship=transship; }
+  get stored(){ return totalStock(this.transship); }
 }
 
 export class Market {
-  readonly posts:Record<PostId,TradingPost>;
+  readonly posts:Record<PostId,Starport>;
   nextId:number;
   simulatedTo:number;           // the last day the market has been run up to
-  constructor(posts:Record<PostId,TradingPost>, nextId:number, simulatedTo:number){ this.posts=posts; this.nextId=nextId; this.simulatedTo=simulatedTo; }
+  constructor(posts:Record<PostId,Starport>, nextId:number, simulatedTo:number){ this.posts=posts; this.nextId=nextId; this.simulatedTo=simulatedTo; }
   post(id:PostId){ return this.posts[id]; }
   hub(id:PostId):Hub|null { const p=this.posts[id]; return p instanceof Hub ? p : null; }
   // every open order, in id order
@@ -209,7 +244,7 @@ export class Game {
   // nothing under way and not bankrupt: the player may give an order
   get canAct(){ return !this.player.ship.busy && !this.player.bankrupt; }
   // the trading post the ship is docked at
-  get postHere():TradingPost|null { const k=this.player.ship.place?.post; return k ? this.market.post(k.id) : null; }
+  get postHere():Starport|null { const k=this.player.ship.place?.post; return k ? this.market.post(k.id) : null; }
   // every order in the game, open or aboard, in id order
   get orders():Order[] { return [...this.market.offers, ...this.player.ship.hold].sort((a,b)=>a.id-b.id); }
 
@@ -217,13 +252,15 @@ export class Game {
     const ship=this.player.ship, p=ship.place; if(!p) throw new Error('Saving while in transit');
     const m=this.market;
     // a table of the posts that have something in it; an empty row is left out, as it always was
-    const rows=(f:(t:TradingPost)=>Amounts|null)=>{ const r:Partial<Record<PostId,Amounts>>={};
+    const rows=(f:(t:Starport)=>Amounts|null)=>{ const r:Partial<Record<PostId,Amounts>>={};
       POSTS.forEach(k=>{ const a=f(m.posts[k.id]); if(a && Object.keys(a).length) r[k.id]=a; }); return r; };
-    const bulkStore=rows(t=>t.bulkStore), bulkLot=rows(t=>t.bulkLot);
+    const stock=(x:Store)=>x.stock, bulkStore=rows(t=>toAmounts(t.industry.bulk,stock)),
+      bulkLot=rows(t=>Object.fromEntries(t.industry.bulkLot));
     const orders=[...m.offers.map(o=>saveOrder(o,'open')), ...ship.hold.map(o=>saveOrder(o,'aboard'))].sort((a,b)=>a.id-b.id);
     return {day:this.day, node:p.node, site:p.site, ship:ship.type, fuel:ship.fuel, dvUsed:ship.dvUsed, credits:this.player.credits,
       bankrupt:this.player.bankrupt, autoFill:this.player.autoFill,
-      market:{produced:byPost(k=>m.posts[k.id].produced), need:byPost(k=>m.posts[k.id].need), hubStore:rows(t=>t instanceof Hub ? t.store : null), orders,
+      market:{produced:byPost(k=>toAmounts(m.posts[k.id].industry.stores,stock)), need:byPost(k=>toAmounts(m.posts[k.id].industry.demands,d=>d.level)),
+        hubStore:rows(t=>t instanceof Hub ? toAmounts(t.transship,stock) : null), orders,
         nextId:m.nextId, simulatedTo:m.simulatedTo,
         // a market that has never been run has no bulk tables yet
         ...(Object.keys(bulkStore).length?{bulkStore}:{}), ...(Object.keys(bulkLot).length?{bulkLot}:{})}};

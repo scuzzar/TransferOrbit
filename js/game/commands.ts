@@ -8,7 +8,7 @@ import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
 import { B, BANKRUPT, DEPOTS, GOODS, HubId, NodeId, POST_BY_ID, POSTS, PlanetId, REGION, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipDef, ShipId, START_DAY, fmtCr, isMoon, planetOfBody, siteOf, splitNode } from './world.js';
 import { theta, transfer } from './physics.js';
-import { S, Autopilot, Docked, Game, InTransit, Order, Place, Player, RouteMode, Ship, Target, setState, targetName } from './state.js';
+import { S, Autopilot, Docked, Game, InTransit, Order, Place, Player, RouteMode, Ship, Target, setState, storeOf, targetName } from './state.js';
 import { route } from './graph.js';
 import { freshDeadline, marketAdvance, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
@@ -121,7 +121,7 @@ export function deliverOrder(o:Order, silent?:boolean){
   if(!S.canAct || !S.player.ship.hold.includes(o)) return;
   const pay=o.payout(S.day); S.player.pay(pay); S.player.ship.unload(o);
   const hub=o.toHub ? S.market.hub(o.to) : null;
-  if(hub) hub.store[o.good]=(hub.store[o.good]||0)+o.containers;
+  if(hub) storeOf(hub.transship,o.good).stock+=o.containers;
   if(silent) return;
   report(`Delivered: ${o.containers} × ${GOODS[o.good].name}. ${fmtCr(pay)} credited${pay<o.reward?' (late)':''}.`); changed();
 }
@@ -137,7 +137,7 @@ export function abortOrder(o:Order){
   const pen=Math.round(o.reward*0.2);
   if(!S.canAct || !S.player.canAfford(pen) || !S.player.ship.hold.includes(o)) return;
   S.player.charge(pen); S.player.ship.unload(o);
-  if(!o.toHub){ const d=S.market.post(o.to).need; d[o.good]=Math.min(3,(d[o.good]??0)+1); }
+  if(!o.toHub){ const d=S.market.post(o.to).industry.demand(o.good); d.level=Math.min(3,d.level+1); }
   report(`Order cancelled. Penalty ${fmtCr(pen)}, the cargo is lost.`); changed();
 }
 

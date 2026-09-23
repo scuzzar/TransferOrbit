@@ -69,7 +69,7 @@ function panelPost(p:HTMLElement){
   if(k.needs.length){
     const h2=document.createElement('h3'); h2.textContent='Wanted here'; p.appendChild(h2);
     const g=document.createElement('div'); g.className='needgrid';
-    g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(post.needOf(x))}</div>`).join('');
+    g.innerHTML=k.needs.map(x=>`<div class="card">${gchip(x)} ${GOODS[x].name}${dots(post.industry.levelOf(x))}</div>`).join('');
     p.appendChild(g);
     const n=document.createElement('p'); n.className='hint';
     n.textContent=k.hub?`The dots show demand. As a hub, ${k.name} also takes any goods for transhipment; ${HUB_CAP-hubRoom(k)} of ${HUB_CAP} slots are taken.`:'The dots show demand. Orders coming here are created at other posts.';
