@@ -58,9 +58,20 @@ test('Place finds the trading post there, by site where the body has several', a
   const { state: { Place } } = await ready;
   assert.equal(new Place('moon.surf', 'shackleton').post?.id, 'shackleton');
   assert.equal(new Place('moon.surf', 'tranquillitatis').post?.id, 'tranq');
-  assert.equal(new Place('earth.surf', 'kourou').post?.id, 'earth');      // Earth's post has no site: any spaceport
+  assert.equal(new Place('earth.surf', 'kourou').post?.id, 'kourou');     // every Earth spaceport is a starport of its own
+  assert.equal(new Place('earth.surf', 'plesetsk').post?.id, 'plesetsk');
   assert.equal(new Place('earth.orbit').post?.id, 'shipyard');
   assert.equal(new Place('venus.surf', 'ishtar').post, null);
+});
+
+test('The Earth has four starports, one per spaceport, that together make and need what the Earth did', async () => {
+  const { world } = await ready;
+  const earth = world.POSTS.filter(k => k.node === 'earth.surf');
+  assert.deepEqual(earth.map(k => k.site), ['kourou', 'canaveral', 'baikonur', 'plesetsk']);
+  assert.deepEqual(earth.flatMap(k => k.makes).sort(), ['elec', 'food', 'hab', 'mach']);
+  assert.deepEqual([...new Set(earth.flatMap(k => k.needs))].sort(), ['he3', 'rare']);
+  for (const k of earth) { assert.equal(world.postLabel(k), `${k.name}, Earth`); assert.equal(world.fuelHere(k.node, k.site), true); }
+  assert.equal(world.fuelHere('earth.surf', null), false);    // no fuel price for the surface as a whole any more
 });
 
 test('Place prices fuel by site first, then by node', async () => {
@@ -121,7 +132,7 @@ test('Ship: refuelling stops at a full tank, a smaller ship keeps only what fits
 test('Ship: the hold keeps orders in id order and knows their mass and slots', async () => {
   const { state: { Ship, Docked, Place, Order } } = await ready;
   const s = new Ship('cog', 80, new Docked(new Place('earth.orbit')));
-  const o = (id, good, containers) => new Order({ id, good, containers, from: 'earth', to: 'shipyard', reward: 1000, dv: 1, days: 1,
+  const o = (id, good, containers) => new Order({ id, good, containers, from: 'kourou', to: 'shipyard', reward: 1000, dv: 1, days: 1,
     deadline: 100, created: 0, expires: 90, fromHubStore: false, toHub: false });
   const a = o(5, 'water', 2), b = o(2, 'hab', 1), c = o(9, 'elec', 1);
   s.load(a); s.load(c); s.load(b);
@@ -144,7 +155,7 @@ test('Ship: docked it has a place, in transit it has none', async () => {
 
 test('Order pays in full up to the deadline, then 2% less a day, never below a quarter', async () => {
   const { state: { Order } } = await ready;
-  const o = new Order({ id: 1, good: 'food', containers: 2, from: 'earth', to: 'jezero', reward: 10000, dv: 1, days: 1,
+  const o = new Order({ id: 1, good: 'food', containers: 2, from: 'kourou', to: 'jezero', reward: 10000, dv: 1, days: 1,
     deadline: 100, created: 0, expires: 90, fromHubStore: false, toHub: false });
   assert.equal(o.payout(100), 10000);
   assert.equal(o.payout(110), 8000);
@@ -189,7 +200,7 @@ test('Market: only hubs are hubs, and they start with goods in store', async () 
   const { state } = await fresh();
   const m = state.S.market;
   for (const id of ['shipyard', 'pavonis', 'valhalla']) assert.ok(m.hub(id) instanceof state.Hub, id);
-  assert.equal(m.hub('earth'), null);
+  assert.equal(m.hub('kourou'), null);
   assert.ok(m.hub('shipyard').stored >= 0);
 });
 
@@ -265,7 +276,7 @@ test('Delivering pays, empties the hold and fills a hub store for transhipments'
   const S = state.S, o = S.postHere.offers.find(x => x.containers <= 3);
   commands.acceptOrders([o.id]);
   const to = world.POST_BY_ID[o.to];
-  S.player.ship.dock(new state.Place(to.node, to.site || (to.node === 'earth.surf' ? 'kourou' : null)));
+  S.player.ship.dock(new state.Place(to.node, to.site));
   assert.deepEqual(commands.deliverables(), [o]);
   const cr = S.player.credits, hub = o.toHub ? S.market.hub(o.to) : null, stored = hub ? state.stockOf(hub.transship, o.good) : 0;
   commands.deliverAll();
@@ -400,7 +411,7 @@ test('A save from before the translation and the renaming still loads', async ()
     visited: ['earth.orbit', 'mars@nordpol'], flags: { delivered: 3, marsLanded: true, 'refuel:mars@nordpol': true, junk: true },
     target: 'jupiter', over: false, autoFill: true,
     eco: {
-      stock: { erde: { food: 3 } }, demand: { werft: { water: 2 } }, fwd: { werft: { food: 4 } }, orders: [
+      stock: { erde: { food: 3, mach: 2 } }, demand: { werft: { water: 2 } }, fwd: { werft: { food: 4 } }, orders: [
         { id: 7, good: 'food', n: 2, from: 'erde', to: 'werft', reward: 5000, dv: 100, days: 3, deadline: 11050, created: 10990, expires: 11080, state: 'open', fwdOrder: false, transship: true },
         { id: 8, good: 'water', n: 3, from: 'marsnord', to: 'jezero', reward: 7000, dv: 200, days: 4, deadline: 11060, created: 10995, expires: 11085, state: 'aboard', fwdOrder: false, bulk: true },
       ], nextId: 9, day: 11000 },
@@ -411,10 +422,10 @@ test('A save from before the translation and the renaming still loads', async ()
   assert.ok(g.player.autoFill);
   const back = g.toSave();                                      // what the game no longer keeps is dropped
   assert.equal(back.visited, undefined); assert.equal(back.flags, undefined); assert.equal(back.windowPlanet, undefined);
-  assert.deepEqual(g.market.post('earth').offers.map(o => [o.id, o.to, o.containers, o.toHub]), [[7, 'shipyard', 2, true]]);
+  assert.deepEqual(g.market.post('kourou').offers.map(o => [o.id, o.to, o.containers, o.toHub]), [[7, 'shipyard', 2, true]]);   // the Earth's post became Kourou
   assert.deepEqual(g.player.ship.hold.map(o => [o.id, o.from, o.isBulk]), [[8, 'marsnorth', true]]);
   assert.equal(state.stockOf(g.market.hub('shipyard').transship, 'food'), 4);
-  assert.equal(state.stockOf(g.market.post('earth').industry.stores, 'food'), 3);
+  assert.deepEqual([...g.market.post('kourou').industry.stores.values()].map(x => [x.good, x.stock]), [['mach', 2]]);   // Kourou makes machinery; the Earth's food is dropped
   assert.equal(g.market.post('jezero').industry.stores.size, 0);    // a post the save does not know starts empty
 });
 
@@ -428,6 +439,6 @@ test('A broken save is refused', async () => {
   assert.equal(bad(s => { s.fuel = 'lots'; }), null);
   assert.equal(bad(s => { s.market.orders[0].state = 'lost'; }), null);
   assert.equal(bad(s => { s.market.orders[0].from = 'atlantis'; }), null);
-  assert.equal(bad(s => { s.market.produced.earth.food = 'x'; }), null);
+  assert.equal(bad(s => { s.market.produced.kourou.mach = 'x'; }), null);
   assert.equal(save.parseSave(null), null); assert.equal(save.parseSave([]), null);
 });

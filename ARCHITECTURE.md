@@ -301,7 +301,10 @@ result: it maps the German ids that saves from before the translation carry —
 ship ids (`kogge` → `cog`, `holk` → `hulk`, `hulk` → `galleon`,
 `karacke` → `carrack`), site ids (`nordpol` → `northpole`,
 `tigerstreifen` → `tigerstripes`) and trading post ids (`erde` → `earth`,
-`werft` → `shipyard`, …) in the orders and in the three market tables. It also moves
+`werft` → `shipyard`, …) in the orders and in the market tables. The Earth's one
+trading post (`erde`, later `earth`) became four starports, one per spaceport; its
+orders and stores go to Kourou, and a store for a good Kourou does not make is dropped.
+It also moves
 the field names that saves from before the renaming carry to the current ones
 (`OLD_FIELDS`: `eco` → `market`, `stock` → `produced`, `demand` → `need`,
 `fwd` → `hubStore`, `n` → `containers`, `transship` → `toHub`, …). Everything

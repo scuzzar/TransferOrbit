@@ -11,7 +11,8 @@ import { Amounts, Docked, Game, Hub, Industry, Market, Order, Place, Player, Shi
 const OLD_IDS: Record<'ship'|'site'|'post', Record<string,string>> = {
   ship: {kogge:'cog', holk:'hulk', hulk:'galleon', karacke:'carrack'},
   site: {nordpol:'northpole', tigerstreifen:'tigerstripes', aeqator:'equator'},
-  post: {erde:'earth', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
+  // the Earth's one post became four starports: its orders and stores go to Kourou
+  post: {erde:'kourou', earth:'kourou', werft:'shipyard', marsnord:'marsnorth', ceresnord:'ceresnorth'},
 };
 const OLD_FIELDS: Record<'domain'|'market'|'order', Record<string,string>> = {
   domain: {used:'dvUsed', over:'bankrupt', eco:'market'},
@@ -39,7 +40,7 @@ function migrate(o:Raw){
   if(isStr(o.site)) o.site = site(o.site);
   const market = o.market; if(!isObj(market)) return o;
   if(Array.isArray(market.orders)) market.orders.forEach(x=>{ if(isObj(x) && isStr(x.from) && isStr(x.to)){ x.from = post(x.from); x.to = post(x.to); } });
-  for(const field of ['produced','need','hubStore']){ const m=market[field]; if(isObj(m))
+  for(const field of ['produced','need','hubStore','bulkStore','bulkLot']){ const m=market[field]; if(isObj(m))
     market[field] = Object.fromEntries(Object.entries(m).map(([k,v])=>[post(k),v])); }
   return o;
 }
@@ -67,16 +68,20 @@ function parseTable(x:unknown):Partial<Record<PostId,Amounts>>|null{
   return t;
 }
 
+// Only the goods an industry deals in
+const only = (a:Amounts|undefined, goods:readonly GoodId[]):Amounts => Object.fromEntries(Object.entries(a??{}).filter(([g])=>isGood(g) && goods.includes(g)));
+
 // The market with its posts and their open orders, and the orders aboard. Posts added since
-// the save get empty rows.
+// the save start empty; a row for a good the industry does not deal in is dropped.
 function parseMarket(e:unknown):{market:Market; aboard:Order[]}|null{
   if(!isObj(e) || !isNum(e.nextId) || !isNum(e.simulatedTo) || !Array.isArray(e.orders)) return null;
   const orders=e.orders.map(parseOrder), produced=parseTable(e.produced), hubStore=parseTable(e.hubStore), need=parseTable(e.need);
   const bulkStore=e.bulkStore===undefined ? {} : parseTable(e.bulkStore), bulkLot=e.bulkLot===undefined ? {} : parseTable(e.bulkLot);
   if(!produced || !hubStore || !need || !bulkStore || !bulkLot) return null;
   const posts=byPost(k=>{
-    const lot=new Map<GoodId,number>(); for(const [g,n] of Object.entries(bulkLot[k.id]??{})) if(isGood(g) && n!==undefined) lot.set(g,n);
-    const industry=new Industry(k, {stores:storesFrom(produced[k.id]??{}), demands:demandsFrom(need[k.id]??{}), bulk:storesFrom(bulkStore[k.id]??{}), bulkLot:lot});
+    const lot=new Map<GoodId,number>(); for(const [g,n] of Object.entries(only(bulkLot[k.id],k.makes))) if(isGood(g) && n!==undefined) lot.set(g,n);
+    const industry=new Industry(k, {stores:storesFrom(only(produced[k.id],k.makes)), demands:demandsFrom(only(need[k.id],k.needs)),
+      bulk:storesFrom(only(bulkStore[k.id],k.makes)), bulkLot:lot});
     return k.hub ? new Hub(k, industry, storesFrom(hubStore[k.id]??{})) : new Starport(k, industry);
   });
   const market=new Market(posts, e.nextId, e.simulatedTo), aboard:Order[]=[];

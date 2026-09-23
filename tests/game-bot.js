@@ -77,7 +77,7 @@ const AI = String.raw`
       const m0=TO.S.player.ship.def.dry+TO.S.player.ship.cargoMass+TO.S.player.ship.fuel, fAfter=Math.max(0,m0/Math.exp(pl.dv/(TO.S.player.ship.def.isp*TO.G0))-TO.S.player.ship.def.dry-TO.S.player.ship.cargoMass);
       const fuelThere=TO.fuelHere(t.node,t.site||null)?TO.S.player.ship.def.cap:fAfter;
       if(!TO.fuelHere(t.node,t.site||null) && shipAt(fAfter,0)<reserveAt(t,pl.arrive)+100) continue;
-      const b=bestLoad(kk,{node:t.node,site:t.site||(t.node==='earth.surf'?'kourou':null),day:pl.arrive},fuelThere); if(!b) continue;
+      const b=bestLoad(kk,{node:t.node,site:t.site||null,day:pl.arrive},fuelThere); if(!b) continue;
       const score=(b.val-(TO.S.player.ship.fuel-fAfter)*priceHere())/(pl.days+b.pl.days+3);
       if(!alt||score>alt.score) alt={kk,t,pl,b,score};
     }

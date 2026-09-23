@@ -57,7 +57,6 @@ The code in `js/game/` was written against an earlier model and departs from thi
   hub) rather than being fixed objects, and they reach their definition through `def`. Their
   industry still keeps the lot size the next bulk order waits for (`bulkLot`), rolled at random
   and saved, instead of `Good.bulkLot` and a daily test.
-- **The Earth** has one post for all four spaceports and one fuel price for the whole surface.
 - **Zones of influence** are the `REGION` table (body to hub id); the shipyard opens at any post
   flagged as a hub.
 - **Connections** are computed in `game/actions.ts` and `game/graph.ts` from the body tables;

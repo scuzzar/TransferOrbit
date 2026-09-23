@@ -36,7 +36,7 @@ function panelPost(p:HTMLElement){
   const groups=new Map<PostId,[Order,...Order[]]>();
   offers.forEach(o=>{ const g=groups.get(o.to); if(g) g.push(o); else groups.set(o.to,[o]); });
   const glist=[...groups].map(([to,os])=>{
-    const tk=POST_BY_ID[to], tpl=planRoute({node:tk.node, site:tk.site||(tk.node==='earth.surf'?'kourou':null)},'eco');
+    const tk=POST_BY_ID[to], tpl=planRoute({node:tk.node, site:tk.site},'eco');
     return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
   }).sort((a,b)=>a.dv-b.dv);
   glist.forEach(dest=>{
@@ -123,7 +123,6 @@ function panelCargo(p:HTMLElement){
 
 function depotLabel(key:string){
   if(key==='earth.orbit') return 'Orbital Shipyard, Earth orbit';
-  if(key==='earth.surf') return 'Earth, all spaceports';
   const [node,site=null]=key.split('@'); if(!isNode(node)) return key;
   const [body]=splitNode(node), st=siteOf(body,site);
   return `${st?st.name:''}, ${bodyName(body)}`;

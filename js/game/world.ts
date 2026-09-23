@@ -162,7 +162,11 @@ export const isGood = (x: unknown): x is GoodId => keyOf(GOODS, x);
 const post = <I extends string>(id:I, name:string, node:NodeId, site:string|null, makes:GoodId[], needs:GoodId[], hub?:HubId) => ({id,name,node,site,makes,needs,...(hub?{hub}:{})});
 
 const POST_LIST = [
-  post('earth','Earth','earth.surf',null,['food','mach','elec','hab'],['he3','rare']),
+  // The Earth: every spaceport a starport of its own
+  post('kourou','Kourou','earth.surf','kourou',['mach'],['he3']),
+  post('canaveral','Cape Canaveral','earth.surf','canaveral',['elec'],['he3']),
+  post('baikonur','Baikonur','earth.surf','baikonur',['food'],['rare']),
+  post('plesetsk','Plesetsk','earth.surf','plesetsk',['hab'],['rare']),
   post('shipyard','Orbital Shipyard','earth.orbit',null,['elec'],['water','food','metal','rare'],'shipyard'),
   post('shackleton','Shackleton','moon.surf','shackleton',['water'],['food','mach','hab']),
   post('tranq','Tranquillitatis','moon.surf','tranquillitatis',['metal','he3'],['water','mach']),
@@ -202,7 +206,8 @@ export const REGION: Record<BodyId, HubId> = {earth:'shipyard',moon:'shipyard',m
 export const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 12000; // no ship manages a longer route
 
 // Fuel prices in credits per tonne, keyed by node or node@site
-export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit':220,'earth.surf':250,'mercury.surf@prokofiev':200,'moon.surf@shackleton':150,
+export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit':220,
+  'earth.surf@kourou':250,'earth.surf@canaveral':250,'earth.surf@baikonur':250,'earth.surf@plesetsk':250,'mercury.surf@prokofiev':200,'moon.surf@shackleton':150,
   'mars.surf@utopia':150,'mars.surf@pavonis':180,'mars.surf@northpole':120,'ceres.surf@occator':120,'titan.surf@kraken':110,'ceres.surf@northpole':100,
   'ganymede.surf@uruk':100,'europa.surf@conamara':90,'callisto.surf@valhalla':90,'enceladus.surf@tigerstripes':80};
 
@@ -222,7 +227,7 @@ export const bodyName = (b: BodyId): string => isMoon(b) ? M[b].name : B[b].name
 
 export const postPlace = (k: Post): string => k.node==='earth.orbit' ? 'Earth orbit' : k.node.endsWith('.capt') ? `high orbit of ${bodyName(bodyOf(k))}` : bodyName(bodyOf(k));
 
-export const postLabel = (k: Post): string => k.id==='earth' ? 'Earth' : `${k.name}, ${postPlace(k)}`;
+export const postLabel = (k: Post): string => `${k.name}, ${postPlace(k)}`;
 
 export const fmtCr = (n: number): string => `${Math.round(n).toLocaleString('en-GB')} Cr`;
 
@@ -235,6 +240,6 @@ export const bodyColor = (b: BodyId): string => isPlanet(b) ? B[b].color : BODYC
 
 // How much delta-v from a place to the nearest fuel depot? 0 if there is one right there.
 export const FUEL_SPOTS: {node:NodeId; site:string|null}[] = Object.keys(FUEL_PRICE).map(k=>{ const [node='',site]=k.split('@');
-  if(!isNode(node)) throw new Error(`FUEL_PRICE: unknown place ${k}`); return {node, site:site||(node==='earth.surf'?'kourou':null)}; });
+  if(!isNode(node)) throw new Error(`FUEL_PRICE: unknown place ${k}`); return {node, site:site||null}; });
 
 export function fuelHere(node: NodeId, site: string|null): boolean{ return (FUEL_PRICE[node+'@'+site] ?? FUEL_PRICE[node])!==undefined; }
