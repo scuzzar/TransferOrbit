@@ -378,16 +378,19 @@ export function startAutopilot(){
   S.ui.auto={target:r.target, mode:r.mode, start:locKey()}; S.ui.pick=null; S.ui.rmsg=true;
 // desktop: the schedule stays open. Mobile: back to the map so the flight is visible.
   if(!isDesk()){ S.ui.view='main'; changed(); window.scrollTo({top:0}); } else changed();
-  setTimeout(autoTick,200);
+  autoLater(200);
 }
 
 // arrived=true: stopped at the target or at a post with a delivery -> back to the map, so the location (deliver, orders, refuel) is visible
 export function stopAutopilot(msg?:string, arrived?:boolean){ S.ui.auto=null; if(!ANIM.active) ANIM.fast=false; if(msg) S.ui.msg=msg;
   if(arrived && S.ui.view==='route'){ S.ui.view='main'; S.ui.back=null; } changed(); }
 
+// The pauses between steps are for watching; tests running with ANIM.instant skip them
+const autoLater = (ms:number) => setTimeout(autoTick, ANIM.instant?0:ms);
+
 function autoTick(){
   const A=S.ui.auto; if(!A) return;
-  if(S.action.busy){ setTimeout(autoTick,250); return; }
+  if(S.action.busy){ autoLater(250); return; }
   if(S.domain.over) return stopAutopilot();
   if(atTarget(A.target)) return stopAutopilot(`Autopilot: target reached, ${targetName(A.target)}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   const k=postAt();
@@ -398,7 +401,7 @@ function autoTick(){
   if(st.kind!=='wait' && st.dv>dvAvail()+0.5) return stopAutopilot(`Autopilot stopped: "${st.label}" needs ${km(st.dv)} km/s, you have ${km(dvAvail())}. Refuel or drop cargo.`);
   if(!execStep(st)) return stopAutopilot(`Autopilot stopped at "${st.label}": ${stepBlocker(st)}`);
   A.start=null; // after the first step every post with a delivery counts as a stop
-  setTimeout(autoTick,300);
+  autoLater(300);
 }
 
 export function resetGame(){ S.ui.auto=null; if(S.action.busy){ S.ui.msg='Please wait a moment, the ship is under way.'; changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); changed(); }

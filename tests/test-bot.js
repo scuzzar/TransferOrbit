@@ -13,7 +13,7 @@ const STEPS = +process.env.STEPS || 120;
     await f.evaluate(()=>{ TO.ANIM.instant=true; });
     const st=()=>f.evaluate(()=>({node:TO.S.domain.node,site:TO.S.domain.site,busy:TO.S.action.busy,auto:!!TO.S.ui.auto,view:TO.S.ui.view,fuel:TO.S.domain.fuel,cr:TO.S.domain.credits,day:TO.S.domain.day,over:TO.S.domain.over,
       cargo:TO.cargoOrders().length,msg:TO.S.ui.msg,dv:document.getElementById('dv').textContent}));
-    const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(100);} return false; };
+    const idle=async(max=20000)=>{ const t=Date.now(); while(Date.now()-t<max){ const s=await st(); if(!s.busy&&!s.auto) return true; await p.waitForTimeout(20);} return false; };
     // Book the money flows: modules cannot be patched from outside any more, so the balance is
     // read before and after every click and filed under the button that was pressed.
     const SPEND={rescue:0,rescueN:0,cancel:0,cancelN:0,fuel:0,fee:0,income:0,other:0,where:[]};
