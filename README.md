@@ -8,9 +8,11 @@ Prototype of a space trading game with real orbital mechanics. You fly cargo bet
 With GitHub Pages the game runs at https://scuzzar.github.io/TransferOrbit/. Locally it needs a server (`npm run serve`, then http://localhost:8765/) — the game is made of ES modules, and browsers do not load those over `file://`.
 
 - Tapping or clicking a planet, moon or landing site selects a target. A double click zooms in.
-- The route planner offers two routes: *economical* saves propellant wherever it can, *leave now*
-  buys time with it — on the way back from the Moon that is 43 days against 4. The autopilot flies
-  whichever you pick.
+- The route planner drafts a plan step by step from one of three presets: *economical* saves
+  propellant wherever it can, *fast* buys time with it as far as the tank allows, *balanced* sits
+  between. Then every step can be changed: a transfer's departure day and flight time are picked on
+  a map of what it costs, and where aerobraking and burning lead to the same orbit you choose which.
+  The rest of the route is planned again around your choices. The autopilot flies the plan.
 - Tapping during a flight speeds the animation up.
 - The menu (☰) holds save, load, letting time pass, and restart.
 
@@ -29,7 +31,7 @@ The only things that stay flat are the top-down view of the solar system (`drawS
 
 ## Physics and economy
 - Delta-v after Tsiolkovsky with dry mass, cargo and propellant. Every ship has its own Isp.
-- Hohmann and Kepler transfers. The next window depends on the real position of the planets.
+- Transfers between planets as a Lambert problem on circular orbits: what one costs follows from the angle it sweeps and its flight time, so leaving on a different day or flying faster costs more, as it would for real. The Hohmann window is the cheapest case. Every pair of planets has a transfer table of these costs (`npm run tables` computes them); a transfer burns the exact value.
 - Ballistic hops between landing sites, aerobraking at bodies with an atmosphere.
 - Reward = RATE_MASS·m·(e^(Δv/v_e) − 1) + RATE_DAY·days + RATE_MASS_DAY·m·days + 0.1·n·w (+ a share of the launch fee), times a luck factor: usually 0.9–1.2, in 8% of cases 1.4–1.9.
 - Bulk orders (7–18 containers) only fit into larger ships.
@@ -38,11 +40,11 @@ The only things that stay flat are the top-down view of the solar system (`drawS
 | Path | Contents |
 |---|---|
 | `index.html` | markup and CSS, plus one line: `<script type="module" src="./js/start.js">` |
-| `js/` | the game in 26 ES modules. The browser loads them itself, there is nothing to build |
+| `js/` | the game in 28 ES modules. The browser loads them itself, there is nothing to build |
 | `ARCHITECTURE.md` | how the modules are cut and which two rules hold them together, with a component diagram |
 | `CHANGELOG.md` | the change log of every version |
 | `art/` | models, textures and images from [Hanseatic Galaxy](https://github.com/scuzzar/HanseaticGalaxy), see `art/README.md` |
-| `tools/` | Python tools: test server, single-file build, component diagram, Godot .escn → JSON, mesh decimation, preview rendering |
+| `tools/` | Python tools: test server, single-file build, component diagram, Godot .escn → JSON, mesh decimation, preview rendering; `transfertables.js` (Node) computes the transfer tables |
 | `tests/` | Playwright tests and bots |
 
 The short version, spelled out in `ARCHITECTURE.md`: imports only ever point downwards (`basics` → `game/…` → `map/…` → `ui/…` → `start`), and upwards you report instead of calling. Whatever changes the game state calls `changed()`; whatever only advances time calls `tick()`. The display subscribes for both, and the two sides are connected in `js/start.js` alone. `window.TO` is the outside edge for tests and for the console.

@@ -124,7 +124,7 @@ async function run(b,name,vp,gl){
       }
       // nothing to do: fly to the nearest post that has orders (pick card -> route)
       const tgt=await f.evaluate(()=>{ const cand=TO.S.market.list.filter(k=>k.offers.length&&!(TO.S.player.ship.place&&TO.S.market.at(TO.S.player.ship.place)===k));
-        const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'eco')})).filter(x=>x.p && x.p.dv<TO.S.player.ship.dvAvail-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
+        const pl=cand.map(k=>({k,p:TO.planRoute(TO.kTarget(k),'economical')})).filter(x=>x.p && x.p.dv<TO.S.player.ship.dvAvail-200).sort((a,b)=>a.p.dv-b.p.dv)[0];
         if(!pl) return null; TO.openRoute(TO.kTarget(pl.k)); return pl.k.name; });
       if(tgt){ log.push('flying to '+tgt); const go=await click('#panel button:has-text("Start the autopilot")','autopilot');
         if(go){ trips++; await idle(60000); log.push('  -> '+(await st()).msg+' @'+(await st()).node+'/'+(await st()).site+' fuel '+(await st()).fuel.toFixed(1)); } await f.evaluate(()=>{ if(TO.UI.view!=='main') TO.openView('main'); });

@@ -6,14 +6,14 @@
 
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
-import { BODIES, BANKRUPT, GOODS, LandingSite, Node, NodeId, PlanetId, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
-import { transfer } from './physics.js';
-import { S, Autopilot, Docked, Game, InTransit, Order, Player, RouteMode, Ship, setState, storeOf } from './state.js';
+import { BODIES, BANKRUPT, GOODS, LandingSite, Node, NodeId, PlanetId, Preset, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
+import { cheapestFlight, transferCost } from './physics.js';
+import { S, Autopilot, Docked, Game, InTransit, Order, Plan, Player, Ship, setState, storeOf } from './state.js';
 import { connectionsFrom, route } from './graph.js';
 import { advanceMarket, freshDeadline, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
 import { Move, MoveSpec, SCENE, bodyPath, defaultOrb, resetScene, sysPlan, sysState } from '../map/geometry.js';
-import { nearestFuel, planRoute, stepBlocker, PlanStep } from './planner.js';
+import { Leg, draftPlan, nearestFuel, replan, schedule, stepBlocker } from './planner.js';
 import { parseSave } from './save.js';
 
 // smallest ship that can carry n containers; none for more than the largest one holds
@@ -70,19 +70,23 @@ export function doAction(a:LocalAction){
   });
 }
 
-export function doTransfer(b:PlanetId){
-  const p=S.player.ship.place; if(!p || !S.canAct || p.node!==`${p.planet}.capt`) return;
-  const c=connectionsFrom(p).find(x=>x.transferWindow && x.to.planet===b); if(!c) return;
-  const a=p.planet, t=transfer(a,b,S.day); if(t.total>S.player.ship.dvAvail) return;
-  S.player.ship.burn(t.total);
-  const dep=S.day, arr=S.day+t.tof;
+// A transfer to planet b, leaving today and flying the given days; without them, the flight time
+// that costs least today. It burns the exact cost. false if it does not happen.
+export function doTransfer(b:PlanetId, flightDays?:number){
+  const p=S.player.ship.place; if(!p || !S.canAct || p.node!==`${p.planet}.capt`) return false;
+  const c=connectionsFrom(p).find(x=>x.window && x.to.planet===b), w=c?.window; if(!c || !w) return false;
+  const a=p.planet, [f0,f1]=w.flightRange, tof=Math.max(f0,Math.min(f1,flightDays ?? cheapestFlight(a,b,S.day) ?? c.days));
+  const t=transferCost(a,b,S.day,tof); if(!(t.total<=S.player.ship.dvAvail+0.5)) return false;
+  S.player.ship.burn(Math.min(t.total,S.player.ship.dvAvail));
+  const dep=S.day, arr=S.day+tof;
   S.player.ship.depart(new InTransit(c, dep, arr));
   report(`Under way to ${BODIES[b].name}. Arrival on ${dateStr(arr)}.`); changed(); showMap();
   animateTo(arr, 2800*SLOW, ()=>{
     S.player.ship.dock(c.to);
-    report(`Arrived: high orbit of ${BODIES[b].name} after ${fmtDays(t.tof)}. Injection and capture cost ${km(t.total)} km/s.`);
+    report(`Arrived: high orbit of ${BODIES[b].name} after ${fmtDays(tof)}. Injection and capture cost ${km(t.total)} km/s.`);
     changed(); autoFill();
   });
+  return true;
 }
 
 export function waitDays(n:number){
@@ -275,18 +279,25 @@ export function load(key?: string|null){
   }catch(e){ return false; }
 }
 
-export function execStep(st:PlanStep){
-  if(!st || !S.canAct) return false;
-  if(st.kind==='wait'){ const [a,b]=st.leg, t=transfer(a,b,S.day); if(t.d<0.04) return true; waitDays(t.wait); return true; }
-  if(st.kind==='leg'){ const p=S.player.ship.place; if(!p || p.node!==`${p.planet}.capt` || transfer(p.planet,st.leg[1],S.day).total>S.player.ship.dvAvail) return false; doTransfer(st.leg[1]); return true; }
-  const a=localActions().find(al=>al.to===st.node && (al.site||null)===(st.site||null) && Math.abs(al.dv-st.dv)<1);
+// Fly one step of a plan: a transfer that leaves later first waits for its day
+export function execStep(l:Leg){
+  if(!l || !S.canAct) return false;
+  const st=l.step, leg=st.along.leg;
+  if(leg){
+    if(S.player.ship.place!==st.from) return false;
+    if(l.dep>S.day+0.01){ waitDays(l.dep-S.day); return true; }
+    return doTransfer(leg[1], st.flightDays ?? undefined);
+  }
+  const a=localActions().find(x=>x.via===st.along);
   if(!a || a.dv>S.player.ship.dvAvail+0.5 || feeBlocked(a)) return false;
   doAction(a); return true;
 }
 
-export function startAutopilot(target:Node, mode:RouteMode){
+// The autopilot takes a plan, or drafts one from a preset
+export function startAutopilot(target:Node, plan:Plan|Preset){
   const here=S.player.ship.place; if(!here) return;       // only from a place, never under way
-  S.player.ship.autopilot=new Autopilot(target, mode, here); changed();
+  const p = typeof plan==='string' ? draftPlan(target, plan) : plan; if(!p) return;
+  S.player.ship.autopilot=new Autopilot(target, p, here); changed();
   autoLater(200);
 }
 
@@ -304,10 +315,10 @@ function autoTick(){
   if(S.player.ship.isAt(A.target)) return stopAutopilot(`Autopilot: target reached, ${A.target.label}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   const here=S.player.ship.place, k=here ? S.market.at(here) : null;
   if(k && S.player.ship.place!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);
-  const plan=planRoute(A.target, A.mode);
-  const st=plan?.steps[0];
+  replan(A.plan, A.target).forEach(m=>report(m));
+  const st=schedule(A.plan)?.legs[0];
   if(!st) return stopAutopilot('Autopilot: no route found.');
-  if(st.kind!=='wait' && st.dv>S.player.ship.dvAvail+0.5) return stopAutopilot(`Autopilot stopped: "${st.label}" needs ${km(st.dv)} km/s, you have ${km(S.player.ship.dvAvail)}. Refuel or drop cargo.`);
+  if(st.dv>S.player.ship.dvAvail+0.5) return stopAutopilot(`Autopilot stopped: "${st.label}" needs ${km(st.dv)} km/s, you have ${km(S.player.ship.dvAvail)}. Refuel or drop cargo.`);
   if(!execStep(st)) return stopAutopilot(`Autopilot stopped at "${st.label}": ${stepBlocker(st)}`);
   autoLater(300);
 }

@@ -1,6 +1,8 @@
 // Reference data for the solar system: bodies, moons, landing sites, trading posts, goods.
 // Plain tables and queries on them, no state.
 
+import { TRANSFER_DATA, TRANSFER_GRID } from './transfertables.js';
+
 export const AU = 1.495978707e8, MU_SUN = 1.32712440018e11, G0 = 9.80665;
 
 export const START_DAY = 10957.5; // days since J2000 -> 1 Jan 2030
@@ -221,6 +223,15 @@ export const RATE_MASS = 400, SHIP_MASS_SHARE = 8, V_EXHAUST = 450*9.80665, RATE
 
 export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + ship share) and travel day
 
+// How much delta-v a day of waiting or flying is worth to each preset of the route planner, m/s.
+// Economical waits for a window and takes the long flight; fast pays for a short one.
+export type Preset = 'economical'|'balanced'|'fast';
+export const PRESETS:readonly Preset[] = ['economical','balanced','fast'];
+export const DAY_VALUE: Record<Preset, number> = {economical:1, balanced:15, fast:100};
+// A preset whose plan needs more delta-v than the ship has steps down through these, never below
+// economical: fast means as fast as the tank allows
+export const DAY_VALUE_STEPS:readonly number[] = [100, 50, 25, 15, 5, 1];
+
 export const BULK = {min:7, max:18, slow:1.5, premium:1.1, life:180}; // Bulk orders: least and largest size, restock slower than single goods, premium, lifetime
 
 export const planetOfBody = (b: BodyId): PlanetId => isMoon(b) ? M[b].parent : b;
@@ -328,21 +339,70 @@ export function nodeOf(node:NodeId, site:string|null=null):Node {
   const n=nodeAt(node,site); if(!n) throw new Error(`No such place: ${node}${site?'@'+site:''}`); return n;
 }
 
+// ── Transfer tables ──────────────────────────────────────────────────────────
+// What a transfer between two planets costs depends only on the angle it sweeps round the Sun and
+// on its flight time. A table holds the excess speeds at departure and arrival for every angle
+// and flight time of its grid; tools/transfertables.js computes them from the orbits
+// (game/transfertables.ts), and tests/unit.js checks that they still match.
+
+// The grid every table uses: a full turn of transfer angle, flight times from flightFrom to flightTo
+// times the Hohmann flight
+export const TABLE_GRID = {angleSteps:120, flightSteps:48, flightFrom:0.25, flightTo:2} as const;
+// A cell keeps an excess speed in one byte, on a logarithmic scale from 0.05 to 65 km/s: about
+// 1.4 % either way, which is plenty for looking and searching. A transfer burns the exact value.
+const TAU = Math.PI*2, V_LO = 0.05, V_HI = 65, V_LOG = Math.log(V_HI/V_LO);
+export const vInfToByte = (v:number):number => Math.max(0, Math.min(255, Math.round(255*Math.log(Math.max(V_LO,v)/V_LO)/V_LOG)));
+export const byteToVInf = (s:number):number => V_LO*Math.exp(s/255*V_LOG);
+
+export class TransferTable {
+  readonly angleSteps:number;
+  readonly flightRange:readonly [number,number];   // days, shortest and longest flight
+  readonly flightSteps:number;
+  readonly vInfDep:Float32Array;                   // km/s, cell [angle*flightSteps + flight]
+  readonly vInfArr:Float32Array;
+  constructor(angleSteps:number, flightRange:readonly [number,number], flightSteps:number, vInfDep:Float32Array, vInfArr:Float32Array){
+    this.angleSteps=angleSteps; this.flightRange=flightRange; this.flightSteps=flightSteps; this.vInfDep=vInfDep; this.vInfArr=vInfArr;
+  }
+  // the transfer angle of a row and the flight time of a column
+  angleOf(i:number){ return i/this.angleSteps*TAU; }
+  flightOf(j:number){ const [f0,f1]=this.flightRange; return f0+(f1-f0)*j/(this.flightSteps-1); }
+  // where an angle and a flight time fall on the grid: row and column, with the fractions between
+  place(angle:number, days:number){
+    const x=((angle%TAU+TAU)%TAU)/TAU*this.angleSteps, [f0,f1]=this.flightRange;
+    const y=Math.max(0,Math.min(this.flightSteps-1,(days-f0)/(f1-f0)*(this.flightSteps-1)));
+    const i=Math.floor(x), j=Math.min(this.flightSteps-2,Math.floor(y));
+    return {i:i%this.angleSteps, i1:(i+1)%this.angleSteps, fx:x-i, j, fy:y-j};
+  }
+}
+
+// base64 of the departure bytes followed by the arrival bytes
+function decodeTable(row:readonly [number,number,string]):TransferTable {
+  const [f0,f1,b64]=row, {angleSteps:na, flightSteps:nf}=TRANSFER_GRID, bin=atob(b64), n=na*nf;
+  if(bin.length!==2*n) throw new Error('transfertables.ts does not fit its grid');
+  const dep=new Float32Array(n), arr=new Float32Array(n);
+  for(let k=0;k<n;k++){ dep[k]=byteToVInf(bin.charCodeAt(k)); arr[k]=byteToVInf(bin.charCodeAt(n+k)); }
+  return new TransferTable(na, [f0,f1], nf, dep, arr);
+}
+const TABLES = new Map<string,TransferTable>(Object.entries(TRANSFER_DATA).map(([k,row])=>[k,decodeTable(row)]));
+// The table of the transfer from planet a to planet b
+export const transferTable = (a:PlanetId, b:PlanetId):TransferTable|null => TABLES.get(`${a}>${b}`) ?? null;
+
 // A connection: a manoeuvre from one node to another, what it costs and how long it takes.
-// launchFee: a launcher flies it, for a fee (on Earth). transferWindow: a transfer between the
-// high orbits of two planets, whose dv and days are the values in the ideal window; leaving on
-// another day costs more and flies faster (physics.transfer).
+// launchFee: a launcher flies it, for a fee (on Earth). window: the transfer table of a transfer
+// between the high orbits of two planets; dv and days are then its cheapest cell, the ideal
+// window, and what a flight really costs depends on its day and flight time.
 export class Connection {
   readonly from:Node; readonly to:Node;
   readonly dv:number; readonly days:number;
-  readonly launchFee:boolean; readonly transferWindow:boolean;
-  constructor(from:Node, to:Node, dv:number, days:number, launchFee=false, transferWindow=false){
-    this.from=from; this.to=to; this.dv=dv; this.days=days; this.launchFee=launchFee; this.transferWindow=transferWindow;
+  readonly launchFee:boolean;
+  readonly window:TransferTable|null;
+  constructor(from:Node, to:Node, dv:number, days:number, launchFee=false, window:TransferTable|null=null){
+    this.from=from; this.to=to; this.dv=dv; this.days=days; this.launchFee=launchFee; this.window=window;
   }
   // between two landing sites of one body
   get hop(){ return this.from.level==='surface' && this.to.level==='surface'; }
   // the two planets of a transfer
-  get leg():[PlanetId,PlanetId]|null { return this.transferWindow ? [this.from.planet, this.to.planet] : null; }
+  get leg():[PlanetId,PlanetId]|null { return this.window ? [this.from.planet, this.to.planet] : null; }
 }
 
 // Every depot: the fuel price table names the places, the fill time comes from the landing

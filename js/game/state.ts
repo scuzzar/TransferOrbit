@@ -2,9 +2,8 @@
 // that relate the way the things in the game do. Never writes anything by itself; the
 // commands decide when a method runs. docs/domain-model.md draws the whole picture.
 
-import { BodyId, Connection, G0, GOODS, GoodId, Node, NodeId, PlanetId, SHIPS, ShipId, bodyName, isGood } from './world.js';
+import { BodyId, Connection, G0, GOODS, GoodId, Node, NodeId, PlanetId, Preset, SHIPS, ShipId, bodyName, isGood } from './world.js';
 
-export type RouteMode = 'eco'|'now';
 // Amounts per good, as a save writes the stores and demands
 export type Amounts = Partial<Record<GoodId,number>>;
 
@@ -24,13 +23,35 @@ export class InTransit extends Location {
   get to():PlanetId { return this.along.to.planet; }
 }
 
-// The autopilot flies from where the trip began to its target; a delivery at the start is no
-// reason to stop, for the whole trip
+// One step of a plan, along one connection. A transfer step says when it leaves and how long it
+// flies. A step the player changed is pinned: planning again leaves it as it is.
+export class Step {
+  along:Connection;
+  leaveOn:number|null;          // a transfer: its departure day
+  flightDays:number|null;       // a transfer: its flight time
+  pinned:boolean;
+  constructor(along:Connection, leaveOn:number|null=null, flightDays:number|null=null, pinned=false){
+    this.along=along; this.leaveOn=leaveOn; this.flightDays=flightDays; this.pinned=pinned;
+  }
+  get from():Node { return this.along.from; }
+  get to():Node { return this.along.to; }
+}
+
+// The way to a target, step by step from where the ship is. The preset made the first draft.
+export class Plan {
+  preset:Preset;
+  readonly steps:Step[];
+  constructor(preset:Preset, steps:Step[]){ this.preset=preset; this.steps=steps; }
+  get pinned(){ return this.steps.some(s=>s.pinned); }
+}
+
+// The autopilot flies its plan from where the trip began to its target; a delivery at the start is
+// no reason to stop, for the whole trip
 export class Autopilot {
   readonly target:Node;
-  readonly mode:RouteMode;
+  readonly plan:Plan;
   readonly start:Node;
-  constructor(target:Node, mode:RouteMode, start:Node){ this.target=target; this.mode=mode; this.start=start; }
+  constructor(target:Node, plan:Plan, start:Node){ this.target=target; this.plan=plan; this.start=start; }
 }
 
 // Paid in full up to the deadline, then 2% less per day, down to a quarter
@@ -179,7 +200,7 @@ export class Ship {
   get transit():InTransit|null { return this.location instanceof InTransit ? this.location : null; }
   // where the ship is, or the node a manoeuvre within a planet's system leaves from; null on the
   // way to another planet. For the map and the panels, which keep showing where it lifted off.
-  get near():Node|null { const t=this.transit; return this.place ?? (t && !t.along.transferWindow ? t.along.from : null); }
+  get near():Node|null { const t=this.transit; return this.place ?? (t && !t.along.window ? t.along.from : null); }
   // something is going on: time passes at a place, or the ship is under way
   get underWay(){ return this.busy || this.transit!==null; }
   isAt(n:Node){ return this.place===n; }

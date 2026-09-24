@@ -3,8 +3,8 @@
 
 import { changed } from '../events.js';
 import { esc, fmtDays, km, byId, find } from '../basics.js';
-import { BODIES, GOODS, ROT, SITES, Site, bodyName, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
-import { bodyDown, bodyUp, transfer } from '../game/physics.js';
+import { BODIES, DAY_VALUE, GOODS, ROT, SITES, Site, bodyName, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
+import { bodyDown, bodyUp, searchTransfer } from '../game/physics.js';
 import { Hub, S } from '../game/state.js';
 import { idealTransfer } from '../game/graph.js';
 import { cargoTo } from '../map/canvas.js';
@@ -25,9 +25,9 @@ export function renderPick(){
     title = BODIES[k].name; if(n) tags.push(tag('deliver',`Destination of ${n} ${n>1?'orders':'order'}`));
     const ms = moonsOf(k);
     info = `${ms.length?'With '+ms.map(m=>BODIES[m].name).join(', ')+'. ':''}${posts.length?posts.length+(posts.length>1?' trading posts':' trading post')+(posts.some(x=>x instanceof Hub)?', one of them a hub.':'.'):'No trading post.'}`;
-    if(hp && hp!==k){ const t = transfer(hp,k,S.day), id = idealTransfer(hp,k);
+    if(hp && hp!==k){ const t = searchTransfer(hp,k,S.day,DAY_VALUE.economical), id = idealTransfer(hp,k), wait = t ? t.dep-S.day : 0;
       stats.push(['Transfer at a window',`${km(id.total)} km/s`]);
-      stats.push(['Next window', t.d<0.04?'<span class="ok">open</span>':`<span class="wait">in ${fmtDays(t.wait)}</span>`]); }
+      stats.push(['Next window', wait<1?'<span class="ok">open</span>':`<span class="wait">in ${fmtDays(wait)}</span>`]); }
     else if(hp===k) stats.push(['You are','in this system']);
     const deeper: ViewLevel|null = ms.length ? {level:'sys',planet:k} : SITES[k] ? {level:'body',planet:k,body:k} : null;
     if(deeper) btns.push(['Look closer','',()=>setView(deeper)]);

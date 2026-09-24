@@ -1,8 +1,8 @@
 // The drawing code itself: solar system, system, body, with draw() as the entry point.
 
 import { $, TAU, reduce } from '../basics.js';
-import { BODIES, BodyId, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
-import { keplerNu, theta, transfer, transferConic } from '../game/physics.js';
+import { BODIES, BodyId, DAY_VALUE, MoonId, NodeId, PLANETS, PlanetId, SITES, bodyColor, fuelHere, hasAtm, hasDepot, isMoon, isPlanet, moonsOf, planetOfBody, splitNode } from '../game/world.js';
+import { cheapestCell, keplerNu, searchTransfer, theta, transferConic } from '../game/physics.js';
 import { S } from '../game/state.js';
 import { UI, Pick } from '../ui/state.js';
 import { Attitude, Burn, D2R, Plane, SCENE, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
@@ -29,12 +29,13 @@ function drawSol(){
   ctx.fillStyle=v('--sun'); ctx.beginPath(); ctx.arc(c,c,6,0,TAU); ctx.fill();
   const from=(S.player.ship.near?.planet??null), tgt=UI.windowPlanet;
   if(from && tgt && tgt!==from){
-    const t=transfer(from,tgt,S.day), thA=theta(from,S.day), thG=thA+t.phiStar, rT=rOf(BODIES[tgt].orbitRadius);
-    ctx.strokeStyle=t.d<0.04?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+    const ph=cheapestCell(from,tgt)?.phase ?? 0, t=searchTransfer(from,tgt,S.day,DAY_VALUE.economical), open=!!t && t.dep-S.day<1;
+    const thA=theta(from,S.day), thG=thA+ph, rT=rOf(BODIES[tgt].orbitRadius);
+    ctx.strokeStyle=open?v('--good'):v('--accent'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.moveTo(c,c); ctx.lineTo(c+rT*Math.cos(thG), c-rT*Math.sin(thG)); ctx.stroke();
     ctx.beginPath(); ctx.arc(c+rT*Math.cos(thG), c-rT*Math.sin(thG), 10,0,TAU); ctx.stroke(); ctx.setLineDash([]);
     ctx.globalAlpha=.5; ctx.beginPath(); ctx.moveTo(c,c); const [ax,ay]=pos(from,S.day); ctx.lineTo(ax,ay); ctx.stroke(); ctx.globalAlpha=1;
-    ctx.lineWidth=2; ctx.beginPath(); ctx.arc(c,c,26,-thA,-thG,t.phiStar>0); ctx.stroke();
+    ctx.lineWidth=2; ctx.beginPath(); ctx.arc(c,c,26,-thA,-thG,ph>0); ctx.stroke();
   }
   ctx.font=`500 12px 'Saira Semi Condensed', 'Arial Narrow', sans-serif`; ctx.textBaseline='middle';
   const dests=new Set(S.player.ship.hold.map(o=>planetOfBody(S.market.post(o.to).at.body)));
@@ -51,7 +52,7 @@ function drawSol(){
     ms.forEach((m,i)=>{ const a=moonAngle(m,S.day), r=big+4+i*2.5; ctx.beginPath(); ctx.arc(x+r*Math.cos(a), y-r*Math.sin(a), 1.3,0,TAU); ctx.fill(); });
   });
   const T=S.player.ship.transit;
-  if(T && T.along.transferWindow){
+  if(T && T.along.window){
     const th0=theta(T.from,T.dep), th1=theta(T.to,T.arr);
     const rA=rOf(BODIES[T.from].orbitRadius), rB=rOf(BODIES[T.to].orbitRadius), dth=((th1-th0)%TAU+TAU)%TAU;
     const conic=transferConic(rA,rB,dth);

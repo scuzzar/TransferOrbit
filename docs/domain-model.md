@@ -69,7 +69,9 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 - **Plans.** A plan is the way to the target, step by step, each step along one connection. A
   transfer step says when it leaves (`leaveOn`) and how long it flies (`flightDays`). The first
   draft follows a preset: `economical`, `balanced` or `fast` say how much delta-v a day of waiting
-  or flying is worth (the amounts are game rules in the code). The player can then change any
+  or flying is worth (the amounts are game rules in the code). If that plan needs more delta-v
+  than the ship has, the preset counts a day for less, down to what economical counts: fast means
+  as fast as the tank allows. The player can then change any
   step: on a transfer the departure day and flight time, picked on its map; where two connections
   join the same two places, such as burning down into low orbit or aerobraking, which one it
   takes. A changed step is `pinned`. After every change, and after every step flown, the steps
@@ -81,14 +83,4 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 
 ## Where the code does not follow yet
 
-- There are no transfer tables yet. `physics.transfer()` works out the cost away from the window
-  with a rule of thumb (a surcharge on the excess speed and a shorter flight) instead of from the
-  orbits, and a transfer burns that value.
-- The flight time cannot be chosen: a transfer always flies the time `physics.transfer()` gives
-  for the day.
-- `Connection` still carries a `transferWindow` flag; whether a connection has a transfer window
-  is to follow from its transfer table alone.
-- There are no plans of steps. The planner works out a fresh route at every step from one of two
-  modes (`eco`, `now`) instead of the three presets; the player cannot change a step, nothing is
-  pinned, and a transfer only chooses between waiting for the ideal window and leaving now with
-  the flight time of the day.
+Nothing at the moment.

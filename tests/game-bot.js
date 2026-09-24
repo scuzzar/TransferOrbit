@@ -8,7 +8,7 @@ const AI = String.raw`
   const priceHere=()=>TO.S.player.ship.place?.depot?.fuelPrice??220;
   window.refuel=function(){ const r=TO.refuelInfo(); if(!r||r.need<0.5||r.max<0.5) return; const c=Math.round(r.max*r.price); EV.fuel+=c; TO.doRefuel(r.max); };
   // route from an arbitrary start: delta-v, days, arrival
-  const planFrom=(start,target)=>TO.planRoute(target,'eco',start);
+  const planFrom=(start,target)=>TO.planRoute(target,'economical',start);
   const reserveAt=(t,day)=>{ const nf=TO.nearestFuel({node:t.node,site:t.site,day}); return nf.dv; };
   const shipAt=(fuel,cm)=>TO.S.player.ship.dvWith(fuel,cm);
   // best load from post k (start 'start', fuel 'fuel'): per destination the most valuable orders that fit the hold and the delta-v
@@ -37,8 +37,8 @@ const AI = String.raw`
   function travel(target){
     for(let i=0;i<40;i++){
       if(TO.S.player.ship.isAt(target)) return true;
-      const pl=TO.planRoute(target,'eco'); if(!pl||!pl.steps.length){ log('no route to '+target.label); return false; }
-      const st=pl.steps[0];
+      const pl=TO.planRoute(target,'economical'); if(!pl||!pl.legs.length){ log('no route to '+target.label); return false; }
+      const st=pl.legs[0];
       if(st.kind!=='wait' && st.dv>TO.S.player.ship.dvAvail+0.5){ log('not enough delta-v for '+st.label+' ('+TO.km(st.dv)+' > '+TO.km(TO.S.player.ship.dvAvail)+')'); return false; }
       if(st.kind==='wait') EV.waitDays+=st.days;
       if(!TO.execStep(st)){ log('step failed: '+st.label+' - '+TO.stepBlocker(st)); return false; }

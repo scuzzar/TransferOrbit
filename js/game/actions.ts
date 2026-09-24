@@ -22,7 +22,7 @@ export function localActions(): LocalAction[]{
     const rotNote=rot>=20 ? `Launching at ${latStr(lat)}: ${Math.round(rot-pen)} of ${rot} m/s rotation bonus` : '';
     return {lat,rotNote};
   };
-  return connectionsFrom(place).filter(c=>!c.transferWindow).map(c=>{
+  return connectionsFrom(place).filter(c=>!c.window).map(c=>{
     const to=c.to, k=place.body, add=(label:string,x:ActionExtra={}):LocalAction=>({label,dv:c.dv,days:c.days,to:to.node,via:c,...x});
     if(c.hop && to instanceof LandingSite){
       const h=hopCost(k,place.site,to.site), full=bodyUp(k)+bodyDown(k);

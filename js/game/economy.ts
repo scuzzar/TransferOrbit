@@ -1,8 +1,8 @@
 // The order board: creating orders, ageing them, deadlines, bulk cargo.
 
 import { randInt } from '../basics.js';
-import { BULK, GOODS, GoodId, HUB_CAP, MAX_OPEN, MAX_ROUTE_DV, SHIP_IDS, STARPORT_TABLE, START_DAY, ZONES, nodeOf } from './world.js';
-import { transfer } from './physics.js';
+import { BULK, DAY_VALUE, GOODS, GoodId, HUB_CAP, MAX_OPEN, MAX_ROUTE_DV, SHIP_IDS, STARPORT_TABLE, START_DAY, ZONES, nodeOf } from './world.js';
+import { searchTransfer } from './physics.js';
 import { Demand, Hub, Industry, Market, Order, PerGood, Starport, Store, stockOf, storeOf } from './state.js';
 import { rewardFor, route, RouteResult } from './graph.js';
 
@@ -66,8 +66,8 @@ function makeOrder(k:Starport, g:GoodId, fromHubStore:boolean, day:number){
     dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+30, created:day, expires:day+90, fromHubStore, toHub}));
 }
 
-// Wait until the window of a route's first interplanetary leg
-export function legWait(r:RouteResult, day:number){ const leg=r.legs[0]; if(!leg) return 0; const t=transfer(leg[0],leg[1],day); return t.d<0.04?0:t.wait; }
+// Wait until an economical departure of a route's first interplanetary leg
+export function legWait(r:RouteResult, day:number){ const leg=r.legs[0]; if(!leg) return 0; const t=searchTransfer(leg[0],leg[1],day,DAY_VALUE.economical); return t ? t.dep-day : 0; }
 
 // Deadline if the order is accepted on day 'day'
 export function freshDeadline(market:Market, o:Order, day:number){ const r=route(market.post(o.from),market.post(o.to)); return day+legWait(r,day)+1.5*o.days+30; }

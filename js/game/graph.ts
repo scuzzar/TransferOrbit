@@ -1,16 +1,18 @@
 // The connections between the places, and the route graph behind pricing: idealised cost
 // between two places.
 
-import { B, BodyId, Connection, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, START_DAY, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf } from './world.js';
+import { B, BodyId, Connection, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, TransferTable, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf, transferTable } from './world.js';
 import { popMin } from '../basics.js';
-import { captDv, hopCost, transfer } from './physics.js';
+import { captDv, cheapestCell, hopCost } from './physics.js';
 
-const idealCache: Record<string, {total:number; tof:number}> = {};
+const idealCache: Record<string, {total:number; tof:number; phase:number}> = {};
 
+// The ideal window of a transfer: the cheapest cell of its table. phase is where the target then
+// stands ahead of the departure planet on the day it leaves.
 export function idealTransfer(a: PlanetId, b: PlanetId){
   const key=a+'>'+b; if(idealCache[key]) return idealCache[key];
-  const t0=transfer(a,b,START_DAY), t=transfer(a,b,START_DAY+t0.wait);
-  return idealCache[key]={total:t.total, tof:t.tof};
+  const c=cheapestCell(a,b);
+  return idealCache[key]= c ? {total:c.dv, tof:c.days, phase:c.phase} : {total:Infinity, tof:0, phase:0};
 }
 
 // The connections that lead out of a node, built once per node. The order matters: it breaks
@@ -19,7 +21,7 @@ const OUT = new Map<Node, Connection[]>();
 export function connectionsFrom(from:Node): Connection[]{
   const hit=OUT.get(from); if(hit) return hit;
   const k=from.body, l=from.level, site=from.site, E:Connection[]=[];
-  const e=(n:NodeId, s:string|null, dv:number, days:number, launch=false, window=false)=>E.push(new Connection(from, nodeOf(n,s), dv, days, launch, window));
+  const e=(n:NodeId, s:string|null, dv:number, days:number, launch=false, window:TransferTable|null=null)=>E.push(new Connection(from, nodeOf(n,s), dv, days, launch, window));
   const lat=(body:BodyId, s:string|null)=>{const st=siteOf(body,s); return st?st.lat:0;};
   const lands=(body:BodyId, down:number)=>(SITES[body]||[]).forEach(st=>e(`${body}.surf`,st.id,down+(hasAtm(body)?0:rotPenalty(body,st.lat)),0.2));
   if(l==='surface' && site) (SITES[k]||[]).forEach(st=>{ if(st.id===site) return; const h=hopCost(k,site,st.id); e(`${k}.surf`,st.id,h.dv,h.days,h.launcher); });
@@ -35,7 +37,7 @@ export function connectionsFrom(from:Node): Connection[]{
     if(l==='highOrbit'){
       e(`${k}.orbit`,null,captDv(k),1); if(b.atm) e(`${k}.orbit`,null,60,40);
       moonsOf(k).forEach(m=>e(`${m}.orbit`,null,M[m].xfer,M[m].days));
-      PLANETS.filter(p=>p!==k).forEach(p=>{const t=idealTransfer(k,p); e(`${p}.capt`,null,t.total,t.tof,false,true);});
+      PLANETS.filter(p=>p!==k).forEach(p=>{const w=transferTable(k,p), t=idealTransfer(k,p); if(w) e(`${p}.capt`,null,t.total,t.tof,false,w);});
     }
   }
   OUT.set(from,E);

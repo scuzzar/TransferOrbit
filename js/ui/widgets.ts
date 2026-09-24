@@ -38,7 +38,7 @@ export function ibtn(ic: string, label: string, cls: string, disabled: boolean, 
 export function openView(v: View, back?: View|null){ UI.rmsg=false; UI.back = v==='main' ? null : (back||null); UI.view=v; UI.sel=new Set<number>(); UI.tank=null; changed();
   if(isDesk()){ const cs=document.querySelector('.col-side'); if(cs) cs.scrollTop=0; } else window.scrollTo({top:0}); }
 
-export function openRoute(target: Node, back: View|null){ UI.route = {target, mode:'eco'}; openView('route', back); }
+export function openRoute(target: Node, back: View|null){ UI.route = {target, preset:'economical', plan:null, open:null}; openView('route', back); }
 
 export const kTarget = (k: Starport): Node => k.at;
 

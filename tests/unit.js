@@ -25,20 +25,21 @@ const ready = (async () => {
   execFileSync(path.join(root, 'node_modules', '.bin', 'tsc'), ['-p', path.join(root, 'tsconfig.json'), '--noEmit', 'false', '--rootDir', root, '--outDir', out], { stdio: 'inherit' });
   fs.writeFileSync(path.join(out, 'package.json'), '{"type":"module"}');
   const load = m => import(pathToFileURL(path.join(out, 'js', m + '.js')).href);
-  const [world, state, save, commands, economy, actions, graph, planner, basics, events] =
-    await Promise.all(['game/world', 'game/state', 'game/save', 'game/commands', 'game/economy', 'game/actions', 'game/graph', 'game/planner', 'basics', 'events'].map(load));
-  plannerMod = planner;
+  const [world, state, save, commands, economy, actions, graph, planner, basics, events, physics] =
+    await Promise.all(['game/world', 'game/state', 'game/save', 'game/commands', 'game/economy', 'game/actions', 'game/graph', 'game/planner', 'basics', 'events', 'game/physics'].map(load));
+  plannerMod = planner; TOphysics = physics; TOworld = world;
   basics.ANIM.instant = true;
   const reports = []; events.onReport((text, kind) => reports.push({ text, kind }));
   // what the ship was doing whenever a command reported a change
   const seen = []; events.onChange(() => { const sh = state.S?.player.ship; if (sh) seen.push({ transit: sh.transit, busy: sh.busy, place: sh.place }); });
-  return { world, state, save, commands, economy, actions, graph, reports, seen };
+  return { world, state, save, commands, economy, actions, graph, planner, physics, reports, seen };
 })();
 
 // A fresh game with a fixed seed; S is read through the module so it is always the current one
 async function fresh(s = 1) { const m = await ready; seed(s); store.clear(); m.commands.newGame(); m.reports.length = 0; return m; }
-const TOplan = (_c, t) => plannerMod.planRoute(t, 'eco');
-let plannerMod;
+const TOplan = (_c, t) => plannerMod.planRoute(t, 'economical');
+let plannerMod, TOphysics, TOworld;
+const TOtable = (a, b) => TOworld.transferTable(a, b);
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`);
 
 // ── Nodes, landing sites, depots ───────────────────────────────────────────
@@ -122,7 +123,8 @@ test('Connections lead from node to node; transfers between planets have a windo
   for (const n of NODES) for (const c of g.connectionsFrom(n)) {
     assert.equal(c.from, n); assert.ok(c.to instanceof m.world.Node); assert.notEqual(c.to, n);
     assert.ok(c.dv >= 0 && c.days > 0, `${n.key} > ${c.to.key}`);
-    assert.equal(c.transferWindow, n.level === 'highOrbit' && c.to.level === 'highOrbit', `${n.key} > ${c.to.key}`);
+    assert.equal(!!c.window, n.level === 'highOrbit' && c.to.level === 'highOrbit', `${n.key} > ${c.to.key}`);
+    if (c.window) assert.equal(c.window, m.world.transferTable(n.planet, c.to.planet));
   }
   const up = g.connectionsFrom(nodeOf('earth.surf', 'kourou'));
   assert.ok(up.find(c => c.to === nodeOf('earth.orbit')).launchFee);                  // a launcher lifts you off the Earth
@@ -131,6 +133,131 @@ test('Connections lead from node to node; transfers between planets have a windo
   const t = g.connectionsFrom(nodeOf('earth.capt')).find(c => c.to === nodeOf('mars.capt'));
   assert.deepEqual(t.leg, ['earth', 'mars']); assert.equal(t.dv, g.idealTransfer('earth', 'mars').total);
   assert.equal(g.connectionsFrom(nodeOf('earth.capt')), g.connectionsFrom(nodeOf('earth.capt')));   // built once
+});
+
+// ── Transfers ──────────────────────────────────────────────────────────────
+
+test('Lambert: across 180 degrees in the Hohmann time it gives the Hohmann excess speeds', async () => {
+  const { physics, world: { AU, MU_SUN } } = await ready;
+  const r1 = AU, r2 = 1.524 * AU, a = (r1 + r2) / 2, t = Math.PI * Math.sqrt(a ** 3 / MU_SUN);
+  const [v1, v2] = physics.lambert(r1, r2, Math.PI, t);
+  near(v1, Math.sqrt(MU_SUN * (2 / r1 - 1 / a)) - Math.sqrt(MU_SUN / r1), 1e-6);
+  near(v2, Math.sqrt(MU_SUN / r2) - Math.sqrt(MU_SUN * (2 / r2 - 1 / a)), 1e-6);
+  const [w1] = physics.lambert(r1, r2, Math.PI - 1e-4, t), [u1] = physics.lambert(r1, r2, Math.PI + 1e-4, t);
+  near(w1, v1, 1e-3); near(u1, v1, 1e-3);                                 // smooth through 180 degrees
+  assert.equal(physics.lambert(r1, r2, 0, t), null);
+});
+
+test('The transfer tables match the orbits they were computed from', async () => {
+  const { physics, world: { PLANETS, transferTable, vInfToByte, TABLE_GRID } } = await ready;
+  let cells = 0, off = 0;
+  for (const a of PLANETS) for (const b of PLANETS) {
+    if (a === b) continue;
+    const t = transferTable(a, b), c = physics.computeTable(a, b);
+    assert.ok(t, `${a}>${b}`); assert.equal(t.angleSteps, TABLE_GRID.angleSteps); assert.equal(t.flightSteps, TABLE_GRID.flightSteps);
+    near(t.flightRange[0], c.flightRange[0], 1e-5); near(t.flightRange[1], c.flightRange[1], 1e-5);
+    for (let k = 0; k < c.vInfDep.length; k++) for (const [s, v] of [[t.vInfDep[k], c.vInfDep[k]], [t.vInfArr[k], c.vInfArr[k]]]) {
+      const d = Math.abs(vInfToByte(s) - vInfToByte(v)); cells++; if (d) off++;
+      assert.ok(d <= 1, `${a}>${b} cell ${k}: run npm run tables`);
+    }
+  }
+  assert.ok(off / cells < 0.001, `${off} of ${cells} cells differ: run npm run tables`);
+});
+
+test('The table agrees with the exact cost; the connection holds its cheapest cell', async () => {
+  const { physics, graph, world: { PLANETS, START_DAY } } = await ready;
+  seed(7); let sum = 0, n = 0, worst = 0;
+  for (const a of PLANETS) for (const b of PLANETS) {
+    if (a === b) continue;
+    const id = graph.idealTransfer(a, b), t = physics.cheapestCell(a, b);
+    assert.equal(id.total, t.dv); assert.ok(id.total > 0 && id.total < 25000, `${a}>${b} ${id.total}`);
+    for (let i = 0; i < 60; i++) {
+      const [f0, f1] = TOtable(a, b).flightRange, dep = START_DAY + Math.random() * 5000, days = f0 + Math.random() * (f1 - f0);
+      const ex = physics.transferCost(a, b, dep, days).total; if (ex > 2 * id.total) continue;
+      const e = Math.abs(physics.tableCost(a, b, dep, days) - ex) / ex; sum += e; n++; worst = Math.max(worst, e);
+    }
+  }
+  assert.ok(n > 300 && sum / n < 0.01 && worst < 0.08, `mean ${sum / n}, worst ${worst}, n ${n}`);
+  const id = graph.idealTransfer('earth', 'mars');
+  near(id.total, 1374, 15); near(id.tof, 259, 8);                              // Hohmann, as the textbooks have it
+});
+
+test('A shorter flight costs more: the presets trade delta-v for days', async () => {
+  const { physics, world: { DAY_VALUE, START_DAY } } = await ready;
+  const eco = physics.bestTransfer('earth', 'mars', START_DAY, DAY_VALUE.economical);
+  const from = eco.dep, r = ['economical', 'balanced', 'fast'].map(p => physics.bestTransfer('earth', 'mars', from, DAY_VALUE[p]));
+  assert.ok(eco.dep - START_DAY > 300, 'the window of 2031 is more than 300 days away');
+  for (let i = 1; i < 3; i++) { assert.ok(r[i].days < r[i - 1].days - 10); assert.ok(r[i].dv > r[i - 1].dv); }
+  near(r[0].dv, physics.transferCost('earth', 'mars', r[0].dep, r[0].days).total, 1e-6);   // chosen on the exact cost
+});
+
+test('A transfer flies the chosen time and burns the exact cost', async () => {
+  const { state, commands, physics, world } = await fresh();
+  const S = state.S, ship = S.player.ship;
+  ship.dock(world.nodeOf('earth.capt')); ship.swapTo('carrack'); ship.fuel = 150;
+  const w = physics.bestTransfer('earth', 'mars', S.day, world.DAY_VALUE.economical); S.day = w.dep;
+  const cost = physics.transferCost('earth', 'mars', S.day, 200).total, dv = ship.dvAvail, day = S.day;
+  assert.ok(commands.doTransfer('mars', 200));
+  assert.equal(ship.place?.node, 'mars.capt'); near(S.day, day + 200, 1e-9); near(ship.dvUsed, cost, 1e-6);
+  assert.ok(ship.dvAvail < dv - cost + 1);
+});
+
+test('Planner: the presets draft different plans; the fast one arrives sooner', async () => {
+  const { state, planner, world } = await fresh();
+  const S = state.S, ship = S.player.ship; ship.dock(world.nodeOf('earth.capt')); ship.swapTo('carrack'); ship.fuel = 150;
+  const tgt = world.nodeOf('mars.surf', 'pavonis'), p = world.PRESETS.map(m => planner.planRoute(tgt, m));
+  assert.ok(p.every(x => x && x.legs.at(-1).step.to === tgt));
+  assert.ok(p[2].arrive < p[1].arrive && p[1].arrive < p[0].arrive, p.map(x => x.arrive).join(' '));
+  assert.ok(p[0].dv < p[1].dv && p[1].dv < p[2].dv);
+  assert.ok(p.every(x => x.dv <= ship.dvAvail), 'fast means as fast as the tank allows');
+  ship.swapTo('cog'); ship.fuel = 20;                                     // a small tank: every preset falls back to what it can afford
+  const q = world.PRESETS.map(m => planner.planRoute(tgt, m));
+  assert.ok(q[2].dv <= ship.dvAvail + 0.5 || q[2].dv === q[0].dv, `${q[2].dv} of ${ship.dvAvail}`);
+  const leg = p[0].legs.find(l => l.kind === 'transfer');
+  near(leg.dv, TOphysics.transferCost('earth', 'mars', leg.dep, leg.arr - leg.dep).total, 1e-6);   // the plan shows what will be burned
+});
+
+test('Planner: a pinned transfer stays, the rest is planned again around it', async () => {
+  const { state, planner, physics, world } = await fresh();
+  const S = state.S; S.player.ship.dock(world.nodeOf('earth.orbit'));
+  const tgt = world.nodeOf('mars.surf', 'pavonis'), plan = planner.draftPlan(tgt, 'economical');
+  const i = plan.steps.findIndex(s => s.along.leg), st = plan.steps[i], dep = st.leaveOn + 30, days = 180;
+  planner.pinTransfer(plan, i, dep, days); assert.deepEqual(planner.replan(plan, tgt), []);
+  assert.equal(plan.steps[i], st); assert.ok(st.pinned); assert.equal(st.leaveOn, dep); assert.equal(st.flightDays, days);
+  const sch = planner.schedule(plan);
+  near(sch.legs[i].dep, dep, 1e-9); near(sch.legs[i].arr, dep + days, 1e-9);
+  assert.ok(sch.legs.slice(i + 1).every(l => l.ready >= dep + days - 1e-9));
+  // a departure before the ship gets there cannot stay: the pin goes and the player is told
+  planner.pinTransfer(plan, i, S.day - 10, days);
+  const msgs = planner.replan(plan, tgt);
+  assert.equal(msgs.length, 1); assert.match(msgs[0], /Mars no longer fits/); assert.ok(!plan.steps[i].pinned);
+  assert.ok(plan.steps[i].leaveOn >= S.day);
+  assert.ok(physics.transferCost('earth', 'mars', plan.steps[i].leaveOn, plan.steps[i].flightDays).total < 2000);
+});
+
+test('Planner: where burning and aerobraking join the same places, a step switches and stays switched', async () => {
+  const { state, planner, world } = await fresh();
+  const S = state.S; S.player.ship.dock(world.nodeOf('moon.surf', 'shackleton'));
+  const tgt = world.nodeOf('earth.surf', 'kourou'), plan = planner.draftPlan(tgt, 'economical');
+  const i = plan.steps.findIndex(s => s.from === world.nodeOf('earth.capt') && s.to === world.nodeOf('earth.orbit'));
+  assert.ok(i >= 0 && plan.steps[i].along.dv < 100, 'economical aerobrakes');
+  const slow = planner.schedule(plan);
+  planner.switchStep(plan, i); planner.replan(plan, tgt);
+  assert.ok(plan.steps[i].pinned && plan.steps[i].along.dv > 2000, 'now it burns');
+  const quick = planner.schedule(plan); assert.ok(quick.arrive < slow.arrive - 30 && quick.dv > slow.dv + 2000);
+  assert.equal(planner.draftPlan(tgt, 'fast').steps[i].along, plan.steps[i].along);     // what the fast preset does anyway
+  planner.unpin(plan, i); planner.replan(plan, tgt); assert.ok(!plan.steps[i].pinned);
+});
+
+test('The autopilot flies a plan with a pinned transfer as chosen', async () => {
+  const { state, commands, planner, world } = await fresh();
+  const S = state.S, ship = S.player.ship;
+  ship.dock(world.nodeOf('earth.capt')); ship.swapTo('carrack'); ship.fuel = 150; S.player.credits = 1e6;
+  const tgt = world.nodeOf('mars.capt'), plan = planner.draftPlan(tgt, 'economical'), st = plan.steps[0];
+  planner.pinTransfer(plan, 0, st.leaveOn, 210);
+  commands.startAutopilot(tgt, plan);
+  for (let i = 0; i < 200 && ship.autopilot; i++) await new Promise(r => setTimeout(r, 0));
+  assert.ok(ship.isAt(tgt)); near(S.day, st.leaveOn + 210, 1e-6);
 });
 
 // ── Ship ───────────────────────────────────────────────────────────────────
@@ -413,7 +540,7 @@ test('A manoeuvre burns fuel, takes its time and arrives', async () => {
 });
 
 test('Every manoeuvre is a transit along its connection; busy is only time spent at a place', async () => {
-  const { state, commands, actions, world, seen } = await fresh();
+  const m = await fresh(), { state, commands, actions, world, seen } = m;
   const S = state.S, a = actions.localActions().find(x => x.label === 'Up to high orbit');
   seen.length = 0; commands.doAction(a);
   const under = seen.find(x => x.transit);
@@ -422,9 +549,10 @@ test('Every manoeuvre is a transit along its connection; busy is only time spent
   seen.length = 0; commands.waitDays(3);
   assert.ok(seen.some(x => x.busy && x.place === world.nodeOf('earth.capt') && !x.transit));   // waiting: busy at the place
   S.player.ship.swapTo('carrack'); S.player.ship.fuel = 150;
+  S.day = m.physics.bestTransfer('earth', 'mars', S.day, world.DAY_VALUE.economical).dep;     // in the window
   seen.length = 0; commands.doTransfer('mars');
   const tr = seen.find(x => x.transit);
-  assert.ok(tr && tr.transit.along.transferWindow && tr.transit.to === 'mars' && !tr.busy);
+  assert.ok(tr && tr.transit.along.window && tr.transit.to === 'mars' && !tr.busy);
 });
 
 test('An interplanetary transfer leaves from high orbit and arrives in high orbit', async () => {
@@ -482,7 +610,7 @@ test('The autopilot flies to its target and stops there', async () => {
   const { state, commands, world } = await fresh();
   const S = state.S;
   S.player.credits = 1e6;
-  commands.startAutopilot(world.nodeOf('moon.surf', 'shackleton'), 'eco');
+  commands.startAutopilot(world.nodeOf('moon.surf', 'shackleton'), 'economical');
   assert.ok(S.player.ship.autopilot instanceof state.Autopilot); assert.equal(S.player.ship.autopilot.start, world.nodeOf('earth.orbit'));
   for (let i = 0; i < 200 && S.player.ship.autopilot; i++) await new Promise(r => setTimeout(r, 0));
   assert.equal(S.player.ship.autopilot, null); assert.ok(S.player.ship.isAt(world.nodeOf('moon.surf', 'shackleton')));
@@ -495,9 +623,10 @@ test('The autopilot keeps its start for the whole trip: a wait for the window th
   ship.load(new state.Order({ id: 9999, good: 'food', containers: 1, from: 'shackleton', to: 'jupgas', reward: 1000, dv: 1, days: 1,
     deadline: S.day + 1000, created: S.day, expires: S.day + 900, fromHubStore: false, toHub: false }));
   assert.equal(commands.deliverables().length, 1);                       // it could be delivered right here
-  const tgt = world.nodeOf('saturn.capt'), plan = TOplan(commands, tgt);
-  assert.equal(plan.steps[0].kind, 'wait');                              // the trip starts with a wait for the window
-  commands.startAutopilot(tgt, 'eco');
+  const tgt = world.nodeOf('saturn.capt'), plan = plannerMod.draftPlan(tgt, 'economical'), st = plan.steps[0];
+  plannerMod.pinTransfer(plan, 0, st.leaveOn + 40, st.flightDays);
+  assert.ok(plannerMod.schedule(plan).legs[0].wait > 39);                  // the trip starts with a wait
+  commands.startAutopilot(tgt, plan);
   for (let i = 0; i < 200 && ship.autopilot; i++) await new Promise(r => setTimeout(r, 0));
   assert.ok(!reports.some(r => /cargo can be delivered here/.test(r.text)), reports.map(r => r.text).join(' / '));
   assert.ok(ship.isAt(tgt), ship.place?.key);

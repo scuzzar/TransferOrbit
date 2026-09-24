@@ -2,13 +2,14 @@
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, SHIPS, bodyName, fmtCr, isNode, siteOf, splitNode } from '../game/world.js';
-import { Hub, Order, RouteMode, S, postLabel, postPlace } from '../game/state.js';
+import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, PRESETS, Preset, SHIPS, bodyName, fmtCr, isNode, siteOf, splitNode } from '../game/world.js';
+import { Hub, Order, S, postLabel, postPlace } from '../game/state.js';
 import { freshDeadline, hubRoom } from '../game/economy.js';
-import { nearestFuel, planRoute, stepBlocker } from '../game/planner.js';
+import { Leg, draftPlan, nearestFuel, pinTransfer, planRoute, replan, schedule, stepBlocker, switchStep, unpin } from '../game/planner.js';
 import { abortOrder, acceptOrders, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { UI } from './state.js';
 import { btn, dots, gchip, ibtn, openRoute, openView, phead, routeLink } from './widgets.js';
+import { transferMap } from './transfermap.js';
 
 // Take the ticked orders aboard and show them in the cargo hold
 export function acceptSelected(){ if(acceptOrders(UI.sel)) openView('cargo'); }
@@ -36,7 +37,7 @@ function panelPost(p:HTMLElement){
   const groups=new Map<string,[Order,...Order[]]>();
   offers.forEach(o=>{ const g=groups.get(o.to); if(g) g.push(o); else groups.set(o.to,[o]); });
   const glist=[...groups].map(([to,os])=>{
-    const tk=S.market.post(to), tpl=planRoute(tk.at,'eco');
+    const tk=S.market.post(to), tpl=planRoute(tk.at,'economical');
     return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
   }).sort((a,b)=>a.dv-b.dv);
   glist.forEach(dest=>{
@@ -231,7 +232,7 @@ export function renderPanel(){
 export function launchAutopilot(){
   const R=UI.route; if(!R) return;
   const mobile=!isDesk(); UI.pick=null; UI.rmsg=true; if(mobile) UI.view='main';
-  startAutopilot(R.target, R.mode);
+  startAutopilot(R.target, R.plan ?? R.preset);
   if(mobile) window.scrollTo({top:0});
 }
 
@@ -254,30 +255,53 @@ function panelRoute(p:HTMLElement){
     if(del.length){ const f=document.createElement('div'); f.className='pfoot'; f.appendChild(btn(`Deliver (${del.length}), ${fmtCr(del.reduce((s,o)=>s+o.payout(S.day),0))}`,'go wide',locked,()=>{ deliverAll(); })); p.appendChild(f); }
     return;
   }
-  const plans: Record<RouteMode, ReturnType<typeof planRoute>> = {eco:planRoute(R.target,'eco'), now:planRoute(R.target,'now')};
-  const plan=plans[R.mode];
+  // The plan being drafted, or the one the autopilot flies. Planning again drops the steps
+  // already flown and fits the rest around what the player pinned.
+  const A=S.player.ship.autopilot, draft=A ? A.plan : (R.plan ??= draftPlan(R.target,R.preset));
+  if(draft && !A){ const msgs=replan(draft,R.target); if(msgs.length){ UI.msg=msgs.join(' '); UI.rmsg=true; } }
+  const plan=draft ? schedule(draft) : null;
   p.appendChild(phead(`Route: ${R.target.label}`, `From ${esc(here.label)}.`, ''));
   if(UI.rmsg && UI.msg){ const m=document.createElement('div'); m.className='msg'; m.style.margin='0 0 12px'; m.textContent=UI.msg; p.appendChild(m); }
-  if(!plan){ const e=document.createElement('p'); e.className='hint'; e.textContent='There is no route to that place.'; p.appendChild(e); return; }
+  if(!draft || !plan){ const e=document.createElement('p'); e.className='hint'; e.textContent='There is no route to that place.'; p.appendChild(e); return; }
+  // after a change: plan again and show it
+  const again=()=>{ const msgs=replan(draft,R.target); if(msgs.length){ UI.msg=msgs.join(' '); UI.rmsg=true; } changed(); };
   const chips=document.createElement('div'); chips.className='chips';
-  ([['eco','Economical'],['now','Leave now']] as const).forEach(([m,t])=>{
-    const pl=plans[m], ok=pl && pl.dv<=S.player.ship.dvAvail+0.5;
-    const b=btn(`${t}: ${pl?km(pl.dv)+' km/s, '+fmtDays(pl.days):'–'}`, R.mode===m?'chip on':'chip'+(ok?'':' bad'), false, ()=>{ R.mode=m; changed(); });
-    b.setAttribute('aria-pressed',String(R.mode===m)); chips.appendChild(b);
+  const NAMES: Record<Preset,string> = {economical:'Economical', balanced:'Balanced', fast:'Fast'};
+  PRESETS.forEach(m=>{
+    const pl=planRoute(R.target,m), ok=pl && pl.dv<=S.player.ship.dvAvail+0.5, on=draft.preset===m;
+    const b=btn(`${NAMES[m]}${on&&draft.pinned?' (adjusted)':''}: ${pl?km(pl.dv)+' km/s, '+fmtDays(pl.days):'–'}`, on?'chip on':'chip'+(ok?'':' bad'), !!A, ()=>{ R.preset=m; R.plan=draftPlan(R.target,m); R.open=null; changed(); });
+    b.setAttribute('aria-pressed',String(on)); chips.appendChild(b);
   });
   p.appendChild(chips);
+  const deadl=S.player.ship.hold.filter(o=>S.market.post(o.to).at===R.target);
+  const due=deadl.length ? Math.min(...deadl.map(o=>o.deadline)) : null;
   const tl=document.createElement('ol'); tl.className='timeline';
-  let run=S.day;
-  plan.steps.forEach((st,i)=>{
-    run+=st.days; const last=i===plan.steps.length-1;
-    const li=document.createElement('li'); li.className=st.kind+(i===0?' first':'')+(last?' last':'');
-    li.innerHTML=`<span class="dot"></span><div class="tx"><b>${esc(st.label)}</b><small>${st.kind==='wait'?`${fmtDays(st.days)}, until ${dateStr(run)}`:fmtDays(st.days)}${last?`, arriving ${dateStr(run)}`:''}</small></div><span class="num">${st.kind==='wait'?'–':km(st.dv)+' km/s'}</span>`;
+  let spent=0;
+  plan.legs.forEach((st:Leg,i:number)=>{
+    const last=i===plan.legs.length-1, lg=st.step.along.leg;
+    const li=document.createElement('li'); li.className=(st.wait>0.01?'wait':st.kind)+(i===0?' first':'')+(last?' last':'');
+    const when=st.kind==='transfer'
+      ? `${st.wait>0.01?`Leaves ${dateStr(st.dep)}, after ${fmtDays(st.wait)} waiting. `:'Leaves at once. '}Flies ${fmtDays(st.arr-st.dep)}`
+      : fmtDays(st.days);
+    li.innerHTML=`<span class="dot"></span><div class="tx"><b>${esc(st.label)}</b><small>${when}${last?`, arriving ${dateStr(st.arr)}`:''}${st.step.pinned?' <span class="mtag post">your choice</span>':''}</small></div><span class="num">${km(st.dv)} km/s</span>`;
+    const tx=find(li,'.tx',HTMLElement), row=document.createElement('div'); row.className='stepctl';
+    if(lg && !A) row.appendChild(btn(R.open===i?'Close the map':'Choose on the map','chip small'+(R.open===i?' on':''),false,()=>{ R.open=R.open===i?null:i; changed(); }));
+    if(st.alt && !A){ const alt=st.alt, aero=alt.dv<100;
+      row.appendChild(btn(`${aero?'Aerobrake instead':'Burn instead'}: ${km(alt.dv)} km/s, ${fmtDays(alt.days)}`,'chip small',false,()=>{ switchStep(draft,i); again(); })); }
+    if(st.step.pinned && !A) row.appendChild(btn('Back to the preset','chip small',false,()=>{ unpin(draft,i); again(); }));
+    if(row.children.length) tx.appendChild(row);
+    if(lg && R.open===i && !A){
+      const after=plan.legs.slice(i+1).reduce((d,x)=>d+x.days,0);
+      tx.appendChild(transferMap({a:lg[0], b:lg[1], from:st.ready, dep:st.dep, days:st.arr-st.dep,
+        budget:S.player.ship.dvAvail-spent, deadline:due, after,
+        pick:(dep,days)=>{ pinTransfer(draft,i,dep,days); again(); }}));
+    }
+    spent+=st.dv;
     tl.appendChild(li);
   });
   p.appendChild(tl);
   const have=S.player.ship.dvAvail, ok=plan.dv<=have+0.5; R.strand=false;
   const sum=document.createElement('div'); sum.className='pfoot';
-  const deadl=S.player.ship.hold.filter(o=>{ const k=S.market.post(o.to); return k.at===R.target; });
   const late=deadl.filter(o=>plan.arrive>o.deadline);
   sum.innerHTML=`<div class="row"><span class="muted">Needs ${km(plan.dv)} of ${km(have)} km/s</span><b class="${ok?'okc':'badc'}">${ok?km(have-plan.dv)+' km/s left':km(plan.dv-have)+' km/s short'}</b></div>
     <div class="massbar"><i style="width:${Math.min(100,plan.dv/Math.max(have,1)*100).toFixed(0)}%;background:${ok?'var(--accent)':'var(--bad)'}"></i></div>
@@ -325,7 +349,7 @@ function panelRoute(p:HTMLElement){
     sum.appendChild(box);
   }
   const g=document.createElement('div'); g.className='two';
-  g.appendChild(btn('Next step only','',locked||!!S.player.ship.autopilot||!plan.steps.length,()=>{ const st=plan.steps[0]; if(!st) return; UI.rmsg=true; if(!execStep(st)){ UI.msg=`"${st.label}" is not possible right now. ${stepBlocker(st)}`; } changed(); }));
+  g.appendChild(btn('Next step only','',locked||!!S.player.ship.autopilot||!plan.legs.length,()=>{ const st=plan.legs[0]; if(!st) return; UI.rmsg=true; if(!execStep(st)){ UI.msg=`"${st.label}" is not possible right now. ${stepBlocker(st)}`; } changed(); }));
   if(S.player.ship.autopilot) g.appendChild(btn('Stop the autopilot','',false,()=>stopAutopilot('Autopilot stopped.')));
   else g.appendChild(R.strand ? btn('Start anyway','',locked||!ok,launchAutopilot) : btn('Start the autopilot','go',locked||!ok,launchAutopilot));
   sum.appendChild(g); p.appendChild(sum);

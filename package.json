@@ -11,7 +11,8 @@
     "unit": "node --test tests/unit.js",
     "pretest": "npm run build",
     "test": "node --test tests/unit.js && node tests/regress.js && node tests/test-bot.js",
-    "game-bot": "node tests/game-bot.js"
+    "game-bot": "node tests/game-bot.js",
+    "tables": "node tools/transfertables.js"
   },
   "devDependencies": {
     "@types/three": "^0.169.0",

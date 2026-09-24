@@ -2,6 +2,53 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – Transfers you can shape: departure, flight time, plans of steps (version 46)
+
+**Transfers follow the physics now.** A transfer between two planets used to cost the Hohmann
+value in the window and, anywhere else, a rule of thumb: a surcharge on the excess speed that grew
+with the distance from the ideal phase angle, and a flight up to 30 % shorter. Now it is a Lambert
+problem on the game's circular orbits, solved in the plane after Izzo (2015), which stays exact at
+180 degrees where the classic form divides by zero. What a transfer costs follows from the angle it
+sweeps and its flight time. The Hohmann window is simply the cheapest case (Earth → Mars: 1.37 km/s,
+259 days), and leaving far from it is expensive for real: on the first day of the game 19 km/s
+with the longest flight the table covers, where the rule of thumb said 7.7.
+
+**Transfer tables.** Every pair of planets has a table of excess speeds over transfer angle (120
+steps) and flight time (48 steps, a quarter to twice the Hohmann flight). `npm run tables`
+(`tools/transfertables.js`) computes all 42 in under a second and writes `js/game/transfertables.ts`,
+one byte per value on a logarithmic scale; a unit test fails as soon as the tables and the orbits
+disagree. The table is for looking and searching (0.5 % off on average); a transfer burns the exact
+value. Over the phase angle at departure, as first drawn, the tables were off by 200 % for fast
+targets such as Mercury, which is why the model now keys them by the transfer angle.
+
+**Plans of steps.** The route planner drafts a plan from one of three presets, each a value of a
+day in delta-v: *economical* 1 m/s, *balanced* 15 m/s, *fast* 100 m/s. A preset whose plan does not
+fit the tank steps down (50, 25, 15, 5, 1), so fast means as fast as the tank allows. Then every
+step can be changed:
+
+- a transfer on its **map**: delta-v over departure day and flight time, lighter is cheaper,
+  hatched is more than the ship has, the dashed line is the deadline of the cargo for the target;
+  tapping picks when to leave and how long to fly;
+- where **aerobraking and burning** join the same two orbits, a button switches the step.
+
+A changed step is pinned and marked "your choice". After every change and every step flown the
+rest is planned again around the pinned steps; a pinned departure the ship can no longer make loses
+its pin, and the panel says so. The autopilot flies the plan; waiting is part of a transfer step.
+
+| Earth high orbit → Pavonis Mons, Hulk | Δv | Days |
+|---|--:|--:|
+| Economical | 2.14 km/s | 714 |
+| Balanced | 2.42 km/s | 678 |
+| Fast | 11.70 km/s | 342 |
+
+`legWait` for the order board, the window marker on the solar system map and the planet card now
+read the same tables. `RouteMode` and `transferWindow` are gone: a connection has a transfer window
+exactly when it has a transfer table. The domain model says all of this first; its list of places
+where the code does not follow is empty again.
+
+Still open: the days of a route with stopovers, which price the orders and set their deadlines,
+leave out the waiting for the next window at every stopover.
+
 ## 2026-09-20 – MIT licence
 
 The game — `index.html`, `js/`, `tools/`, `tests/` — is now under the MIT licence, copyright

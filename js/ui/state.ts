@@ -3,8 +3,8 @@
 // They only tell the player things through report(); hear() is where that lands.
 
 import type { ReportKind } from '../events.js';
-import { BodyId, Node, NodeId, PlanetId, SITES, isPlanet, nodeOf } from '../game/world.js';
-import { RouteMode } from '../game/state.js';
+import { BodyId, Node, NodeId, PlanetId, Preset, SITES, isPlanet, nodeOf } from '../game/world.js';
+import { Plan } from '../game/state.js';
 
 export type View = 'main'|'post'|'cargo'|'refuel'|'shipyard'|'route';
 // What is selected on the map
@@ -17,7 +17,7 @@ export interface UIState {
   sel:Set<number>;                    // orders ticked on the order board
   tank:number|null;                   // the amount on the refuel slider
   pick:Pick|null;                     // the map selection
-  route:{ target:Node; mode:RouteMode; strand?:boolean }|null;   // the route panel
+  route:{ target:Node; preset:Preset; plan:Plan|null; open:number|null; strand?:boolean }|null;   // the route panel: the plan being drafted, the step whose map is open
   mapView:ViewLevel|null; mapKey:string|null;                      // a map level chosen by hand, and for which place
   msg:string|null; rmsg:boolean;      // the last message, and whether the route panel shows it too
   windowPlanet:PlanetId|null;         // where the transfer window on the solar system map points

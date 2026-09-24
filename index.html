@@ -290,6 +290,18 @@ label.order{display:block;cursor:pointer}
 .timeline .tx{flex:1;display:flex;flex-direction:column}
 .timeline .tx small{color:var(--muted)}
 .timeline .num{white-space:nowrap;font-weight:600}
+.stepctl{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip.small{min-height:30px;font-size:.8rem;padding:2px 10px}
+.tmap{margin-top:8px}
+.tmap canvas{display:block;border-radius:6px;cursor:crosshair}
+.tmap .hint{margin:0 0 6px}
+.tmap-read{margin:6px 0 4px;font-size:.85rem;color:var(--muted)}
+.tmap-read b{color:var(--text)}
+.tmap-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.75rem;color:var(--muted)}
+.tmap-legend span{display:inline-flex;align-items:center;gap:4px}
+.tmap-legend i{display:inline-block;width:14px;height:10px;border-radius:2px}
+.tmap-legend i.over{background:repeating-linear-gradient(45deg,#232a45 0 3px,#3a4263 3px 4px)}
+.tmap-legend i.dl{height:0;border-top:2px dashed var(--accent);border-radius:0}
 .ogroups{display:flex;flex-direction:column;gap:10px}
 .ogroup{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .ogroup.on{border-color:var(--accent)}
