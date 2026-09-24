@@ -52,13 +52,17 @@ hide <<value>> stereotype
     dep: number
     arr: number
   }
-  class Autopilot <<transient>> {
+  class Autopilot <<transient>>
+  class Plan <<transient>>
+  class Step <<transient>> {
     leaveOn: number [0..1]
     flightDays: number [0..1]
+    pinned: boolean
   }
-  enum RouteMode <<value>> {
+  enum Preset <<value>> {
     economical
-    leaveNow
+    balanced
+    fast
   }
   class Market {
     simulatedTo: number
@@ -162,7 +166,10 @@ Docked "*" --> "1" Node : at
 InTransit "*" --> "1" Connection : along
 Autopilot "*" --> "1" Node : target
 Autopilot "*" --> "1" Node : start
-Autopilot --> RouteMode : mode
+Autopilot "1" *-- "1" Plan : flies
+Plan --> Preset : preset
+Plan "1" *-- "1..*" Step : steps {ordered}
+Step "*" --> "1" Connection : along
 
 ' trade
 Market "1" *-- "*" Starport : posts

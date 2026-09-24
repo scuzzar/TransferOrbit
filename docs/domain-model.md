@@ -38,8 +38,8 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   the high orbit. A table is computed from the orbits of its two bodies, never written by hand,
   and one that no longer matches them is an error. It is for looking and searching: a transfer
   burns the exact delta-v for its departure day and flight time, worked out from the same orbits.
-- **Flight time.** A transfer leaves on the day it is started and flies the time the player
-  chooses; `dep` and `arr` of the transit are that day and the arrival. A shorter flight costs
+- **Flight time.** A transfer leaves on a chosen day and flies a chosen time, both picked on its
+  map; `dep` and `arr` of the transit are that day and the arrival. A shorter flight costs
   more delta-v, and so does leaving far from the window. How much delta-v the ship can spend
   follows from its class, its cargo and its fuel; the table is the same for every ship.
 - **Nodes on a surface are landing sites.** Every spaceport has its own starport; the Earth has
@@ -63,12 +63,20 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   the game and the world points from the game into the world, never back: a starport knows the
   node it lies `at`, and which starport lies at a node is a question to the game's market.
 - **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
-  no reason to stop. `target` is where it ends. `leaveOn` and `flightDays`, when set, are the
-  transfer the player picked on the map: the route's first transfer leaves on that day with that
-  flight time, and the choice is kept until that transfer has left. Every other transfer follows
-  the mode: `economical` counts a day of waiting or flying as worth very little delta-v, so it
-  waits for the window and takes the long flight; `leaveNow` leaves on the day it gets there and
-  counts a day as worth much delta-v, so it flies faster.
+  no reason to stop. `target` is where it ends. It flies its plan's steps in order and waits
+  where a transfer's departure day still lies ahead.
+- **Plans.** A plan is the way to the target, step by step, each step along one connection. A
+  transfer step says when it leaves (`leaveOn`) and how long it flies (`flightDays`). The first
+  draft follows a preset: `economical`, `balanced` or `fast` say how much delta-v a day of waiting
+  or flying is worth (the amounts are game rules in the code). The player can then change any
+  step: on a transfer the departure day and flight time, picked on its map; where two connections
+  join the same two places, such as burning down into low orbit or aerobraking, which one it
+  takes. A changed step is `pinned`. After every change, and after every step flown, the steps
+  after it that are not pinned are planned again from the preset, from where and when the ship
+  will then be; their way may change. A pinned step that can no longer be flown as chosen, because
+  its departure lies before the ship gets there, loses its pin and is planned again, and the
+  player is told. A plan still being drafted in the planner, before the autopilot takes it, is
+  interface state.
 
 ## Where the code does not follow yet
 
@@ -79,5 +87,7 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   for the day.
 - `Connection` still carries a `transferWindow` flag; whether a connection has a transfer window
   is to follow from its transfer table alone.
-- The autopilot has no `leaveOn` and `flightDays`, and the planner's two modes only choose between
-  waiting for the ideal window and leaving now with the flight time of the day.
+- There are no plans of steps. The planner works out a fresh route at every step from one of two
+  modes (`eco`, `now`) instead of the three presets; the player cannot change a step, nothing is
+  pinned, and a transfer only chooses between waiting for the ideal window and leaving now with
+  the flight time of the day.
