@@ -2,6 +2,12 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – The route panel shows the whole trip (version 50)
+
+The summary at the foot of the route panel starts with the time the whole plan takes, waits
+included, and the day it arrives; the date turns red when cargo for the target would arrive after
+its deadline.
+
 ## 2026-09-24 – Waiting at stopovers; the autopilot shows its arrival (version 49)
 
 **Deadlines count the wait at every stopover.** A route with more than one transfer, Venus → Mars
