@@ -221,7 +221,13 @@ export const LAUNCH_FEE = 100, RESCUE_BASE = 5000, RESCUE_PER_T = 300, BANKRUPT 
 
 // Rewards follow the delta-v a route needs, not its time: RATE_MASS credits per tonne (cargo plus
 // the ship's share) of propellant the Cog's drive would burn for it. A better ship earns its edge.
-export const RATE_MASS = 700, SHIP_MASS_SHARE = 8, V_EXHAUST = SHIP_TABLE.cog.isp*9.80665;
+// On top, VALUE_RATE times the goods' value for every V_EXHAUST of delta-v: precious goods pay
+// more, the further they go.
+export const RATE_MASS = 700, SHIP_MASS_SHARE = 8, V_EXHAUST = SHIP_TABLE.cog.isp*9.80665, VALUE_RATE = 2;
+// An order pays for the cheapest way to arrive by its deadline. Where no window lies close enough,
+// that costs more than the ideal window, and the order pays for it, up to WINDOW_DV m/s more; past
+// that its deadline moves out until the cost fits.
+export const WINDOW_DV = 4000;
 
 // How much delta-v a day of waiting or flying is worth to each preset of the route planner, m/s.
 // Economical waits for a window and takes the long flight; fast pays for a short one.

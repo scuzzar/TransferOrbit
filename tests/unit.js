@@ -262,19 +262,66 @@ test('The autopilot flies a plan with a pinned transfer as chosen', async () => 
   assert.ok(ship.isAt(tgt)); near(S.day, st.leaveOn + 210, 1e-6);
 });
 
-test('A route with a stopover waits for the window of every transfer, not just the first', async () => {
-  const { graph, economy, physics, world: { DAY_VALUE, START_DAY } } = await ready;
+test('A route with a stopover shares the time out: every transfer arrives within its part of it', async () => {
+  const { graph, economy, physics, world: { START_DAY } } = await ready;
   const r = graph.route({ node: 'venus.capt', site: null }, { node: 'mars.capt', site: null });
   assert.deepEqual(r.legs, [['venus', 'earth'], ['earth', 'mars']]);                     // via Earth
   assert.equal(r.path.length, 2); assert.equal(r.path[0], r.first);
-  let longest = 0;
+  const [c1, c2] = r.path;
   for (let day = START_DAY; day < START_DAY + 800; day += 40) {
-    const t1 = physics.searchTransfer('venus', 'earth', day, DAY_VALUE.economical), at = t1.dep + t1.days;
-    const t2 = physics.searchTransfer('earth', 'mars', at, DAY_VALUE.economical);
-    near(economy.routeWait(r, day), (t1.dep - day) + (t2.dep - at), 1e-9);
-    longest = Math.max(longest, t2.dep - at);
+    const by = day + 1.5 * r.days + 30, mid = day + (by - day) * c1.days / r.days;
+    const t1 = physics.arriveBy('venus', 'earth', day, mid), t2 = physics.arriveBy('earth', 'mars', t1.dep + t1.days, by);
+    assert.ok(t1.dep >= day && t1.dep + t1.days <= mid + 1e-9 && t2.dep + t2.days <= by + 1e-9);
+    near(economy.routeBy(r, day, by), t1.dv + t2.dv, 1e-6);
   }
-  assert.ok(longest > 100, `at Earth the ship waits up to ${longest} days for the window to Mars`);
+  // with too little time there is no way at all
+  assert.equal(economy.routeBy(r, START_DAY, START_DAY + 10), Infinity);
+});
+
+test('arriveBy: the cheapest transfer that arrives in time; with all the time in the world, the ideal window', async () => {
+  const { graph, physics, world: { START_DAY } } = await ready;
+  const ideal = graph.idealTransfer('earth', 'mars'), syn = physics.synodic('earth', 'mars');
+  for (let day = START_DAY; day < START_DAY + syn; day += 60) {
+    const long = physics.arriveBy('earth', 'mars', day, day + syn + 2 * ideal.tof);
+    assert.ok(long.dv <= ideal.total * 1.03, `day ${day}: ${long.dv} against the ideal ${ideal.total}`);
+    const short = physics.arriveBy('earth', 'mars', day, day + ideal.tof);        // no waiting
+    assert.ok(short.dep + short.days <= day + ideal.tof + 1e-9 && short.dv >= long.dv - 1e-6);
+  }
+  assert.equal(physics.arriveBy('earth', 'mars', START_DAY, START_DAY + 5), null);
+});
+
+test('Order terms: a far window raises the delta-v an order pays for, up to WINDOW_DV; the deadline never counts the wait', async () => {
+  const { graph, economy, physics, world: { START_DAY, WINDOW_DV } } = await ready;
+  const r = graph.route({ node: 'earth.capt', site: null }, { node: 'mars.capt', site: null });
+  const syn = physics.synodic('earth', 'mars'), seen = [];
+  for (let day = START_DAY; day < START_DAY + syn; day += 20) {
+    const t = economy.terms(r, day, 30);
+    assert.ok(t.dv >= r.dv && t.dv <= r.dv + WINDOW_DV + 1e-6);
+    assert.ok(t.deadline >= day + 1.5 * r.days + 30 - 1e-9);
+    const step = Math.max(10, 0.1 * (1.5 * r.days + 30));                      // moved out only as far as the cap needs
+    if (t.deadline > day + 1.5 * r.days + 30) assert.ok(economy.routeBy(r, day, t.deadline - step) > r.dv + WINDOW_DV);
+    seen.push(t.dv);
+  }
+  assert.ok(Math.min(...seen) < r.dv * 1.05, 'in the window an order pays about the ideal');
+  assert.ok(Math.max(...seen) > r.dv + 1000, 'far from it, clearly more');
+  // a route without a transfer has no window
+  const moon = graph.route({ node: 'earth.orbit', site: null }, { node: 'moon.orbit', site: null });
+  const tm = economy.terms(moon, START_DAY, 30);
+  near(tm.dv, moon.dv, 1e-9); near(tm.deadline, START_DAY + 1.5 * moon.days + 30, 1e-9);
+});
+
+test('Reward: the propellant for the delta-v, plus the goods\' value in proportion to it', async () => {
+  const { graph, world: { RATE_MASS, SHIP_MASS_SHARE, V_EXHAUST, VALUE_RATE, GOODS } } = await ready;
+  const keep = Math.random; Math.random = () => 0.5;                       // luck 0.9 + 0.3·0.5 = 1.05
+  try {
+    for (const g of ['he3', 'water']) for (const dv of [2000, 9000]) {
+      const G = GOODS[g], x = dv / V_EXHAUST;
+      const want = (RATE_MASS * (SHIP_MASS_SHARE + 2 * G.mass) * (Math.exp(x) - 1) + VALUE_RATE * 2 * G.value * x) * 1.05;
+      near(graph.rewardFor({ dv, launch: false }, g, 2), Math.round(want / 10) * 10, 1e-9);
+    }
+    // helium-3 and electronics weigh the same; the dearer one pays more
+    assert.ok(graph.rewardFor({ dv: 9000, launch: false }, 'he3', 1) > graph.rewardFor({ dv: 9000, launch: false }, 'elec', 1));
+  } finally { Math.random = keep; }
 });
 
 // ── Ship ───────────────────────────────────────────────────────────────────
@@ -364,8 +411,8 @@ test('A new game: Cog at the shipyard, full tank, 20,000 Cr, orders at the posts
   assert.ok(S.market.offers.length > 10); assert.equal(S.player.ship.hold.length, 0);
   assert.ok(S.canAct);
   assert.equal(S.postHere?.id, 'shipyard');
-  // orders from the run-up period all start today with their full deadline
-  for (const o of S.market.offers) { assert.equal(o.created, S.day); assert.ok(o.deadline > S.day); }
+  // orders from the run-up period keep their age; none is on offer past the day its ideal flight still fits
+  for (const o of S.market.offers) { assert.ok(o.created <= S.day && o.expires >= S.day); assert.ok(o.expires <= o.deadline - o.days + 1e-9); }
 });
 
 test('Market: every order lies at the post it comes from, ids are unique and below nextId', async () => {
@@ -477,12 +524,13 @@ test('Where an order lies is its state: offered at its starport, aboard in the h
   assert.ok(S.player.ship.location instanceof state.Location && S.player.ship.location instanceof state.Docked);
 });
 
-test('Accepting moves orders from the post into the hold with a fresh deadline; all or none', async () => {
+test('Accepting moves orders from the post into the hold and keeps their deadline; all or none', async () => {
   const { state, commands } = await fresh();
   const S = state.S, post = S.postHere, small = post.offers.filter(o => o.containers <= 2).slice(0, 2);
   assert.equal(small.length, 2);
-  const before = post.offers.length;
+  const before = post.offers.length, due = small.map(o => o.deadline);
   assert.ok(commands.acceptOrders(small.map(o => o.id)));
+  assert.deepEqual(small.map(o => o.deadline), due);
   assert.equal(post.offers.length, before - 2);
   assert.deepEqual(S.player.ship.hold.map(o => o.id), small.map(o => o.id).sort((a, b) => a - b));
   for (const o of S.player.ship.hold) assert.equal(o.created, S.day);

@@ -4,7 +4,7 @@ import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
 import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, PRESETS, Preset, SHIPS, bodyName, fmtCr, isNode, siteOf, splitNode } from '../game/world.js';
 import { Hub, Order, S, postLabel, postPlace } from '../game/state.js';
-import { freshDeadline, hubRoom } from '../game/economy.js';
+import { hubRoom } from '../game/economy.js';
 import { Leg, draftPlan, nearestFuel, pinTransfer, planRoute, replan, schedule, stepBlocker, switchStep, unpin } from '../game/planner.js';
 import { abortOrder, acceptOrders, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { UI } from './state.js';
@@ -41,7 +41,7 @@ function panelPost(p:HTMLElement){
     return {tk, os:os.sort((a,b)=>b.reward-a.reward), tpl, dv:tpl?tpl.dv:os[0].dv, days:tpl?tpl.days:os[0].days};
   }).sort((a,b)=>a.dv-b.dv);
   glist.forEach(dest=>{
-    const {tk,os,tpl}=dest, dl=freshDeadline(S.market,os[0],S.day), lateBy=tpl?tpl.arrive-dl:0;
+    const {tk,os,tpl}=dest, due=os.reduce((a,o)=>o.deadline<a.deadline?o:a), dl=due.deadline, lateBy=tpl?tpl.arrive-dl:0;
     const gSel=os.filter(o=>UI.sel.has(o.id));
     const lightest=os.filter(o=>!UI.sel.has(o.id)).reduce((m,o)=>Math.min(m,o.containers*GOODS[o.good].mass),Infinity);
     const after = gSel.length ? S.player.ship.dvWith(S.player.ship.fuel,S.player.ship.cargoMass+selM) : S.player.ship.dvWith(S.player.ship.fuel,S.player.ship.cargoMass+selM+(isFinite(lightest)?lightest:0));
@@ -51,7 +51,7 @@ function panelPost(p:HTMLElement){
     const nDel=S.player.ship.hold.filter(o=>o.to===tk.id).length;
     grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(postLabel(tk))}</b>${(tk instanceof Hub)?' <span class="tag">Hub</span>':''} ${fuelTag(tk.at)}${nDel?` <span class="mtag deliver">${nDel} already on board</span>`:''}</div>
       <div class="og-meta"><span class="${short?'badc':''}">${km(dest.dv)} km/s</span><span>${fmtDays(dest.days)}</span><span class="${lateBy>0?'badc':''}">Due ${dateStr(dl)}</span></div>
-      ${tpl&&lateBy>0?`<div class="o-warn bad">The deadline cannot be met: earliest arrival ${dateStr(tpl.arrive)}.</div>`:
+      ${tpl&&lateBy>0?`<div class="o-warn">Waiting for the window arrives ${dateStr(tpl.arrive)}, too late. On time takes about ${km(due.dv)} km/s, and the order pays for that.</div>`:
         short?`<div class="o-warn">${gSel.length?'With your selection':'Even with the lightest order'} you would have ${km(after)} km/s left. ${afterFull<dest.dv?`Too heavy: even with a full tank it would only be ${km(afterFull)} km/s.`:'Refuel first.'}</div>`:''}</div>`;
     const rl=routeLink(tk,'post'); rl.style.marginLeft='auto'; find(grp,'.og-meta',HTMLElement).appendChild(rl);
     os.forEach(o=>{

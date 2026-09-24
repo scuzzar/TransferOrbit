@@ -2,6 +2,38 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – An unfavourable window raises the price; the goods' value counts (version 53)
+
+**An order pays for arriving on time.** Its deadline follows the route's ideal flight time,
+`1.5 · days + 30` (bulk orders `+ 60`), and no longer the wait for its windows. It pays for the
+delta-v of the cheapest way to arrive by then: `routeBy()` in `game/economy.ts` shares the time
+out over the route's transfers in proportion to their ideal flights, and `arriveBy()` in
+`game/physics.ts` finds the cheapest transfer that arrives within each share. When a window is
+near, that is the ideal window and the order pays what it did before; when it is far, the flight
+has to leave outside it, and the order pays for the extra delta-v, up to `WINDOW_DV` = 4 km/s
+more. Past that the deadline moves out until the cost fits. `routeWait()` and `freshDeadline()`
+are gone.
+
+The deadline now stays as it was set: accepting an order no longer gives it a fresh one, since
+waiting at the post for a better window would otherwise pay. An order leaves the board once its
+ideal flight no longer fits before the deadline, after 90 days at the latest. Orders from the
+run-up period keep their real age. Where waiting for the window arrives too late, the order board
+says so and tells how much delta-v arriving on time takes.
+
+**The goods' value counts.** In place of a tenth of the value, an order pays `VALUE_RATE` = 2 times
+the value for every `v_e` of delta-v:
+
+```
+reward = RATE_MASS·m·(e^(Δv/v_e) − 1) + VALUE_RATE·n·value·Δv/v_e (+ a share of the launch fee)
+```
+
+Per cargo slot, helium-3 goes from about 4,600 Cr to 13,800 Cr, electronics from 11,500 to 25,400,
+water only from 22,400 to 28,000. On average an order pays about 1.4 times as much.
+
+The bots (5 × 120 steps) end on 230,000 to 400,000 Cr; the same bots on version 52 ended on 31,000
+to 209,000 Cr in this container. They skip orders whose window is too far away. `RATE_MASS` is
+unchanged.
+
 ## 2026-09-24 – Moons name their planet; fuel on the order board (version 52)
 
 A starport on a moon names its planet as well: "Valhalla, Callisto (Jupiter)", "Shackleton, Moon

@@ -10,7 +10,7 @@ import { BODIES, BANKRUPT, GOODS, LandingSite, Node, NodeId, PlanetId, Preset, R
 import { cheapestFlight, transferCost } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Plan, Player, Ship, setState, storeOf } from './state.js';
 import { connectionsFrom, route } from './graph.js';
-import { advanceMarket, freshDeadline, newMarket } from './economy.js';
+import { advanceMarket, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
 import { Move, MoveSpec, SCENE, bodyPath, defaultOrb, resetScene, sysPlan, sysState } from '../map/geometry.js';
 import { Leg, draftPlan, nearestFuel, replan, schedule, stepBlocker } from './planner.js';
@@ -24,8 +24,6 @@ export function newGame(){
   setState(new Game(START_DAY, new Player(20000, new Ship('cog', SHIPS.cog.cap, new Docked(start))), newMarket()));
   resetScene();
   advanceMarket(S.market, START_DAY);
-// orders from the run-up period start with a full deadline
-  S.market.offers.forEach(o=>{ const sh=START_DAY-o.created; o.deadline+=sh; o.expires+=sh; o.created=START_DAY; });
   report('A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.','fresh');
 }
 
@@ -251,7 +249,7 @@ export function acceptOrders(ids:Iterable<number>){
   const k=S.postHere; if(!k||!S.canAct) return false;
   const want=new Set(ids), list=k.offers.filter(o=>want.has(o.id));
   const n=list.reduce((s,o)=>s+o.containers,0); if(!list.length || S.player.ship.slotsUsed+n>S.player.ship.def.slots) return false;
-  list.forEach(o=>{ o.deadline=freshDeadline(S.market,o,S.day); o.created=S.day; k.withdraw(o); S.player.ship.load(o); });
+  list.forEach(o=>{ o.created=S.day; k.withdraw(o); S.player.ship.load(o); });
   report(`${list.length} ${list.length>1?'orders':'order'} accepted, ${n} containers loaded.`); changed();
   return true;
 }

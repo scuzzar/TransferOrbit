@@ -1,8 +1,8 @@
 // The order board: creating orders, ageing them, deadlines, bulk cargo.
 
 import { randInt } from '../basics.js';
-import { BULK, DAY_VALUE, GOODS, GoodId, HUB_CAP, MAX_OPEN, MAX_ROUTE_DV, SHIP_IDS, STARPORT_TABLE, START_DAY, ZONES, nodeOf } from './world.js';
-import { searchTransfer } from './physics.js';
+import { BULK, GOODS, GoodId, HUB_CAP, MAX_OPEN, MAX_ROUTE_DV, SHIP_IDS, STARPORT_TABLE, START_DAY, WINDOW_DV, ZONES, nodeOf } from './world.js';
+import { arriveBy } from './physics.js';
 import { Demand, Hub, Industry, Market, Order, PerGood, Starport, Store, stockOf, storeOf } from './state.js';
 import { rewardFor, route, RouteResult } from './graph.js';
 
@@ -60,26 +60,38 @@ function makeOrder(k:Starport, g:GoodId, fromHubStore:boolean, day:number){
   }
   const r=route(k,to); if(!isFinite(r.dv)) return;
   if(!toHub) setNeed(to,g,need(to,g)-1);
-  const wait=routeWait(r,day);
+  const t=terms(r,day,30);
   storeOf(store,g).stock=have-n;
-  k.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:rewardFor(r,g,n),
-    dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+30, created:day, expires:day+90, fromHubStore, toHub}));
+  k.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:rewardFor({dv:t.dv, launch:r.launch},g,n),
+    dv:t.dv, days:r.days, deadline:t.deadline, created:day, expires:Math.min(day+90, t.deadline-r.days), fromHubStore, toHub}));
 }
 
-// The days a route leaving on day waits for its windows: every transfer on the way leaves at its
-// economical departure, counted from the day the ship gets there, so a stopover waits too
-export function routeWait(r:RouteResult, day:number){
-  let d=day, wait=0;
+// The delta-v of the cheapest way along the route that leaves on day `day` and arrives by `by`.
+// Every transfer gets a share of the time in proportion to its ideal flight and flies the cheapest
+// transfer that arrives within it, so a stopover waits for its window too. Infinity if the time
+// is too short.
+export function routeBy(r:RouteResult, day:number, by:number){
+  let d=day, dv=0, done=0;
   for(const c of r.path){
-    const leg=c.leg, t=leg ? searchTransfer(leg[0],leg[1],d,DAY_VALUE.economical) : null;
-    if(!t){ d+=c.days; continue; }
-    wait+=t.dep-d; d=t.dep+t.days;
+    done+=c.days;
+    const leg=c.leg; if(!leg){ dv+=c.dv; d+=c.days; continue; }
+    const t=arriveBy(leg[0],leg[1],d,day+(by-day)*done/r.days); if(!t) return Infinity;
+    dv+=t.dv; d=t.dep+t.days;
   }
-  return wait;
+  return dv;
 }
 
-// Deadline if the order is accepted on day 'day'
-export function freshDeadline(market:Market, o:Order, day:number){ const r=route(market.post(o.from),market.post(o.to)); return day+routeWait(r,day)+1.5*o.days+30; }
+// The terms of an order made on day `day`: its deadline follows the route's ideal flight time plus
+// `slack` days, never the wait for a window, and it pays for the delta-v of the cheapest way to
+// arrive by then. If no window lies close enough, that is more than the ideal, up to WINDOW_DV
+// more; past that the deadline moves out until the delta-v fits. The deadline stays as it is when
+// the order is accepted.
+export function terms(r:RouteResult, day:number, slack:number){
+  const cap=r.dv+WINDOW_DV, step=Math.max(10, 0.1*(1.5*r.days+slack));
+  let by=day+1.5*r.days+slack, dv=routeBy(r,day,by);
+  for(let k=0; dv>cap && k<500; k++){ by+=step; dv=routeBy(r,day,by); }
+  return {deadline:by, dv:Math.max(r.dv, Math.min(dv, cap))};
+}
 
 // Add n to one store
 const addTo = (m:PerGood<Store>, g:GoodId, n:number) => { storeOf(m,g).stock+=n; };
@@ -142,9 +154,9 @@ function bulkTick(day:number){
     const r=route(k,to); if(!isFinite(r.dv)) return;
     if(!toHub) setNeed(to,g,need(to,g)-1);
     bs.stock=have-n;
-    const wait=routeWait(r,day);
-    p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor(r,g,n)*BULK.premium/10)*10,
-      dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+60, created:day, expires:day+BULK.life, fromHubStore:false, toHub, isBulk:true}));
+    const t=terms(r,day,60);
+    p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor({dv:t.dv, launch:r.launch},g,n)*BULK.premium/10)*10,
+      dv:t.dv, days:r.days, deadline:t.deadline, created:day, expires:Math.min(day+BULK.life, t.deadline-r.days), fromHubStore:false, toHub, isBulk:true}));
   }));
 }
 

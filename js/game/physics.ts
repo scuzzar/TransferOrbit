@@ -178,6 +178,23 @@ export function searchTransfer(a: PlanetId, b: PlanetId, from: number, dayValue:
   SEARCHED.set(key,best); return best;
 }
 
+// The cheapest transfer leaving on day `from` or later that arrives by day `by`, searched on the
+// table like searchTransfer; null if even the fastest flight arrives too late
+export function arriveBy(a: PlanetId, b: PlanetId, from: number, by: number): TransferChoice|null{
+  const t=transferTable(a,b); if(!t) return null;
+  const g=costs(a,b,t), na=t.angleSteps, nf=t.flightSteps, step=synodic(a,b)/na, nb=nn(b);
+  const base=transferAngle(a,b,from,0), perDep=(nb-nn(a))*step, rows=na/TAU;
+  const [f0,f1]=t.flightRange, df=(f1-f0)/(nf-1);
+  let best:TransferChoice|null=null, low=Infinity;
+  for(let k=0;k<na;k++){ const dep=from+k*step, a0=base+k*perDep, last=Math.min(nf-1, Math.floor((by-dep-f0)/df+1e-9));
+    if(last<0) break;
+    for(let j=0;j<=last;j++){ const days=f0+df*j;
+      let x=((a0+nb*days)%TAU+TAU)%TAU*rows; const i=Math.floor(x); x-=i;
+      const dv=at(g,(i%na)*nf+j)*(1-x)+at(g,((i+1)%na)*nf+j)*x;
+      if(dv<low){ low=dv; best={dep,days,dv}; } } }
+  return best;
+}
+
 // The same, refined on the exact cost around the table's best cell
 const REFINED = new Map<string, TransferChoice>();
 export function bestTransfer(a: PlanetId, b: PlanetId, from: number, dayValue: number): TransferChoice|null{
