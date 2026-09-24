@@ -636,11 +636,11 @@ test('An interplanetary transfer leaves from high orbit and arrives in high orbi
 });
 
 test('Buying a ship trades in the old one at 70%', async () => {
-  const { state, commands } = await fresh();
-  const S = state.S;
-  S.player.credits = 400000;
+  const { state, commands, world: { SHIPS } } = await fresh();
+  const S = state.S, have = SHIPS.hulk.price;
+  S.player.credits = have;
   commands.buyShip('hulk');
-  assert.equal(S.player.ship.type, 'hulk'); assert.equal(S.player.credits, 400000 - (400000 - 0.7 * 150000));
+  assert.equal(S.player.ship.type, 'hulk'); assert.equal(S.player.credits, have - (SHIPS.hulk.price - 0.7 * SHIPS.cog.price));
   commands.buyShip('carrack'); assert.equal(S.player.ship.type, 'hulk');   // not enough money
 });
 

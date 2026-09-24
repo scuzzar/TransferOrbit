@@ -2,6 +2,13 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – Ships cost three times as much (version 55)
+
+With the rewards of versions 53 and 54 the bots end 120 steps on about a million Cr and more, so
+the ships cost three times what they did: Cog 450,000, Hulk 1.2 million, Galleon 2.7 million,
+Carrack 3.6 million Cr. The old ship still goes in part exchange at 70 % of its list price; the
+first Hulk now costs 885,000 Cr net instead of 295,000.
+
 ## 2026-09-24 – A long way pays more (version 54)
 
 Going to Jupiter did not pay: an order there took three years and paid hardly more than one to

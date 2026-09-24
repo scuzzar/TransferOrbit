@@ -146,10 +146,10 @@ export const latStr = (lat: number): string => `${Math.abs(lat).toLocaleString('
 export const LVL: Record<LevelCode, string> = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
 
 const SHIP_TABLE = {
-  cog:    {name:'Cog',     drive:'solid-core fission',  isp:900,  dry:12, cap:80,  slots:6,  price:150000},
-  hulk:   {name:'Hulk',    drive:'liquid-core fission', isp:1500, dry:20, cap:160, slots:12, price:400000},
-  galleon:{name:'Galleon', drive:'gas-core fission',    isp:2500, dry:45, cap:280, slots:20, price:900000},
-  carrack:{name:'Carrack', drive:'fusion',              isp:4000, dry:30, cap:150, slots:8,  price:1200000},
+  cog:    {name:'Cog',     drive:'solid-core fission',  isp:900,  dry:12, cap:80,  slots:6,  price:450000},
+  hulk:   {name:'Hulk',    drive:'liquid-core fission', isp:1500, dry:20, cap:160, slots:12, price:1200000},
+  galleon:{name:'Galleon', drive:'gas-core fission',    isp:2500, dry:45, cap:280, slots:20, price:2700000},
+  carrack:{name:'Carrack', drive:'fusion',              isp:4000, dry:30, cap:150, slots:8,  price:3600000},
 } satisfies Record<string, ShipClass>;
 export type ShipId = keyof typeof SHIP_TABLE;
 export const SHIPS: Record<ShipId, ShipClass> = SHIP_TABLE;
