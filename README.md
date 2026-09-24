@@ -1,6 +1,6 @@
 # TransferOrbit
 
-Prototype of a space trading game with real orbital mechanics. You fly cargo between trading posts across the solar system. Every move costs delta-v according to the rocket equation, and transfers to other planets only work inside a transfer window. With the profit you buy larger ships: Cog → Hulk → Galleon → Carrack.
+Prototype of a space trading game with real orbital mechanics. You fly cargo between trading posts across the solar system. Every move costs delta-v according to the rocket equation, and transfers to other planets are cheapest inside a transfer window; flying faster or outside it costs more. With the profit you buy larger ships with better drives: Cog (solid-core fission, 900 s) → Hulk (liquid-core fission, 1500 s) → Galleon (gas-core fission, 2500 s) → Carrack (fusion, 4000 s).
 
 ![Screenshot](docs/screenshot.png)
 
@@ -33,7 +33,7 @@ The only things that stay flat are the top-down view of the solar system (`drawS
 - Delta-v after Tsiolkovsky with dry mass, cargo and propellant. Every ship has its own Isp.
 - Transfers between planets as a Lambert problem on circular orbits: what one costs follows from the angle it sweeps and its flight time, so leaving on a different day or flying faster costs more, as it would for real. The Hohmann window is the cheapest case. Every pair of planets has a transfer table of these costs (`npm run tables` computes them); a transfer burns the exact value.
 - Ballistic hops between landing sites, aerobraking at bodies with an atmosphere.
-- Reward = RATE_MASS·m·(e^(Δv/v_e) − 1) + RATE_DAY·days + RATE_MASS_DAY·m·days + 0.1·n·w (+ a share of the launch fee), times a luck factor: usually 0.9–1.2, in 8% of cases 1.4–1.9.
+- Reward = RATE_MASS·m·(e^(Δv/v_e) − 1), with v_e the Cog's exhaust velocity, + RATE_DAY·days + RATE_MASS_DAY·m·days + 0.1·n·w (+ a share of the launch fee), times a luck factor: usually 0.9–1.2, in 8% of cases 1.4–1.9.
 - Bulk orders (7–18 containers) only fit into larger ships.
 
 ## Layout of the repository

@@ -2,6 +2,29 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – Drives of the future (version 47)
+
+The ships' drives move up a technology step, so there is delta-v to spend on faster flights:
+
+| Ship | Drive | Isp | Δv empty | Δv with a full hold |
+|---|---|--:|--:|--:|
+| Cog | solid-core fission | 450 → 900 s | 9.0 → 18.0 km/s | 3.7 → 7.5 km/s |
+| Hulk | liquid-core fission | 600 → 1500 s | 12.9 → 32.3 km/s | 5.1 → 12.8 km/s |
+| Galleon | gas-core fission | 650 → 2500 s | 12.6 → 48.5 km/s | 5.5 → 21.1 km/s |
+| Carrack | fusion | 900 → 4000 s | 15.8 → 70.3 km/s | 8.4 → 37.4 km/s |
+
+(A full hold counts 8 t per container.) Burns are still impulsive, which a real fusion drive with
+its low thrust could not do; for the game that is fine.
+
+Rewards pay for the propellant as the Cog burns it: `V_EXHAUST` is now the Cog's exhaust velocity
+instead of a chemical 450 s. The fuel share of a reward therefore shrinks as the Cog's fuel bill
+does, and a better ship earns its edge. `MAX_ROUTE_DV` goes from 12 to 20 km/s, since the old
+"no ship manages a longer route" no longer holds.
+
+On a new game (five seeds) the Cog can fly 93 % of the orders on the board with a full tank,
+against 47 % before; the mean reward per order drops from about 104,000 to 80,000 Cr, and 95
+instead of 12 of the orders run over routes of more than 12 km/s.
+
 ## 2026-09-24 – Transfers you can shape: departure, flight time, plans of steps (version 46)
 
 **Transfers follow the physics now.** A transfer between two planets used to cost the Hohmann

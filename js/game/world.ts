@@ -146,10 +146,10 @@ export const latStr = (lat: number): string => `${Math.abs(lat).toLocaleString('
 export const LVL: Record<LevelCode, string> = {surf:'Surface', orbit:'Low orbit', capt:'High orbit'};
 
 const SHIP_TABLE = {
-  cog:    {name:'Cog',     drive:'chemical', isp:450, dry:12, cap:80,  slots:6,  price:150000},
-  hulk:   {name:'Hulk',    drive:'hybrid',   isp:600, dry:20, cap:160, slots:12, price:400000},
-  galleon:{name:'Galleon', drive:'hybrid',   isp:650, dry:45, cap:280, slots:20, price:900000},
-  carrack:{name:'Carrack', drive:'nuclear',  isp:900, dry:30, cap:150, slots:8,  price:1200000},
+  cog:    {name:'Cog',     drive:'solid-core fission',  isp:900,  dry:12, cap:80,  slots:6,  price:150000},
+  hulk:   {name:'Hulk',    drive:'liquid-core fission', isp:1500, dry:20, cap:160, slots:12, price:400000},
+  galleon:{name:'Galleon', drive:'gas-core fission',    isp:2500, dry:45, cap:280, slots:20, price:900000},
+  carrack:{name:'Carrack', drive:'fusion',              isp:4000, dry:30, cap:150, slots:8,  price:1200000},
 } satisfies Record<string, ShipClass>;
 export type ShipId = keyof typeof SHIP_TABLE;
 export const SHIPS: Record<ShipId, ShipClass> = SHIP_TABLE;
@@ -209,7 +209,7 @@ export const ZONES: Readonly<Record<string, readonly BodyId[]>> = {
   valhalla:['jupiter','io','europa','ganymede','callisto','saturn','enceladus','titan'],
 };
 
-export const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 12000; // no ship manages a longer route
+export const HUB_CAP = 40, MAX_OPEN = 6, MAX_ROUTE_DV = 20000; // longer routes are for no order
 
 // Fuel prices in credits per tonne, keyed by node or node@site
 export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit':220,
@@ -219,7 +219,8 @@ export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit
 
 export const LAUNCH_FEE = 100, RESCUE_BASE = 5000, RESCUE_PER_T = 300, BANKRUPT = -50000;
 
-export const RATE_MASS = 400, SHIP_MASS_SHARE = 8, V_EXHAUST = 450*9.80665, RATE_DAY = 15;
+// Rewards pay for the propellant as the Cog's drive burns it: a better ship earns its edge
+export const RATE_MASS = 400, SHIP_MASS_SHARE = 8, V_EXHAUST = SHIP_TABLE.cog.isp*9.80665, RATE_DAY = 15;
 
 export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + ship share) and travel day
 
