@@ -44,8 +44,8 @@ export function connectionsFrom(from:Node): Connection[]{
   return E;
 }
 
-// launch: the route rides a launcher up from a surface; first: its first connection
-export interface RouteResult { dv:number; days:number; legs:[PlanetId,PlanetId][]; launch:boolean; first:Connection|null }
+// launch: the route rides a launcher up from a surface; first: its first connection; path: all of them
+export interface RouteResult { dv:number; days:number; legs:[PlanetId,PlanetId][]; launch:boolean; first:Connection|null; path:Connection[] }
 const routeCache: Record<string, RouteResult> = {};
 // Anything route() can start or end at: a starport, or the ship's node. A route only depends on
 // the two places, so a starport that moves finds its new routes.
@@ -67,10 +67,10 @@ export function route(from: RoutePoint, to: RoutePoint): RouteResult{
     }
   }
   const end=goal ? dist.get(goal) : undefined;
-  if(!goal || !end) return routeCache[key]={dv:Infinity,days:0,legs:[],launch:false,first:null};
-  const legs: [PlanetId,PlanetId][] = []; let launch=false, first: Connection|null = null;
-  for(let p=prev.get(goal); p; p=prev.get(p.n)){ const {ed}=p; if(ed.leg) legs.unshift(ed.leg); if(ed.launchFee && !ed.hop) launch=true; first=ed; }
-  return routeCache[key]={dv:end.dv, days:end.days, legs, launch, first};
+  if(!goal || !end) return routeCache[key]={dv:Infinity,days:0,legs:[],launch:false,first:null,path:[]};
+  const legs: [PlanetId,PlanetId][] = [], path: Connection[] = []; let launch=false, first: Connection|null = null;
+  for(let p=prev.get(goal); p; p=prev.get(p.n)){ const {ed}=p; path.unshift(ed); if(ed.leg) legs.unshift(ed.leg); if(ed.launchFee && !ed.hop) launch=true; first=ed; }
+  return routeCache[key]={dv:end.dv, days:end.days, legs, launch, first, path};
 }
 
 // What an order pays: the delta-v of its route as propellant, a tenth of the goods' value, and a

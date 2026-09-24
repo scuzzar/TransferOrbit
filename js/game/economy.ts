@@ -60,17 +60,26 @@ function makeOrder(k:Starport, g:GoodId, fromHubStore:boolean, day:number){
   }
   const r=route(k,to); if(!isFinite(r.dv)) return;
   if(!toHub) setNeed(to,g,need(to,g)-1);
-  const wait=legWait(r,day);
+  const wait=routeWait(r,day);
   storeOf(store,g).stock=have-n;
   k.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:rewardFor(r,g,n),
     dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+30, created:day, expires:day+90, fromHubStore, toHub}));
 }
 
-// Wait until an economical departure of a route's first interplanetary leg
-export function legWait(r:RouteResult, day:number){ const leg=r.legs[0]; if(!leg) return 0; const t=searchTransfer(leg[0],leg[1],day,DAY_VALUE.economical); return t ? t.dep-day : 0; }
+// The days a route leaving on day waits for its windows: every transfer on the way leaves at its
+// economical departure, counted from the day the ship gets there, so a stopover waits too
+export function routeWait(r:RouteResult, day:number){
+  let d=day, wait=0;
+  for(const c of r.path){
+    const leg=c.leg, t=leg ? searchTransfer(leg[0],leg[1],d,DAY_VALUE.economical) : null;
+    if(!t){ d+=c.days; continue; }
+    wait+=t.dep-d; d=t.dep+t.days;
+  }
+  return wait;
+}
 
 // Deadline if the order is accepted on day 'day'
-export function freshDeadline(market:Market, o:Order, day:number){ const r=route(market.post(o.from),market.post(o.to)); return day+legWait(r,day)+1.5*o.days+30; }
+export function freshDeadline(market:Market, o:Order, day:number){ const r=route(market.post(o.from),market.post(o.to)); return day+routeWait(r,day)+1.5*o.days+30; }
 
 // Add n to one store
 const addTo = (m:PerGood<Store>, g:GoodId, n:number) => { storeOf(m,g).stock+=n; };
@@ -133,7 +142,7 @@ function bulkTick(day:number){
     const r=route(k,to); if(!isFinite(r.dv)) return;
     if(!toHub) setNeed(to,g,need(to,g)-1);
     bs.stock=have-n;
-    const wait=legWait(r,day);
+    const wait=routeWait(r,day);
     p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor(r,g,n)*BULK.premium/10)*10,
       dv:r.dv, days:r.days, deadline:day+wait+1.5*r.days+60, created:day, expires:day+BULK.life, fromHubStore:false, toHub, isBulk:true}));
   }));

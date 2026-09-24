@@ -2,6 +2,21 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – Waiting at stopovers; the autopilot shows its arrival (version 49)
+
+**Deadlines count the wait at every stopover.** A route with more than one transfer, Venus → Mars
+by way of Earth for instance, only counted the wait for the window of its first transfer; at the
+stopover the ship arrived and flew straight on, as if the next window were always open. There it
+can wait more than 100 days. `routeWait()` in `game/economy.js` replaces `legWait()`: it walks
+the pricing route's connections (`route()` now returns them as `path`) by the date, and every
+transfer leaves at its economical departure from the day the ship gets there. New orders and
+freshly accepted ones get their deadlines from it.
+
+**The autopilot bar shows the whole trip:** when the ship arrives at the target and how many days
+that is from now, kept current while time runs, and below it the step in progress; under way,
+where that flight arrives and when. `planner.remaining()` lays out what is left of the plan from
+where and when the flight in progress arrives.
+
 ## 2026-09-24 – Rewards follow the delta-v, not the time (version 48)
 
 With the new drives the game had become easy: the bots ended 120 steps on 0.26 to 1.66 million Cr

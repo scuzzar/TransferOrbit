@@ -1,10 +1,10 @@
 // Header, toast, autopilot bar and render() - the one complete rebuild.
 
 import { tick } from '../events.js';
-import { ANIM, dateStr, esc, km, byId, findAll, $ } from '../basics.js';
+import { ANIM, dateStr, esc, fmtDays, km, byId, findAll, $ } from '../basics.js';
 import { GOODS, START_DAY } from '../game/world.js';
 import { S } from '../game/state.js';
-import { schedule } from '../game/planner.js';
+import { remaining } from '../game/planner.js';
 import { stopAutopilot } from '../game/commands.js';
 import { draw } from '../map/draw.js';
 import { btn } from './widgets.js';
@@ -31,6 +31,7 @@ export function header(){
   byId('slotinfo',HTMLElement).textContent=`${S.player.ship.def.slots-S.player.ship.slotsUsed} of ${S.player.ship.def.slots} free`;
   byId('autofill',HTMLButtonElement).setAttribute('aria-pressed',String(!!S.player.autoFill));
   byId('cargotile',HTMLButtonElement).classList.toggle('on',UI.view==='cargo');
+  autobarTime();
 }
 
 // A short message in the bottom left of the map
@@ -61,9 +62,17 @@ function renderAutobar(){
   const w=byId('autobar',HTMLElement);
   w.innerHTML=''; w.hidden=!S.player.ship.autopilot;
   const A=S.player.ship.autopilot; if(!A) return;
-  const nx=schedule(A.plan)?.legs[0];
-  w.innerHTML=`<div><b>Autopilot</b> to ${esc(A.target.label)}${nx?`<br><span class="muted">Now: ${esc(nx.label)}</span>`:''}</div>`;
+  const tr=S.player.ship.transit, rest=remaining(A.plan), nx=tr ? null : rest?.legs[0];
+  const now=tr ? `Now: to ${tr.along.to.label}, there ${dateStr(tr.arr)}` : nx ? `Now: ${nx.label}` : '';
+  w.innerHTML=`<div><b>Autopilot</b> to ${esc(A.target.label)}${rest?`<br><span id="abtime" data-arrive="${rest.arrive}"></span>`:''}${now?`<br><span class="muted">${esc(now)}</span>`:''}</div>`;
+  autobarTime();
   w.appendChild(btn('Stop','',false,()=>stopAutopilot('Autopilot stopped.')));
+}
+
+// The autopilot's arrival and the time left to it, kept current while time runs
+function autobarTime(){
+  const t=$('abtime'); if(!t) return;
+  const arrive=Number(t.dataset.arrive); t.textContent=`Arrives ${dateStr(arrive)}, in ${fmtDays(Math.max(0,arrive-S.day))}`;
 }
 
 // Tapping the map speeds up a running animation.

@@ -177,6 +177,13 @@ export function schedule(plan:Plan, start?:Start|null): Schedule|null{
   return {plan, legs, dv, days:day-st.day, arrive:day, fee, start:st};
 }
 
+// What is left of a plan: under way, from where and when the flight in progress arrives
+export function remaining(plan:Plan): Schedule|null{
+  const tr=S.player.ship.transit; if(!tr) return schedule(plan);
+  const rest=plan.steps.slice(plan.steps.findIndex(s=>s.along===tr.along)+1);
+  return schedule(new Plan(plan.preset, rest), {node:tr.along.to.node, site:tr.along.to.site, day:tr.arr});
+}
+
 // A first draft, laid out: what the order board, the depot search and the bots ask for
 export function planRoute(target:Node, preset:Preset, start?:Start|null): Schedule|null{
   const plan=draftPlan(target, preset, start); return plan ? schedule(plan, start) : null;

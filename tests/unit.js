@@ -260,6 +260,21 @@ test('The autopilot flies a plan with a pinned transfer as chosen', async () => 
   assert.ok(ship.isAt(tgt)); near(S.day, st.leaveOn + 210, 1e-6);
 });
 
+test('A route with a stopover waits for the window of every transfer, not just the first', async () => {
+  const { graph, economy, physics, world: { DAY_VALUE, START_DAY } } = await ready;
+  const r = graph.route({ node: 'venus.capt', site: null }, { node: 'mars.capt', site: null });
+  assert.deepEqual(r.legs, [['venus', 'earth'], ['earth', 'mars']]);                     // via Earth
+  assert.equal(r.path.length, 2); assert.equal(r.path[0], r.first);
+  let longest = 0;
+  for (let day = START_DAY; day < START_DAY + 800; day += 40) {
+    const t1 = physics.searchTransfer('venus', 'earth', day, DAY_VALUE.economical), at = t1.dep + t1.days;
+    const t2 = physics.searchTransfer('earth', 'mars', at, DAY_VALUE.economical);
+    near(economy.routeWait(r, day), (t1.dep - day) + (t2.dep - at), 1e-9);
+    longest = Math.max(longest, t2.dep - at);
+  }
+  assert.ok(longest > 100, `at Earth the ship waits up to ${longest} days for the window to Mars`);
+});
+
 // ── Ship ───────────────────────────────────────────────────────────────────
 
 test('Ship: delta-v follows Tsiolkovsky with dry mass, cargo and propellant', async () => {
