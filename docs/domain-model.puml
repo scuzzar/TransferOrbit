@@ -52,7 +52,10 @@ hide <<value>> stereotype
     dep: number
     arr: number
   }
-  class Autopilot <<transient>>
+  class Autopilot <<transient>> {
+    leaveOn: number [0..1]
+    flightDays: number [0..1]
+  }
   enum RouteMode <<value>> {
     economical
     leaveNow
@@ -120,7 +123,14 @@ hide <<value>> stereotype
     dv: number
     days: number
     launchFee: boolean
-    transferWindow: boolean
+    /transferWindow: boolean
+  }
+  class TransferTable <<reference>> {
+    phaseSteps: number
+    flightRange: number[2]
+    flightSteps: number
+    vInfDep: number[]
+    vInfArr: number[]
   }
   class Industry
   class Good <<reference>> {
@@ -183,6 +193,7 @@ Body "0..1" <-- "*" Body : orbits
 Depot "0..1" --> "1" Node : at
 Connection "*" --> "1" Node : from
 Connection "*" --> "1" Node : to
+Connection "1" --> "0..1" TransferTable : window
 Industry "*" --> "*" Good : makes
 Industry "*" --> "*" Good : needs
 

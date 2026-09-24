@@ -25,10 +25,23 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 - **Time at a place, time under way.** Every manoeuvre puts the ship in transit along a
   connection. `busy` means time passes while the ship stays where it is: waiting, refuelling,
   the shipyard, a rescue. Saving works only at a place with the clock stopped.
-- **Connections with a transfer window** run between the high orbits of two planets. Their `dv`
-  and `days` are the values at the ideal window: the least delta-v and the longest flight. Leaving
-  on another day costs more and flies faster; how much follows from the two bodies' orbits and the
-  departure day. All other connections always cost what they say.
+- **Connections with a transfer window** run between the high orbits of two planets, and exactly
+  these have a transfer table (`/transferWindow`). What a transfer costs depends on when it leaves
+  and how long it flies. Their `dv` and `days` are the table's cheapest cell, the ideal window.
+  All other connections always cost what they say, moons and landings included.
+- **Transfer tables.** The orbits are circles in one plane, so a transfer's cost depends only on
+  the phase angle between the two planets at departure and on the flight time, not on the date:
+  one table serves the whole game. It runs over the phase angle in `phaseSteps` steps, one
+  synodic period, and over the flight time from `flightRange[0]` to `flightRange[1]` days in
+  `flightSteps` steps. Each cell holds the excess speeds at departure and arrival (`vInfDep`,
+  `vInfArr`); the delta-v follows from them and the two bodies, with the burn at the low point of
+  the high orbit. A table is computed from the orbits of its two bodies, never written by hand,
+  and one that no longer matches them is an error. It is for looking and searching: a transfer
+  burns the exact delta-v for its departure day and flight time, worked out from the same orbits.
+- **Flight time.** A transfer leaves on the day it is started and flies the time the player
+  chooses; `dep` and `arr` of the transit are that day and the arrival. A shorter flight costs
+  more delta-v, and so does leaving far from the window. How much delta-v the ship can spend
+  follows from its class, its cargo and its fuel; the table is the same for every ship.
 - **Nodes on a surface are landing sites.** Every spaceport has its own starport; the Earth has
   four (Kourou, Cape Canaveral, Baikonur, Plesetsk).
 - **Depots.** A depot in orbit is a fuel station (Earth orbit, Mars orbit); on a surface it is at
@@ -50,8 +63,20 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   the game and the world points from the game into the world, never back: a starport knows the
   node it lies `at`, and which starport lies at a node is a question to the game's market.
 - **Autopilot.** `start` is where the trip began and stays for the whole trip: a delivery there is
-  no reason to stop. `target` is where it ends.
+  no reason to stop. `target` is where it ends. `leaveOn` and `flightDays`, when set, are the
+  transfer the player picked on the map: the route's first transfer leaves on that day with that
+  flight time, and the choice is kept until that transfer has left. Every other transfer follows
+  the mode: `economical` counts a day of waiting or flying as worth very little delta-v, so it
+  waits for the window and takes the long flight; `leaveNow` leaves on the day it gets there and
+  counts a day as worth much delta-v, so it flies faster.
 
 ## Where the code does not follow yet
 
-Nothing at the moment.
+- There are no transfer tables yet. `physics.transfer()` works out the cost away from the window
+  with a rule of thumb (a surcharge on the excess speed and a shorter flight) instead of from the
+  orbits, and a transfer burns that value.
+- The flight time cannot be chosen: a transfer always flies the time `physics.transfer()` gives
+  for the day.
+- `Connection.transferWindow` is a stored flag, not derived from having a transfer table.
+- The autopilot has no `leaveOn` and `flightDays`, and the planner's two modes only choose between
+  waiting for the ideal window and leaving now with the flight time of the day.
