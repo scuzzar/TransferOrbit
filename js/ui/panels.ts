@@ -304,7 +304,7 @@ function panelRoute(p:HTMLElement){
   const sum=document.createElement('div'); sum.className='pfoot';
   const late=deadl.filter(o=>plan.arrive>o.deadline);
   const lateAny=deadl.some(o=>plan.arrive>o.deadline);
-  sum.innerHTML=`<div class="row"><span class="muted">Takes ${fmtDays(plan.days)}</span><b class="${lateAny?'badc':''}">Arrives ${dateStr(plan.arrive)}</b></div>
+  sum.innerHTML=`<div class="row"><span class="muted">Travel time</span><b class="${lateAny?'badc':''}">${fmtDays(plan.days)}</b></div>
     <div class="row"><span class="muted">Needs ${km(plan.dv)} of ${km(have)} km/s</span><b class="${ok?'okc':'badc'}">${ok?km(have-plan.dv)+' km/s left':km(plan.dv-have)+' km/s short'}</b></div>
     <div class="massbar"><i style="width:${Math.min(100,plan.dv/Math.max(have,1)*100).toFixed(0)}%;background:${ok?'var(--accent)':'var(--bad)'}"></i></div>
     <p class="kinfo">${deadl.length?(late.length?`${late.length} ${late.length>1?'orders arrive':'order arrives'} after the deadline.`:`${deadl.length>1?'All '+deadl.length+' orders':'The order'} for this destination ${deadl.length>1?'arrive':'arrives'} before the deadline.`):''}${plan.fee?` Launch fee ${fmtCr(plan.fee)}.`:''} ${ok?'The autopilot stops wherever cargo can be delivered on the way.':S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass)<plan.dv?`Loaded too heavily: even with a full tank you would only have ${km(S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass))} km/s. Return an order or pick another destination.`:'Refuel first, or pick a different route.'}</p>`;
