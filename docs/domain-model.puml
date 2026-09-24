@@ -129,7 +129,7 @@ hide <<value>> stereotype
     launchFee: boolean
   }
   class TransferTable <<reference>> {
-    phaseSteps: number
+    angleSteps: number
     flightRange: number[2]
     flightSteps: number
     vInfDep: number[]

@@ -30,10 +30,11 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   transfer costs depends on when it leaves and how long it flies. Their `dv` and `days` are the table's cheapest cell, the ideal window.
   All other connections always cost what they say, moons and landings included.
 - **Transfer tables.** The orbits are circles in one plane, so a transfer's cost depends only on
-  the phase angle between the two planets at departure and on the flight time, not on the date:
-  one table serves the whole game. It runs over the phase angle in `phaseSteps` steps, one
-  synodic period, and over the flight time from `flightRange[0]` to `flightRange[1]` days in
-  `flightSteps` steps. Each cell holds the excess speeds at departure and arrival (`vInfDep`,
+  the angle it sweeps round the Sun, from the departure planet on the day it leaves to the target
+  planet on the day it arrives, and on the flight time. The date only decides that angle, so one
+  table serves the whole game. It runs over the transfer angle in `angleSteps` steps, one full
+  turn, and over the flight time from `flightRange[0]` to `flightRange[1]` days in `flightSteps`
+  steps. Each cell holds the excess speeds at departure and arrival (`vInfDep`,
   `vInfArr`); the delta-v follows from them and the two bodies, with the burn at the low point of
   the high orbit. A table is computed from the orbits of its two bodies, never written by hand,
   and one that no longer matches them is an error. It is for looking and searching: a transfer
