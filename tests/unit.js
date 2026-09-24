@@ -310,17 +310,20 @@ test('Order terms: a far window raises the delta-v an order pays for, up to WIND
   near(tm.dv, moon.dv, 1e-9); near(tm.deadline, START_DAY + 1.5 * moon.days + 30, 1e-9);
 });
 
-test('Reward: the propellant for the delta-v, plus the goods\' value in proportion to it', async () => {
-  const { graph, world: { RATE_MASS, SHIP_MASS_SHARE, V_EXHAUST, VALUE_RATE, GOODS } } = await ready;
+test('Reward: the propellant for the delta-v plus the goods\' value in proportion to it, raised by the flight time', async () => {
+  const { graph, world: { RATE_MASS, SHIP_MASS_SHARE, V_EXHAUST, VALUE_RATE, TIME_DAYS, GOODS } } = await ready;
   const keep = Math.random; Math.random = () => 0.5;                       // luck 0.9 + 0.3·0.5 = 1.05
   try {
-    for (const g of ['he3', 'water']) for (const dv of [2000, 9000]) {
+    for (const g of ['he3', 'water']) for (const [dv, days] of [[2000, 5], [9000, 960]]) {
       const G = GOODS[g], x = dv / V_EXHAUST;
-      const want = (RATE_MASS * (SHIP_MASS_SHARE + 2 * G.mass) * (Math.exp(x) - 1) + VALUE_RATE * 2 * G.value * x) * 1.05;
-      near(graph.rewardFor({ dv, launch: false }, g, 2), Math.round(want / 10) * 10, 1e-9);
+      const want = (RATE_MASS * (SHIP_MASS_SHARE + 2 * G.mass) * (Math.exp(x) - 1) + VALUE_RATE * 2 * G.value * x) * (1 + days / TIME_DAYS) * 1.05;
+      near(graph.rewardFor({ dv, days, launch: false }, g, 2), Math.round(want / 10) * 10, 1e-9);
     }
     // helium-3 and electronics weigh the same; the dearer one pays more
-    assert.ok(graph.rewardFor({ dv: 9000, launch: false }, 'he3', 1) > graph.rewardFor({ dv: 9000, launch: false }, 'elec', 1));
+    assert.ok(graph.rewardFor({ dv: 9000, days: 300, launch: false }, 'he3', 1) > graph.rewardFor({ dv: 9000, days: 300, launch: false }, 'elec', 1));
+    // the same delta-v, flown in no time or in the 960 days to Jupiter: two to three times the pay
+    const quick = graph.rewardFor({ dv: 9000, days: 0, launch: false }, 'mach', 2), jupiter = graph.rewardFor({ dv: 9000, days: 960, launch: false }, 'mach', 2);
+    assert.ok(jupiter > 2 * quick && jupiter < 3 * quick);
   } finally { Math.random = keep; }
 });
 

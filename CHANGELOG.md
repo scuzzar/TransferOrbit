@@ -2,6 +2,23 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – A long way pays more (version 54)
+
+Going to Jupiter did not pay: an order there took three years and paid hardly more than one to
+Mars. The reward now grows with the route's flight time in its ideal window (the days it flies,
+waits left out): the delta-v part and the value part are multiplied by `1 + days / TIME_DAYS`,
+with `TIME_DAYS` = 600. The share of the launch fee stays as it is.
+
+| Route | Days | Factor | Mean reward v53 → v54 |
+|---|--:|--:|--:|
+| Earth → Moon and the like | 24 | 1.04 | 13,300 → 13,600 Cr |
+| Earth → Mars | 292 | 1.49 | 23,500 → 34,100 Cr |
+| Earth → Jupiter | 963 | 2.6 | 41,300 → 104,300 Cr |
+| Earth → Saturn | 2040 | 4.4 | 30,400 → 124,800 Cr |
+
+On average an order pays about 2.5 times as much. `RATE_MASS` is unchanged, so the bots (5 × 120
+steps) now end on 0.94 to 1.95 million Cr (version 53: 230,000 to 400,000).
+
 ## 2026-09-24 – An unfavourable window raises the price; the goods' value counts (version 53)
 
 **An order pays for arriving on time.** Its deadline follows the route's ideal flight time,

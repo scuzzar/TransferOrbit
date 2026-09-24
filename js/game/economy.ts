@@ -62,7 +62,7 @@ function makeOrder(k:Starport, g:GoodId, fromHubStore:boolean, day:number){
   if(!toHub) setNeed(to,g,need(to,g)-1);
   const t=terms(r,day,30);
   storeOf(store,g).stock=have-n;
-  k.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:rewardFor({dv:t.dv, launch:r.launch},g,n),
+  k.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:rewardFor({dv:t.dv, days:r.days, launch:r.launch},g,n),
     dv:t.dv, days:r.days, deadline:t.deadline, created:day, expires:Math.min(day+90, t.deadline-r.days), fromHubStore, toHub}));
 }
 
@@ -155,7 +155,7 @@ function bulkTick(day:number){
     if(!toHub) setNeed(to,g,need(to,g)-1);
     bs.stock=have-n;
     const t=terms(r,day,60);
-    p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor({dv:t.dv, launch:r.launch},g,n)*BULK.premium/10)*10,
+    p.offer(new Order({id:market.nextId++, good:g, containers:n, from:k.id, to:to.id, reward:Math.round(rewardFor({dv:t.dv, days:r.days, launch:r.launch},g,n)*BULK.premium/10)*10,
       dv:t.dv, days:r.days, deadline:t.deadline, created:day, expires:Math.min(day+BULK.life, t.deadline-r.days), fromHubStore:false, toHub, isBulk:true}));
   }));
 }

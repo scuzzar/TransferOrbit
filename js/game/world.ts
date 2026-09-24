@@ -224,6 +224,9 @@ export const LAUNCH_FEE = 100, RESCUE_BASE = 5000, RESCUE_PER_T = 300, BANKRUPT 
 // On top, VALUE_RATE times the goods' value for every V_EXHAUST of delta-v: precious goods pay
 // more, the further they go.
 export const RATE_MASS = 700, SHIP_MASS_SHARE = 8, V_EXHAUST = SHIP_TABLE.cog.isp*9.80665, VALUE_RATE = 2;
+// A long way pays more: both parts grow by their own amount for every TIME_DAYS days the route
+// flies in its ideal window, so an order to Jupiter pays about two and a half times as much.
+export const TIME_DAYS = 600;
 // An order pays for the cheapest way to arrive by its deadline. Where no window lies close enough,
 // that costs more than the ideal window, and the order pays for it, up to WINDOW_DV m/s more; past
 // that its deadline moves out until the cost fits.
