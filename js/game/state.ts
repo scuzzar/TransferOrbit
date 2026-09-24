@@ -161,7 +161,9 @@ export class Hub extends Starport {
 }
 
 // Where a starport lies, and its name with it, as the screen shows them
-export const postPlace = (k:Starport):string => k.at.node==='earth.orbit' ? 'Earth orbit' : k.at.level==='highOrbit' ? `high orbit of ${bodyName(k.at.body)}` : bodyName(k.at.body);
+// on a moon, its planet in brackets
+export const postPlace = (k:Starport):string => k.at.node==='earth.orbit' ? 'Earth orbit' : k.at.level==='highOrbit' ? `high orbit of ${bodyName(k.at.body)}` :
+  k.at.body!==k.at.planet ? `${bodyName(k.at.body)} (${bodyName(k.at.planet)})` : bodyName(k.at.body);
 export const postLabel = (k:Starport):string => `${k.name}, ${postPlace(k)}`;
 
 export class Market {

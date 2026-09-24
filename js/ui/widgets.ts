@@ -33,6 +33,10 @@ const IC: Record<string, string> = {
 
 const icon = (k: string, sz = 18) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
 
+// Whether the ship can take on fuel at a place: a pump, or a greyed-out one where there is none
+export const fuelTag = (n: Node) => { const d = n.depot;
+  return d ? `<span class="tag fuel" title="Fuel depot, ${d.fuelPrice} Cr/t">${icon('fuel',12)}Fuel</span>` : `<span class="tag nofuel" title="No fuel depot">${icon('fuel',12)}No fuel</span>`; };
+
 export function ibtn(ic: string, label: string, cls: string, disabled: boolean, fn: () => void){ const b = btn('', cls, disabled, fn); b.innerHTML = `${icon(ic)}<span>${label}</span>`; return b; }
 
 export function openView(v: View, back?: View|null){ UI.rmsg=false; UI.back = v==='main' ? null : (back||null); UI.view=v; UI.sel=new Set<number>(); UI.tank=null; changed();

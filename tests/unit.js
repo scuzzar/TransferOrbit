@@ -95,6 +95,8 @@ test('The Earth has four starports, one per spaceport, that together make and ne
   assert.deepEqual(earth.flatMap(k => k.makes).sort(), ['elec', 'food', 'hab', 'mach']);
   assert.deepEqual([...new Set(earth.flatMap(k => k.needs))].sort(), ['he3', 'rare']);
   for (const k of earth) { assert.equal(state.postLabel(state.S.market.post(k.id)), `${k.name}, Earth`); assert.equal(world.fuelHere(k.node, k.site), true); }
+  assert.equal(state.postLabel(state.S.market.post('valhalla')), 'Valhalla, Callisto (Jupiter)');   // a moon names its planet
+  assert.equal(state.postLabel(state.S.market.post('jupgas')), 'Jupiter Gas Collector, high orbit of Jupiter');
   assert.equal(world.fuelHere('earth.surf', null), false);    // no fuel price for the surface as a whole any more
 });
 

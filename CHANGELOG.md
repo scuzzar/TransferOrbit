@@ -2,6 +2,12 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – Moons name their planet; fuel on the order board (version 52)
+
+A starport on a moon names its planet as well: "Valhalla, Callisto (Jupiter)", "Shackleton, Moon
+(Earth)". On the order board every destination carries a fuel tag next to the hub tag: a green
+pump where the ship can take on fuel (the price on hover), a grey "No fuel" where it cannot.
+
 ## 2026-09-24 – The route panel shows the whole trip (versions 50, 51)
 
 The summary at the foot of the route panel starts with the travel time of the whole plan in days,

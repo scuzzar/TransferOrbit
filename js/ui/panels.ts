@@ -8,7 +8,7 @@ import { freshDeadline, hubRoom } from '../game/economy.js';
 import { Leg, draftPlan, nearestFuel, pinTransfer, planRoute, replan, schedule, stepBlocker, switchStep, unpin } from '../game/planner.js';
 import { abortOrder, acceptOrders, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { UI } from './state.js';
-import { btn, dots, gchip, ibtn, openRoute, openView, phead, routeLink } from './widgets.js';
+import { btn, dots, fuelTag, gchip, ibtn, openRoute, openView, phead, routeLink } from './widgets.js';
 import { transferMap } from './transfermap.js';
 
 // Take the ticked orders aboard and show them in the cargo hold
@@ -49,7 +49,7 @@ function panelPost(p:HTMLElement){
     const afterFull = gSel.length ? S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass+selM) : S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass+selM+(isFinite(lightest)?lightest:0));
     const grp=document.createElement('section'); grp.className='ogroup'+(gSel.length?' on':'');
     const nDel=S.player.ship.hold.filter(o=>o.to===tk.id).length;
-    grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(postLabel(tk))}</b>${(tk instanceof Hub)?' <span class="tag">Hub</span>':''}${nDel?` <span class="mtag deliver">${nDel} already on board</span>`:''}</div>
+    grp.innerHTML=`<div class="og-head"><div class="og-title"><b>${esc(postLabel(tk))}</b>${(tk instanceof Hub)?' <span class="tag">Hub</span>':''} ${fuelTag(tk.at)}${nDel?` <span class="mtag deliver">${nDel} already on board</span>`:''}</div>
       <div class="og-meta"><span class="${short?'badc':''}">${km(dest.dv)} km/s</span><span>${fmtDays(dest.days)}</span><span class="${lateBy>0?'badc':''}">Due ${dateStr(dl)}</span></div>
       ${tpl&&lateBy>0?`<div class="o-warn bad">The deadline cannot be met: earliest arrival ${dateStr(tpl.arrive)}.</div>`:
         short?`<div class="o-warn">${gSel.length?'With your selection':'Even with the lightest order'} you would have ${km(after)} km/s left. ${afterFull<dest.dv?`Too heavy: even with a full tank it would only be ${km(afterFull)} km/s.`:'Refuel first.'}</div>`:''}</div>`;
