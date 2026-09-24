@@ -2,12 +2,16 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
-## 2026-09-24 – An amber dot marks orders on the map (version 56)
+## 2026-09-24 – Orders on the map: an amber dot and a list in the card (version 56)
 
 Next to the green fuel dot the map now shows an amber dot wherever a starport has orders on its
 board: at the orbit markers and the landing sites, at a moon in the system view (a starport
 anywhere on it), and at the planet itself in the system view for starports on its surface. The
 legend (the i button) explains it.
+
+The card for the selection on the map lists the orders on offer there, best paid first: goods,
+destination, deadline and reward, five of them and how many more. Only to look at: they are
+still taken on at the trading post.
 
 ## 2026-09-24 – Ships cost three times as much (version 55)
 

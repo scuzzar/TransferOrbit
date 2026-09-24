@@ -111,7 +111,7 @@ From the bottom up. "Imports from" lists only the modules actually used.
 | 20 | `map/draw.js` | 311 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, game/state, ui/state, view, world |
 | 21 | `ui/widgets.js` | 46 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, game/state, ui/state, world |
 | 22 | `ui/transfermap.js` | 80 | The map of one transfer: delta-v over departure day and flight time; tapping picks | basics, physics, world |
-| 23 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, graph, physics, game/state, ui/state, view, widgets, world |
+| 23 | `ui/pickcard.js` | 86 | The card for the selected map object | basics, canvas, events, graph, physics, game/state, ui/state, view, widgets, world |
 | 24 | `ui/panels.js` | 356 | Trading post, cargo, refuel, shipyard, route | basics, commands, economy, events, planner, game/state, transfermap, ui/state, widgets, world |
 | 25 | `ui/display.js` | 72 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, game/state, ui/state, widgets, world |
 | 26 | `ui/menu.js` | 78 | Menu, fullscreen, legend, version line | basics, commands, draw, events, game/state, ui/state, widgets |
