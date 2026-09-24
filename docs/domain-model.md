@@ -25,9 +25,9 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
 - **Time at a place, time under way.** Every manoeuvre puts the ship in transit along a
   connection. `busy` means time passes while the ship stays where it is: waiting, refuelling,
   the shipyard, a rescue. Saving works only at a place with the clock stopped.
-- **Connections with a transfer window** run between the high orbits of two planets, and exactly
-  these have a transfer table (`/transferWindow`). What a transfer costs depends on when it leaves
-  and how long it flies. Their `dv` and `days` are the table's cheapest cell, the ideal window.
+- **Connections with a transfer window** run between the high orbits of two planets. A connection
+  has a transfer window exactly when it has a transfer table; there is no flag besides. What a
+  transfer costs depends on when it leaves and how long it flies. Their `dv` and `days` are the table's cheapest cell, the ideal window.
   All other connections always cost what they say, moons and landings included.
 - **Transfer tables.** The orbits are circles in one plane, so a transfer's cost depends only on
   the phase angle between the two planets at departure and on the flight time, not on the date:
@@ -77,6 +77,7 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   orbits, and a transfer burns that value.
 - The flight time cannot be chosen: a transfer always flies the time `physics.transfer()` gives
   for the day.
-- `Connection.transferWindow` is a stored flag, not derived from having a transfer table.
+- `Connection` still carries a `transferWindow` flag; whether a connection has a transfer window
+  is to follow from its transfer table alone.
 - The autopilot has no `leaveOn` and `flightDays`, and the planner's two modes only choose between
   waiting for the ideal window and leaving now with the flight time of the day.
