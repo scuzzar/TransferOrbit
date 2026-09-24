@@ -6,7 +6,7 @@ import { cheapestCell, keplerNu, searchTransfer, theta, transferConic } from '..
 import { S } from '../game/state.js';
 import { UI, Pick } from '../ui/state.js';
 import { Attitude, Burn, D2R, Plane, SCENE, R_HIGH, R_ORB, SYS_EL, Vec3, bodyLon0, bodyView, bvec, defaultOrb, makeCam, moonAngle, orbitPos, ringPt, shipOrb, sysState, vadd, vmul } from './geometry.js';
-import { HITS, bctx, cargoTo, cssVar, ctx, cv, fitCanvas, clearHits, isPick, moveProg, prep, prepBack, sc, sctx } from './canvas.js';
+import { HITS, bctx, cargoTo, cssVar, ordersAt, ctx, cv, fitCanvas, clearHits, isPick, moveProg, prep, prepBack, sc, sctx } from './canvas.js';
 import { RKT_LEN } from './rocketdata.js';
 import { GL, PathStyle, glBegin, glEnd, glHide, glNote, glPath, glPut, glSaturnRing } from './gl.js';
 import { drawRocket, setRocketMode } from './rocket.js';
@@ -138,6 +138,7 @@ function drawSys(p:PlanetId){
   const drawMoon=(m:MoonId,w:CanvasRenderingContext2D)=>{ const c=P(moonW(m,S.day)), x=c.x, y=c.y, pk:Pick={type:'body',body:m}, sel=isPick(pk);
     glPut(m, moonW(m,S.day), 5.5);
     if(hasDepot(m)){ w.fillStyle=v('--good'); w.beginPath(); w.arc(x+7,y-6,2.5,0,TAU); w.fill(); }
+    if(ordersAt(kk=>kk.at.body===m)){ w.fillStyle=v('--accent'); w.beginPath(); w.arc(x-7,y-6,2.5,0,TAU); w.fill(); }
     if(cargoTo(kk=>kk.at.body===m).length){ w.strokeStyle=v('--good'); w.lineWidth=1.5; w.setLineDash([3,3]); w.beginPath(); w.arc(x,y,11,0,TAU); w.stroke(); w.setLineDash([]); }
     if(sel){ w.strokeStyle=v('--accent'); w.lineWidth=2; w.beginPath(); w.arc(x,y,15,0,TAU); w.stroke(); }
     font(sel?600:500,12); w.fillStyle=sel?v('--text'):'#c9cee0'; w.textAlign='center'; w.textBaseline='bottom'; w.shadowColor='rgba(0,0,0,0.9)'; w.shadowBlur=3; w.fillText(BODIES[m].name,x,y-12); w.shadowBlur=0;
@@ -152,6 +153,7 @@ function drawSys(p:PlanetId){
   const pp:Pick={type:'body',body:p};
   if(cargoTo(kk=>kk.at.body===p && kk.at.level==='surface').length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(cx,cy,Rp+5,0,TAU); g.stroke(); g.setLineDash([]); }
   if(isPick(pp)){ g.strokeStyle=v('--accent'); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,Rp+7,0,TAU); g.stroke(); }
+  if(ordersAt(kk=>kk.at.body===p && kk.at.level==='surface')){ const d=(Rp+6)*Math.SQRT1_2; g.fillStyle=v('--accent'); g.beginPath(); g.arc(cx-d,cy-d,3,0,TAU); g.fill(); }
   HITS.push({canvas:sc,x:cx,y:cy,r:Rp+3,pick:pp});
   front.forEach(f=>f());
   // orbit markers
@@ -159,6 +161,7 @@ function drawSys(p:PlanetId){
     g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(x,y,6,0,TAU); g.fill(); g.stroke();
     if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(x,y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+6,y-7,3,0,TAU); g.fill(); }
+    if(ordersAt(kk=>kk.node===node)){ g.fillStyle=v('--accent'); g.beginPath(); g.arc(x-6,y-7,3,0,TAU); g.fill(); }
     font(here_||sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign=align; g.textBaseline='middle'; g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=3; g.fillText(label,x+(align==='left'?11:-11),y); g.shadowBlur=0;
     HITS.push({canvas:sc,x,y,r:22,pick:pk}); };
   nodeMark(ringPt(rLow,0),`${p}.orbit`,'Low orbit','left');
@@ -245,6 +248,7 @@ function drawBody(b:BodyId){
     g.fillStyle=v('--bg'); g.strokeStyle=sel?v('--accent'):v('--text'); g.lineWidth=sel?2.5:1.5; g.beginPath(); g.arc(p.x,p.y,6,0,TAU); g.fill(); g.stroke();
     if(cargoTo(kk=>kk.node===node).length){ g.strokeStyle=v('--good'); g.lineWidth=1.5; g.setLineDash([3,3]); g.beginPath(); g.arc(p.x,p.y,12,0,TAU); g.stroke(); g.setLineDash([]); }
     if(fuelHere(node,null)){ g.fillStyle=v('--good'); g.beginPath(); g.arc(p.x+6,p.y-7,3,0,TAU); g.fill(); }
+    if(ordersAt(kk=>kk.node===node)){ g.fillStyle=v('--accent'); g.beginPath(); g.arc(p.x-6,p.y-7,3,0,TAU); g.fill(); }
     font(sel?600:500,12); g.fillStyle=sel?v('--text'):'#c9cee0'; g.textAlign=al; g.textBaseline='middle';
     g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=4; g.fillText(label,p.x+(al==='left'?11:-11),p.y); g.shadowBlur=0;
     HITS.push({canvas:cv,x:p.x,y:p.y,r:22,pick:pk}); };
@@ -263,6 +267,7 @@ function drawBody(b:BodyId){
     g.fillStyle=v('--bg'); g.strokeStyle=kon?v('--text'):'rgba(231,233,242,0.6)'; g.lineWidth=2; if(hid) g.setLineDash([2,2]);
     g.beginPath(); g.arc(x,y,kon?6:4.5,0,TAU); g.fill(); g.stroke(); g.setLineDash([]);
     if(st.depot){ g.fillStyle=v('--good'); g.beginPath(); g.arc(x+8,y-8,3,0,TAU); g.fill(); }
+    if(kon?.offers.length){ g.fillStyle=v('--accent'); g.beginPath(); g.arc(x-8,y-8,3,0,TAU); g.fill(); }
     font(600,12);
     const name=st.name+(hid?' (far side)':''), tw=g.measureText(name).width; let left=x<cx;
     if(left && x-10-tw<2) left=false; else if(!left && x+10+tw>W-2) left=true;

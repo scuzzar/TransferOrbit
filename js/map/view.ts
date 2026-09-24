@@ -62,8 +62,8 @@ export function renderCrumbs(v:ViewLevel){
   }
   const lg=$('legend'); if(lg) lg.textContent = v.level==='sol'
     ? 'Tap a planet for details, double-tap to look closer. Dashed amber: where the target would have to be for an ideal window. Dashed green: destinations of your cargo.'
-    : v.level==='sys' ? 'Tap a planet, moon or orbit, double-tap for the landing sites. Green dot: a fuel depot there. Dashed green: destination of your cargo.'
-    : 'Tap a landing site or an orbit. Green dot: fuel depot. Dashed green: destination of your cargo.';
+    : v.level==='sys' ? 'Tap a planet, moon or orbit, double-tap for the landing sites. Green dot: a fuel depot there. Amber dot: orders on offer there. Dashed green: destination of your cargo.'
+    : 'Tap a landing site or an orbit. Green dot: fuel depot. Amber dot: orders on offer. Dashed green: destination of your cargo.';
 }
 
 export function onMapClick(e:MouseEvent){

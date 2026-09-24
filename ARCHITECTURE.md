@@ -102,13 +102,13 @@ From the bottom up. "Imports from" lists only the modules actually used.
 | 11 | `map/geometry.js` | 173 | Where something sits on screen; `SCENE`, the animation caches | basics, physics, world |
 | 12 | `game/planner.js` | 217 | Route planning for the player: plans of steps from a preset, laid out by the date, planned again around pinned steps | actions, basics, graph, physics, game/state, world |
 | 13 | `game/commands.js` | 340 | **All commands.** Changes `S`, reports `changed()` | actions, basics, economy, events, geometry, graph, physics, planner, save, game/state, world |
-| 14 | `map/canvas.js` | 54 | The three drawing layers and their helpers | basics, geometry, game/state, ui/state |
+| 14 | `map/canvas.js` | 57 | The three drawing layers and their helpers | basics, geometry, game/state, ui/state |
 | 15 | `map/rocketdata.js` | 31 | The rocket model as number arrays | — |
 | 16 | `map/surface.js` | 52 | The planet surfaces as number arrays | — |
 | 17 | `map/gl.js` | 306 | The three.js layer | basics, canvas, events, geometry, rocketdata, surface, world |
 | 18 | `map/rocket.js` | 98 | Attitude, flame, 3D model or hand-drawn | basics, geometry, gl, rocketdata |
 | 19 | `map/view.js` | 95 | Which level the map shows; taps on it | basics, canvas, events, geometry, planner, game/state, ui/state, world |
-| 20 | `map/draw.js` | 306 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, game/state, ui/state, view, world |
+| 20 | `map/draw.js` | 311 | Sun, system, body — and `draw()` | basics, canvas, geometry, gl, physics, rocket, rocketdata, game/state, ui/state, view, world |
 | 21 | `ui/widgets.js` | 46 | Button, icon, chip, panel heading; `openView`, `openRoute` | basics, events, game/state, ui/state, world |
 | 22 | `ui/transfermap.js` | 80 | The map of one transfer: delta-v over departure day and flight time; tapping picks | basics, physics, world |
 | 23 | `ui/pickcard.js` | 73 | The card for the selected map object | basics, canvas, events, graph, physics, game/state, ui/state, view, widgets, world |

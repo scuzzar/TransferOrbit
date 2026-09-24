@@ -42,6 +42,9 @@ export function isPick(p:Pick){
 
 export const cargoTo = (test:(p:Starport)=>boolean) => S.player.ship.hold.filter(o=>test(S.market.post(o.to)));
 
+// whether a starport that passes the test has orders on its board
+export const ordersAt = (test:(p:Starport)=>boolean) => S.market.list.some(p=>p.offers.length>0 && test(p));
+
 export function prep(canvas:HTMLCanvasElement,g:CanvasRenderingContext2D,W:number,H:number){ const dpr=window.devicePixelRatio||1;
   if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){ canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); }
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); }
