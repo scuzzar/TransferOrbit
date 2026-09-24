@@ -2,6 +2,24 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-24 – Rewards follow the delta-v, not the time (version 48)
+
+With the new drives the game had become easy: the bots ended 120 steps on 0.26 to 1.66 million Cr
+instead of 36,000 to 141,000. The reason was the time share of the reward (15 Cr per day plus 4 Cr
+per tonne and day), two thirds of every reward, some 60,000 Cr on an average order: it paid for
+days that cost the player nothing, and the better drives let the Cog fly almost every order.
+
+An order now pays for the delta-v its route needs and no longer for its time:
+
+```
+reward = RATE_MASS·m·(e^(Δv/v_e) − 1) + 0.1·n·value (+ a share of the launch fee)
+```
+
+with v_e the Cog's exhaust velocity and m the cargo plus 8 t of ship. `RATE_DAY` and
+`RATE_MASS_DAY` are gone. `RATE_MASS` is a first value, set with the bots: at 700 Cr per tonne
+they end on 64,000 to 154,000 Cr (1500 gave 0.3 to 0.67 million), and propellant takes 30 to
+60 % of the income again. Deadlines still follow the route's days.
+
 ## 2026-09-24 – Drives of the future (version 47)
 
 The ships' drives move up a technology step, so there is delta-v to spend on faster flights:

@@ -219,10 +219,9 @@ export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit
 
 export const LAUNCH_FEE = 100, RESCUE_BASE = 5000, RESCUE_PER_T = 300, BANKRUPT = -50000;
 
-// Rewards pay for the propellant as the Cog's drive burns it: a better ship earns its edge
-export const RATE_MASS = 400, SHIP_MASS_SHARE = 8, V_EXHAUST = SHIP_TABLE.cog.isp*9.80665, RATE_DAY = 15;
-
-export const RATE_MASS_DAY = 4;          // time share: Cr per tonne (cargo + ship share) and travel day
+// Rewards follow the delta-v a route needs, not its time: RATE_MASS credits per tonne (cargo plus
+// the ship's share) of propellant the Cog's drive would burn for it. A better ship earns its edge.
+export const RATE_MASS = 700, SHIP_MASS_SHARE = 8, V_EXHAUST = SHIP_TABLE.cog.isp*9.80665;
 
 // How much delta-v a day of waiting or flying is worth to each preset of the route planner, m/s.
 // Economical waits for a window and takes the long flight; fast pays for a short one.

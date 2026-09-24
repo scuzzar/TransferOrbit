@@ -1,7 +1,7 @@
 // The connections between the places, and the route graph behind pricing: idealised cost
 // between two places.
 
-import { B, BodyId, Connection, GOODS, GoodId, RATE_MASS, RATE_DAY, RATE_MASS_DAY, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, TransferTable, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf, transferTable } from './world.js';
+import { B, BodyId, Connection, GOODS, GoodId, RATE_MASS, LAUNCH_FEE, M, Node, NodeId, PlanetId, SHIP_MASS_SHARE, PLANETS, SITES, TransferTable, V_EXHAUST, hasAtm, isMoon, moonsOf, nodeOf, rotPenalty, siteOf, transferTable } from './world.js';
 import { popMin } from '../basics.js';
 import { captDv, cheapestCell, hopCost } from './physics.js';
 
@@ -73,9 +73,11 @@ export function route(from: RoutePoint, to: RoutePoint): RouteResult{
   return routeCache[key]={dv:end.dv, days:end.days, legs, launch, first};
 }
 
-export function rewardFor(r: {dv:number; days:number; launch:boolean}, good: GoodId, n: number): number{
+// What an order pays: the delta-v of its route as propellant, a tenth of the goods' value, and a
+// share of the launch fee where the route starts on a launcher. The time it takes does not count.
+export function rewardFor(r: {dv:number; launch:boolean}, good: GoodId, n: number): number{
   const G=GOODS[good], mass=SHIP_MASS_SHARE+n*G.mass;
-  let R = RATE_MASS*mass*(Math.exp(r.dv/V_EXHAUST)-1) + RATE_DAY*r.days + RATE_MASS_DAY*mass*r.days + 0.1*n*G.value;
+  let R = RATE_MASS*mass*(Math.exp(r.dv/V_EXHAUST)-1) + 0.1*n*G.value;
   if(r.launch) R += LAUNCH_FEE*(mass+20); // share of the Earth launch fee
   return Math.round(R*rewardLuck()/10)*10;
 }
