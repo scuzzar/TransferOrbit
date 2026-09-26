@@ -2,6 +2,13 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-26 – The selection card groups its orders by destination (version 58)
+
+The card for a place selected on the map now lists its orders the way the order board does:
+grouped by destination, the cheapest route first, with the route's delta-v, flight time and
+earliest deadline in the group's heading and the best paid order first within. It shows ten
+orders to begin with; *Show all* unfolds the rest, *Show fewer* folds them again.
+
 ## 2026-09-26 – Time costs years of your life (version 57)
 
 Instead of a fee for time, the player now ages. A new game starts them at 21; how old they are

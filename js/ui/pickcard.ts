@@ -5,22 +5,39 @@ import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, km, byId, find } from '../basics.js';
 import { BODIES, DAY_VALUE, GOODS, fmtCr, ROT, SITES, Site, bodyName, hasAtm, hasDepot, latStr, launcherAt, moonsOf, planetOfBody, rotPenalty, siteOf, splitNode } from '../game/world.js';
 import { bodyDown, bodyUp, searchTransfer } from '../game/physics.js';
-import { Hub, S, Starport, postLabel } from '../game/state.js';
+import { Hub, Order, S, Starport, postLabel } from '../game/state.js';
 import { idealTransfer } from '../game/graph.js';
 import { cargoTo } from '../map/canvas.js';
 import { setView } from '../map/view.js';
 import { UI, ViewLevel, pickTarget } from './state.js';
 import { btn, gchip, openRoute } from './widgets.js';
 
-// The orders on the boards of these starports, to look at: they are taken on at the trading post
-const SHOWN=5;
-function ordersList(posts:Starport[], here:boolean){
-  const os=posts.flatMap(k=>k.offers).sort((a,b)=>b.reward-a.reward);
-  const rows=os.slice(0,SHOWN).map(o=>{ const G=GOODS[o.good], from=posts.length>1?`from ${S.market.post(o.from).name}, `:'';
-    return `<div class="prow">${gchip(o.good)}<span class="ot"><b>${o.containers} × ${esc(G.name)}</b><small>${esc(from)}to ${esc(postLabel(S.market.post(o.to)))}, due ${dateStr(o.deadline)}</small></span><span class="num">${fmtCr(o.reward)}</span></div>`; });
-  const more=os.length>SHOWN?`<p class="hint">and ${os.length-SHOWN} more</p>`:'';
-  const note=!os.length?'<p class="hint">No orders right now.</p>':here?'':'<p class="hint">Fly there to take them on.</p>';
-  return `<div class="porders"><h3>Orders here (${os.length})</h3>${rows.join('')}${more}${note}</div>`;
+// The orders on the boards of these starports, to look at: they are taken on at the trading post.
+// Grouped by destination like the order board, the cheapest route first, the best paid first
+// within; the first SHOWN of them, all of them once the player asks.
+const SHOWN=10;
+function ordersList(posts:Starport[], here:boolean, all:boolean, toggle:()=>void){
+  const box=document.createElement('div'); box.className='porders';
+  const os=posts.flatMap(k=>k.offers);
+  box.innerHTML=`<h3>Orders here (${os.length})</h3>`;
+  const groups=new Map<string,Order[]>();
+  os.forEach(o=>{ const g=groups.get(o.to); if(g) g.push(o); else groups.set(o.to,[o]); });
+  const glist=[...groups].map(([to,list])=>({to:S.market.post(to), list:list.sort((a,b)=>b.reward-a.reward),
+    dv:Math.min(...list.map(o=>o.dv)), days:Math.min(...list.map(o=>o.days)), due:Math.min(...list.map(o=>o.deadline))})).sort((a,b)=>a.dv-b.dv);
+  let left=all ? Infinity : SHOWN;
+  for(const g of glist){
+    if(left<=0) break;
+    const shown=g.list.slice(0,left); left-=shown.length;
+    const rows=shown.map(o=>{ const G=GOODS[o.good], from=posts.length>1?`<small>from ${esc(S.market.post(o.from).name)}</small>`:'';
+      return `<div class="prow">${gchip(o.good)}<span class="ot"><b>${o.containers} × ${esc(G.name)}${o.isBulk?' <span class="mtag post">Bulk</span>':''}</b>${from}</span><span class="num">${fmtCr(o.reward)}</span></div>`; });
+    const rest=g.list.length-shown.length;
+    box.insertAdjacentHTML('beforeend', `<div class="pgroup"><div class="pg-head"><b>${esc(postLabel(g.to))}</b>${g.to instanceof Hub?' <span class="tag">Hub</span>':''}
+      <div class="og-meta"><span>${km(g.dv)} km/s</span><span>${fmtDays(g.days)}</span><span>Due ${dateStr(g.due)}</span></div></div>${rows.join('')}${rest?`<p class="hint">and ${rest} more to this destination</p>`:''}</div>`);
+  }
+  if(os.length>SHOWN){ const b=btn(all?'Show fewer':`Show all ${os.length} orders`,'linkbtn',false,toggle); box.appendChild(b); }
+  const note=!os.length?'No orders right now.':here?'':'Fly there to take them on.';
+  if(note) box.insertAdjacentHTML('beforeend', `<p class="hint">${note}</p>`);
+  return box;
 }
 
 export function renderPick(){
@@ -78,8 +95,11 @@ export function renderPick(){
   const hereNow = (p.type!=='planet') && S.player.ship.isAt(pickTarget(p));
   if(hereNow) tags.push(tag('here','You are here'));
   c.innerHTML=`<div class="row"><b class="big">${esc(title)}</b>${close}</div>${tags.length?`<div class="mtags">${tags.join('')}</div>`:''}
-    ${info?`<p class="kinfo">${esc(info)}</p>`:''}${stats.length?`<div class="pstats">${stats.map(([a,b])=>`<div><span class="muted">${a}</span><b>${b}</b></div>`).join('')}</div>`:''}${boards.length?ordersList(boards,hereNow):''}`;
+    ${info?`<p class="kinfo">${esc(info)}</p>`:''}${stats.length?`<div class="pstats">${stats.map(([a,b])=>`<div><span class="muted">${a}</span><b>${b}</b></div>`).join('')}</div>`:''}`;
   find(c,'.x',HTMLButtonElement).onclick = ()=>{ UI.pick=null; changed(); };
+  // all orders stay unfolded for this selection only
+  const key=JSON.stringify(p), all=UI.pickAll===key;
+  if(boards.length) c.appendChild(ordersList(boards, hereNow, all, ()=>{ UI.pickAll=all ? null : key; changed(); }));
   if(btns.length){ const g = document.createElement('div'); g.className='two';
     btns.forEach(([t,cls,fn])=>g.appendChild(btn(t,cls,cls==='go'&&locked,fn))); if(btns.length===1) g.firstElementChild?.classList.add('span2'); c.appendChild(g); }
   w.appendChild(c);
