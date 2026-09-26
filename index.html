@@ -206,6 +206,15 @@ h3{font-size:.98rem;font-weight:600;margin:14px 0 6px}
 .mslots i{flex:1 0 10px;max-width:22px;height:11px;border-radius:3px;border:1.5px solid var(--line)}
 .mslots i[style]{border-color:transparent}
 #shipinfo{margin-top:6px}
+#shipinfo.risk{color:var(--warn)}
+.lifebar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:4px 0 2px}
+.lifebar i{display:block;height:100%}
+.namerow{display:flex;gap:8px;align-items:center}
+.namerow input{flex:1;min-width:0;min-height:40px;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 10px}
+.fame{width:100%;border-collapse:collapse;font-size:.92rem}
+.fame th{text-align:left;color:var(--muted);font-weight:500;font-size:.8rem;padding:6px 4px;border-bottom:1px solid var(--line)}
+.fame td{padding:8px 4px;border-bottom:1px solid var(--line)}
+.fame td.num,.fame th.num{text-align:right;font-variant-numeric:tabular-nums}
 .place{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .place .kinfo{margin:0}
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -337,7 +346,7 @@ label.order{display:block;cursor:pointer}
     <div class="card"><div class="muted">Balance</div><b class="stat" id="credits"></b></div>
     <div class="card"><div class="chead"><span class="muted">Δv with cargo</span><button type="button" id="autofill" class="tchip" aria-pressed="false" title="Automatically fill up at every fuel depot">Always full</button></div><b class="stat" id="dv"></b><div class="gauge"><i id="gauge"></i></div></div>
     <button type="button" class="card cardbtn" id="cargotile" aria-label="Open the cargo hold"><div class="chead"><span class="muted">Cargo hold</span><span class="muted small" id="slotinfo"></span></div><div class="mslots" id="mslots"></div></button>
-    <div class="card"><div class="muted">Ship</div><b class="stat" id="shipname"></b><div class="muted small" id="shipinfo"></div></div>
+    <button type="button" class="card cardbtn" id="shiptile" aria-label="Open ship and pilot"><div class="muted">Ship and pilot</div><b class="stat" id="shipname"></b><div class="muted small" id="shipinfo"></div></button>
   </div>
 
   <div class="col-map">
@@ -353,6 +362,7 @@ label.order{display:block;cursor:pointer}
         <button type="button" data-menu="fs" id="menufs" hidden>Fullscreen</button>
         <button type="button" data-menu="save">Save</button>
         <button type="button" data-menu="load">Load</button>
+        <button type="button" data-menu="fame">Leaderboard</button>
         <div class="msep"></div>
         <div class="mlabel">Let time pass</div>
         <div class="mwait">

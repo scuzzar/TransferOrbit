@@ -7,7 +7,7 @@ import { S } from '../game/state.js';
 import { remaining } from '../game/planner.js';
 import { stopAutopilot } from '../game/commands.js';
 import { draw } from '../map/draw.js';
-import { btn } from './widgets.js';
+import { btn, lifeLine } from './widgets.js';
 import { renderPick } from './pickcard.js';
 import { renderPanel, renderPlace } from './panels.js';
 import { UI } from './state.js';
@@ -23,7 +23,9 @@ export function header(){
   byId('dv',HTMLElement).innerHTML=`${km(dv)} <small>km/s</small>`;
   byId('gauge',HTMLElement).style.width=`${Math.max(0,Math.min(100,dv/max*100))}%`;
   byId('shipname',HTMLElement).textContent=S.player.ship.def.name;
-  byId('shipinfo',HTMLElement).textContent=`${S.player.ship.def.drive}, Isp ${S.player.ship.def.isp} s`;
+  const pl=S.player, life=lifeLine(pl,S.day), info=byId('shipinfo',HTMLElement);
+  info.textContent=pl.dead ? `${pl.name}, died at ${Math.floor(pl.ageOn(S.day))}` : `${pl.name}, ${Math.floor(pl.ageOn(S.day))} · ${life.text}`;
+  info.classList.toggle('risk',life.risk||pl.dead);
   const cr=byId('credits',HTMLElement); cr.innerHTML=`${Math.round(S.player.credits).toLocaleString('en-GB')} <small>Cr</small>`; cr.classList.toggle('neg',S.player.credits<0);
   const cells:string[]=[]; S.player.ship.hold.forEach(o=>{ for(let i=0;i<o.containers;i++) cells.push(`<i style="background:${GOODS[o.good].color}"></i>`); });
   while(cells.length<S.player.ship.def.slots) cells.push('<i></i>');
@@ -31,6 +33,7 @@ export function header(){
   byId('slotinfo',HTMLElement).textContent=`${S.player.ship.def.slots-S.player.ship.slotsUsed} of ${S.player.ship.def.slots} free`;
   byId('autofill',HTMLButtonElement).setAttribute('aria-pressed',String(!!S.player.autoFill));
   byId('cargotile',HTMLButtonElement).classList.toggle('on',UI.view==='cargo');
+  byId('shiptile',HTMLButtonElement).classList.toggle('on',UI.view==='ship');
   autobarTime();
 }
 
@@ -54,7 +57,7 @@ export function render(){
   byId('mainview',HTMLElement).hidden=pv; byId('panel',HTMLElement).hidden=!pv;
   byId('used',HTMLElement).textContent=`Total used: ${km(S.player.ship.dvUsed)} km/s`;
   findAll(document,'[data-wait]',HTMLButtonElement).forEach(b=>b.disabled=!S.canAct);
-  if(pv){ renderPanel(); findAll(document,'#panel button',HTMLButtonElement).forEach(b=>{ if(S.player.bankrupt && !b.classList.contains('back')) b.disabled=true; }); return; }
+  if(pv){ renderPanel(); findAll(document,'#panel button',HTMLButtonElement).forEach(b=>{ if(S.player.out && !b.classList.contains('back')) b.disabled=true; }); return; }
   renderPlace();
 }
 

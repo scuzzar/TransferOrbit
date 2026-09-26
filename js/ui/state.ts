@@ -6,7 +6,7 @@ import type { ReportKind } from '../events.js';
 import { BodyId, Node, NodeId, PlanetId, Preset, SITES, isPlanet, nodeOf } from '../game/world.js';
 import { Plan } from '../game/state.js';
 
-export type View = 'main'|'post'|'cargo'|'refuel'|'shipyard'|'route';
+export type View = 'main'|'post'|'cargo'|'refuel'|'shipyard'|'route'|'ship'|'clinic'|'fame';
 // What is selected on the map
 export type Pick = { type:'planet'; planet:PlanetId } | { type:'body'; body:BodyId } | { type:'node'; node:NodeId; site?:string|null };
 // Which level the map shows

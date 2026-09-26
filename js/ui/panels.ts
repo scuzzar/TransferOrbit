@@ -1,14 +1,14 @@
-// The panels: trading post, cargo hold, refuelling, shipyard, route.
+// The panels: trading post, cargo hold, refuelling, shipyard, route; ship and pilot, youth clinic, leaderboard.
 
 import { changed } from '../events.js';
 import { dateStr, esc, fmtDays, isDesk, km, tons, byId, find } from '../basics.js';
-import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, PRESETS, Preset, SHIPS, bodyName, fmtCr, isNode, siteOf, splitNode } from '../game/world.js';
-import { Hub, Order, S, postLabel, postPlace } from '../game/state.js';
+import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, NAME_MAX, PRESETS, Preset, RISK_AGE, SHIPS, START_AGE, YEAR_PRICE, bodyName, fmtCr, isNode, siteOf, splitNode } from '../game/world.js';
+import { Hub, Order, S, postLabel, postPlace, yearlyRisk } from '../game/state.js';
 import { hubRoom } from '../game/economy.js';
 import { Leg, draftPlan, nearestFuel, pinTransfer, planRoute, replan, schedule, stepBlocker, switchStep, unpin } from '../game/planner.js';
-import { abortOrder, acceptOrders, buyShip, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
+import { abortOrder, acceptOrders, buyShip, buyYear, clinicHere, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, readFame, rename, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { UI } from './state.js';
-import { btn, dots, fuelTag, gchip, ibtn, openRoute, openView, phead, routeLink } from './widgets.js';
+import { btn, dots, fuelTag, gchip, ibtn, lifeLine, openRoute, openView, pct, phead, routeLink, yrs } from './widgets.js';
 import { transferMap } from './transfermap.js';
 
 // Take the ticked orders aboard and show them in the cargo hold
@@ -193,6 +193,74 @@ function panelShipyard(p:HTMLElement){
   p.appendChild(list);
 }
 
+// Rows of a label and a value
+const rows = (list:[string,string][]) => list.map(([k,v])=>`<div class="row"><span class="muted">${k}</span><b>${v}</b></div>`).join('');
+
+// The pilot's lifetime as a bar: from the start age to the risk age, and how much of it has gone
+function lifeBar(){
+  const pl=S.player, span=RISK_AGE+pl.bought-START_AGE, gone=Math.max(0,Math.min(1,(pl.ageOn(S.day)-START_AGE)/span)), past=pl.pastRisk(S.day)>=0;
+  return `<div class="lifebar"><i style="width:${(gone*100).toFixed(1)}%;background:${past?'var(--bad)':gone>0.8?'var(--warn)':'var(--good)'}"></i></div>`;
+}
+
+function panelShip(p:HTMLElement){
+  const pl=S.player, sh=pl.ship, d=sh.def, age=pl.ageOn(S.day), past=pl.pastRisk(S.day), life=lifeLine(pl,S.day);
+  p.appendChild(phead('Ship and pilot', `${esc(pl.name)} with the ${d.name}.`, ''));
+  const h=document.createElement('h3'); h.textContent='Pilot'; p.appendChild(h);
+  const box=document.createElement('div'); box.className='massbox';
+  const nr=document.createElement('div'); nr.className='namerow';
+  nr.innerHTML=`<input id="pilotname" type="text" maxlength="${NAME_MAX}" aria-label="Your name" value="${esc(pl.name)}">`;
+  const input=find(nr,'input',HTMLInputElement), save=()=>rename(input.value);
+  input.onkeydown=(e)=>{ if(e.key==='Enter') save(); };
+  nr.appendChild(btn('Rename','',pl.out,save)); box.appendChild(nr);
+  box.insertAdjacentHTML('beforeend', rows([
+    ['Born', dateStr(pl.born)],
+    ['Age', pl.dead ? `died at ${Math.floor(age)}` : `${yrs(age)} years`],
+    ['Risk of dying from', `${RISK_AGE+pl.bought} years, ${dateStr(pl.riskFrom)}`],
+    [past<0 ? 'Time left before that' : 'Risk now', past<0 ? `${yrs(-past)} years` : `${pct(yearlyRisk(past))} a year`],
+    ['Years bought', String(pl.bought)],
+  ])+lifeBar()+`<p class="kinfo">${life.risk
+    ? 'Every stretch of time, a trip, waiting, refuelling, may now be your last, and the risk doubles every five years.'
+    : `Every trip costs you years of your life. From ${RISK_AGE+pl.bought} on, every stretch of time may be your last.`}
+    The youth clinics at the spaceports on the Earth's surface sell one more year for ${fmtCr(YEAR_PRICE)}.</p>`);
+  p.appendChild(box);
+  const h2=document.createElement('h3'); h2.textContent='Ship'; p.appendChild(h2);
+  const sbox=document.createElement('div'); sbox.className='massbox';
+  sbox.innerHTML=rows([
+    ['Class', d.name], ['Drive', `${d.drive}, Isp ${d.isp} s`], ['Dry mass', tons(d.dry)], ['Tank', `${tons(sh.fuel)} of ${tons(d.cap)}`],
+    ['Cargo slots', `${sh.slotsUsed} of ${d.slots} used`], ['Δv now', `${km(sh.dvAvail)} km/s`], ['Δv used so far', `${km(sh.dvUsed)} km/s`],
+  ]);
+  const cb=document.createElement('button'); cb.className='linkbtn'; cb.textContent='Open the cargo hold'; cb.onclick=()=>openView('cargo','ship'); sbox.appendChild(cb);
+  p.appendChild(sbox);
+}
+
+function panelClinic(p:HTMLElement){
+  const place=S.player.ship.place; if(!place || !clinicHere()){ openView('main'); return; }
+  const pl=S.player, locked=!S.canAct, afford=pl.canAfford(YEAR_PRICE), past=pl.pastRisk(S.day);
+  p.appendChild(phead('Youth Clinic', `${esc(place.label)}. Balance ${fmtCr(pl.credits)}.`, ''));
+  const note=document.createElement('p'); note.className='kinfo';
+  note.textContent=`A course of treatment pushes the age from which you may die back by one year, for ${fmtCr(YEAR_PRICE)}. It takes no time, and you can come back as often as you can pay.`;
+  p.appendChild(note);
+  const cmp=document.createElement('div'); cmp.className='cmp';
+  cmp.innerHTML=`<div><span class="muted">Risk from</span><span>${RISK_AGE+pl.bought} years</span><b class="acc">${RISK_AGE+pl.bought+1} years</b></div>
+    <div><span class="muted">Balance</span><span>${fmtCr(pl.credits)}</span><b>${fmtCr(pl.credits-YEAR_PRICE)}</b></div>
+    <p>${past<0 ? `You are ${Math.floor(pl.ageOn(S.day))}: ${yrs(-past)} years left before the risk begins, ${yrs(1-past)} after the treatment.`
+      : `You are ${Math.floor(pl.ageOn(S.day))}: the risk stands at ${pct(yearlyRisk(past))} a year, ${past-1<0?'and none':`${pct(yearlyRisk(past-1))}`} after the treatment.`}</p>`;
+  p.appendChild(cmp);
+  const f=document.createElement('div'); f.className='pfoot';
+  f.appendChild(btn(afford?`One more year for ${fmtCr(YEAR_PRICE)}`:`${fmtCr(YEAR_PRICE-pl.credits)} short`,'go wide',locked||!afford,buyYear));
+  p.appendChild(f);
+}
+
+function panelFame(p:HTMLElement){
+  const list=readFame();
+  p.appendChild(phead('Leaderboard', 'Whoever died, best balance first. Kept by this browser.', ''));
+  if(!list.length){ const e=document.createElement('p'); e.className='hint'; e.textContent='No one has died yet.'; p.appendChild(e); return; }
+  const t=document.createElement('table'); t.className='fame';
+  t.innerHTML=`<thead><tr><th>#</th><th>Name</th><th class="num">Age</th><th class="num">Balance</th><th class="num">Died</th></tr></thead><tbody>${
+    list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}${e.bought?` <span class="muted small">+${e.bought} y</span>`:''}</td><td class="num">${Math.floor(e.age)}</td><td class="num">${fmtCr(e.credits)}</td><td class="num">${dateStr(e.day)}</td></tr>`).join('')}</tbody>`;
+  p.appendChild(t);
+}
+
 export function renderPlace(){
   const w=byId('placecard',HTMLElement); w.innerHTML='';
   const near=S.player.ship.near, k=(near ? S.market.at(near) : null), r=refuelInfo(), del=deliverables(), locked=!S.canAct;
@@ -206,13 +274,18 @@ export function renderPlace(){
   if(k){ const n=S.market.post(k.id).offers.length; g.appendChild(ibtn('orders',`Orders (${n})`,del.length?'':'go',S.player.ship.underWay,()=>openView('post'))); }
   if(r) g.appendChild(ibtn('fuel','Refuel','',S.player.ship.underWay,()=>openView('refuel')));
   if(k&&(k instanceof Hub)) g.appendChild(ibtn('yard','Shipyard','',S.player.ship.underWay,()=>openView('shipyard')));
+  if(clinicHere()) g.appendChild(ibtn('clinic','Youth clinic','',S.player.ship.underWay,()=>openView('clinic')));
   // Equal columns: in German "Aufträge (11)" needed extra room, "Orders (8)" does not,
   // and weighting it that way squeezed "Shipyard" into an ellipsis.
   if(g.children.length) c.appendChild(g);
   w.appendChild(c);
 
   const rs=byId('rescue',HTMLElement); rs.innerHTML=''; rs.className='';
-  if(S.player.bankrupt){ rs.className='rescue'; rs.innerHTML=`<p>${esc(UI.msg)}</p>`; rs.appendChild(btn('Start over','go',false,resetGame)); return; }
+  if(S.player.out){ rs.className='rescue'; rs.innerHTML=`<p>${esc(UI.msg ?? (S.player.dead?`${S.player.name} has died.`:'Bankrupt.'))}</p>`;
+    const two=document.createElement('div'); two.className='two';
+    if(S.player.dead) two.appendChild(btn('Leaderboard','',false,()=>openView('fame')));
+    const again=btn('Start over','go',false,resetGame); if(!S.player.dead) again.classList.add('span2'); two.appendChild(again);
+    rs.appendChild(two); return; }
   if(stranded()){
     rs.className='rescue';
     const ri=rescueInfo();
@@ -226,6 +299,7 @@ export function renderPanel(){
   const v=UI.view;
   if(v==='post') panelPost(p); else if(v==='cargo') panelCargo(p);
   else if(v==='refuel') panelRefuel(p); else if(v==='shipyard') panelShipyard(p); else if(v==='route') panelRoute(p);
+  else if(v==='ship') panelShip(p); else if(v==='clinic') panelClinic(p); else if(v==='fame') panelFame(p);
 }
 
 // Desktop: the schedule stays open. Mobile: back to the map so the flight is visible.
@@ -304,7 +378,10 @@ function panelRoute(p:HTMLElement){
   const sum=document.createElement('div'); sum.className='pfoot';
   const late=deadl.filter(o=>plan.arrive>o.deadline);
   const lateAny=deadl.some(o=>plan.arrive>o.deadline);
+  const pl=S.player, die=pl.deathChance(S.day,plan.arrive), arrAge=pl.ageOn(plan.arrive), pastArr=pl.pastRisk(plan.arrive);
   sum.innerHTML=`<div class="row"><span class="muted">Travel time</span><b class="${lateAny?'badc':''}">${fmtDays(plan.days)}</b></div>
+    <div class="row"><span class="muted">Your age on arrival</span><b class="${die>0?'badc':''}">${yrs(arrAge)} years</b></div>
+    ${die>0?`<p class="o-warn bad">You arrive past ${RISK_AGE+pl.bought}: a ${pct(die)} chance you do not live to see it.</p>`:pastArr>-5?`<p class="o-warn">Only ${yrs(-pastArr)} years left before the risk begins once you are there.</p>`:''}
     <div class="row"><span class="muted">Needs ${km(plan.dv)} of ${km(have)} km/s</span><b class="${ok?'okc':'badc'}">${ok?km(have-plan.dv)+' km/s left':km(plan.dv-have)+' km/s short'}</b></div>
     <div class="massbar"><i style="width:${Math.min(100,plan.dv/Math.max(have,1)*100).toFixed(0)}%;background:${ok?'var(--accent)':'var(--bad)'}"></i></div>
     <p class="kinfo">${deadl.length?(late.length?`${late.length} ${late.length>1?'orders arrive':'order arrives'} after the deadline.`:`${deadl.length>1?'All '+deadl.length+' orders':'The order'} for this destination ${deadl.length>1?'arrive':'arrives'} before the deadline.`):''}${plan.fee?` Launch fee ${fmtCr(plan.fee)}.`:''} ${ok?'The autopilot stops wherever cargo can be delivered on the way.':S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass)<plan.dv?`Loaded too heavily: even with a full tank you would only have ${km(S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass))} km/s. Return an order or pick another destination.`:'Refuel first, or pick a different route.'}</p>`;

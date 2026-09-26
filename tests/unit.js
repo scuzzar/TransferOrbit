@@ -824,3 +824,62 @@ test('A broken save is refused', async () => {
   assert.equal(bad(s => { const o = s.market.orders[0]; s.market.starports = s.market.starports.filter(k => k.id !== o.from); }), null);   // an order from a starport that is gone
   assert.equal(save.parseSave(null), null); assert.equal(save.parseSave([]), null);
 });
+
+// ── Lifetime ──────────────────────────────────────────────────────────────
+
+test('A new game starts the player at 21; the risk begins at 80 and grows with the years past it', async () => {
+  const { state, world } = await fresh();
+  const p = state.S.player;
+  near(p.ageOn(state.S.day), world.START_AGE, 1e-9);
+  near(p.pastRisk(state.S.day), -(world.RISK_AGE - world.START_AGE), 1e-9);
+  assert.equal(p.deathChance(state.S.day, state.S.day + 50 * world.YEAR), 0);            // nothing before 80
+  near(state.yearlyRisk(0), 1 - Math.exp(-world.RISK_RATE), 1e-12);
+  assert.ok(state.yearlyRisk(world.RISK_DOUBLING) > 1.9 * state.yearlyRisk(0));
+  // one long stretch is as risky as two short ones back to back
+  const a = state.deathChance(0, 10), b = 1 - (1 - state.deathChance(0, 4)) * (1 - state.deathChance(4, 10));
+  near(a, b, 1e-12);
+  near(state.deathChance(-3, 2), state.deathChance(0, 2), 1e-12);
+});
+
+test('The youth clinic sells a year at the spaceports on the Earth only', async () => {
+  const { state, commands, world } = await fresh();
+  const S = state.S, p = S.player;
+  p.credits = world.YEAR_PRICE * 2;
+  assert.ok(!commands.clinicHere()); assert.ok(!commands.buyYear());                     // Earth orbit
+  S.player.ship.dock(world.nodeOf('moon.surf', 'shackleton')); assert.ok(!commands.clinicHere());
+  S.player.ship.dock(world.nodeOf('earth.surf', 'kourou')); assert.ok(commands.clinicHere());
+  const riskFrom = p.riskFrom, day = S.day;
+  assert.ok(commands.buyYear());
+  assert.equal(p.bought, 1); assert.equal(p.credits, world.YEAR_PRICE); near(p.riskFrom, riskFrom + world.YEAR, 1e-9);
+  assert.equal(S.day, day);                                                               // takes no time
+  p.credits = world.YEAR_PRICE - 1; assert.ok(!commands.buyYear()); assert.equal(p.bought, 1);
+});
+
+test('Past the risk age the player may die at the end of a stretch; the leaderboard keeps them', async () => {
+  const { state, commands, reports } = await fresh();
+  const S = state.S, p = S.player, roll = commands.fate.roll;
+  try {
+    p.name = 'Ada'; p.born -= 90 * 365.25; p.credits = 123456;
+    commands.fate.roll = () => 0.999999; commands.waitDays(10);
+    assert.ok(!p.dead && S.canAct);
+    commands.fate.roll = () => 0; commands.waitDays(10);
+    assert.ok(p.dead && !S.canAct);
+    assert.match(reports.at(-1).text, /Ada died .* aged 111/);
+    const day = S.day; commands.waitDays(10); assert.equal(S.day, day);                 // nothing more happens
+    const fame = commands.readFame();
+    assert.ok(fame.some(e => e.name === 'Ada' && e.credits === 123456));
+    // a new game keeps the name, and starts young again
+    commands.resetGame();
+    assert.equal(state.S.player.name, 'Ada'); assert.ok(!state.S.player.dead);
+  } finally { commands.fate.roll = roll; }
+});
+
+test('The lifetime survives a save; an old save gets a player who is as old as the game', async () => {
+  const { state, save, world } = await fresh();
+  const p = state.S.player; p.name = 'Grace'; p.bought = 3; p.born -= 100;
+  const g = save.parseSave(JSON.parse(JSON.stringify(state.S.toSave())));
+  assert.equal(g.player.name, 'Grace'); assert.equal(g.player.bought, 3); near(g.player.born, p.born, 1e-9); assert.equal(g.player.dead, false);
+  const old = state.S.toSave(); delete old.name; delete old.born; delete old.bought; delete old.dead;
+  const o = save.parseSave(old);
+  near(o.player.born, world.START_DAY - world.START_AGE * world.YEAR, 1e-9); assert.equal(o.player.bought, 0); assert.equal(o.player.name, 'Pilot');
+});

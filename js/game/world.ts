@@ -219,6 +219,13 @@ export const FUEL_PRICE: Record<string, number> = {'earth.orbit':300,'mars.orbit
 
 export const LAUNCH_FEE = 100, RESCUE_BASE = 5000, RESCUE_PER_T = 300, BANKRUPT = -50000;
 
+// Lifetime: the player starts at START_AGE and may die from RISK_AGE on, plus the years bought.
+// Past that age the risk of dying is RISK_RATE a year and doubles every RISK_DOUBLING years.
+// The youth clinic sells a year for YEAR_PRICE.
+export const YEAR = 365.25, START_AGE = 21, RISK_AGE = 80, RISK_RATE = 0.02, RISK_DOUBLING = 5, YEAR_PRICE = 500000;
+// The longest name a player may give themselves
+export const NAME_MAX = 24;
+
 // Rewards follow the delta-v a route needs, not its time: RATE_MASS credits per tonne (cargo plus
 // the ship's share) of propellant the Cog's drive would burn for it. A better ship earns its edge.
 // On top, VALUE_RATE times the goods' value for every V_EXHAUST of delta-v: precious goods pay

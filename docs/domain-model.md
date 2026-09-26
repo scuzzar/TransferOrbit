@@ -20,6 +20,17 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   slower bulk goods come in) stay constants in the code. Data used only for display (colours,
   notes, longitudes, short names) may stay in the world tables beside the classes. Where the
   solar system map points its transfer window is interface state: it starts empty and is not saved.
+- **Lifetime.** Time costs the player years of their life. `born` is the day the player was born:
+  a new game starts them at 21. How old they are follows from the game's `day`; nothing ages on
+  its own. From 80 years on, plus the years `bought`, they may die: the risk starts small and
+  doubles every few years (the numbers are game rules in the code). It is rolled each time a
+  stretch of time ends, an arrival, waiting, refuelling, the shipyard, a rescue, for the whole
+  stretch at once. A player who has died is `dead` and can do nothing more, like one who is
+  bankrupt. Years are bought at the youth clinic, which the spaceports on the Earth's surface have;
+  a year costs the same wherever and whenever, and buying takes no time.
+- **Leaderboard.** Whoever dies is entered with their `name`, their age and their balance. The
+  leaderboard outlives the game: it is kept by the browser, apart from the save, and is not game
+  state.
 - **Orders.** An order lies either in its starport's offers or in the ship's hold, never both;
   its state (`/state`) follows from where it lies. `from` and `to` stay the same wherever it lies.
 - **Time at a place, time under way.** Every manoeuvre puts the ship in transit along a

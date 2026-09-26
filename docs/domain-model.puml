@@ -37,8 +37,12 @@ hide <<value>> stereotype
     day: number
   }
   class Player {
+    name: string
+    born: number
+    bought: number
     credits: number
     bankrupt: boolean
+    dead: boolean
     autoFill: boolean
   }
   class Ship {

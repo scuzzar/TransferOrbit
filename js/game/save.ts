@@ -1,7 +1,7 @@
 // Reading a save back: old ids and field names are mapped first, then the JSON is checked
 // and rebuilt, object by object, into a Game. Writing is Game.toSave() in game/state.ts.
 
-import { BodyId, GoodId, SHIP_IDS, STARPORT_TABLE, ShipId, ZONES, isBody, isGood, isNode, isShip, nodeAt } from './world.js';
+import { BodyId, GoodId, NAME_MAX, SHIP_IDS, STARPORT_TABLE, START_AGE, START_DAY, ShipId, YEAR, ZONES, isBody, isGood, isNode, isShip, nodeAt } from './world.js';
 import { Amounts, Docked, Game, Hub, Industry, Market, Order, Player, SaveStarport, Ship, Starport, demandsFrom, storesFrom } from './state.js';
 
 // Saves written before the code was translated carry the old German ids, and saves
@@ -120,6 +120,10 @@ export function parseSave(raw:unknown):Game|null{
   const ship=new Ship(o.ship, o.fuel, new Docked(at));
   ship.dvUsed=isNum(o.dvUsed)?o.dvUsed:0;
   m.aboard.forEach(x=>ship.load(x));
-  const player=new Player(o.credits, ship); player.bankrupt=o.bankrupt===true; player.autoFill=o.autoFill===true;
+  // saves from before the player aged: born 21 years before the game began, so they are as old as the game is
+  const born=isNum(o.born) ? o.born : START_DAY-START_AGE*YEAR;
+  const player=new Player(o.credits, ship, born, isStr(o.name) && o.name.trim() ? o.name.trim().slice(0,NAME_MAX) : undefined);
+  player.bankrupt=o.bankrupt===true; player.autoFill=o.autoFill===true; player.dead=o.dead===true;
+  player.bought=isNum(o.bought) && o.bought>0 ? o.bought : 0;
   return new Game(o.day, player, m.market);
 }

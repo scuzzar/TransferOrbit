@@ -2,7 +2,7 @@
 // that relate the way the things in the game do. Never writes anything by itself; the
 // commands decide when a method runs. docs/domain-model.md draws the whole picture.
 
-import { BodyId, Connection, G0, GOODS, GoodId, Node, NodeId, PlanetId, Preset, SHIPS, ShipId, bodyName, isGood } from './world.js';
+import { BodyId, Connection, G0, GOODS, GoodId, Node, NodeId, PlanetId, Preset, RISK_AGE, RISK_DOUBLING, RISK_RATE, SHIPS, ShipId, YEAR, bodyName, isGood } from './world.js';
 
 // Amounts per good, as a save writes the stores and demands
 export type Amounts = Partial<Record<GoodId,number>>;
@@ -227,16 +227,40 @@ export class Ship {
   unload(o:Order){ return removeFrom(this.hold,o); }
 }
 
-// The player and the ship they own
+// The risk of dying from `from` to `to` years past the risk age: the rate RISK_RATE·2^(t/RISK_DOUBLING)
+// a year, summed over the stretch. Nothing before the risk age.
+export function deathChance(from:number, to:number):number {
+  const a=Math.max(0,from), b=Math.max(0,to); if(b<=a) return 0;
+  const k=RISK_RATE*RISK_DOUBLING/Math.LN2, grow=(t:number)=>Math.pow(2,t/RISK_DOUBLING);
+  return 1-Math.exp(-k*(grow(b)-grow(a)));
+}
+// The yearly risk t years past the risk age
+export const yearlyRisk = (t:number):number => t<0 ? 0 : 1-Math.exp(-RISK_RATE*Math.pow(2,t/RISK_DOUBLING));
+
+// The player and the ship they own. How old they are follows from the day; from the risk age on,
+// plus the years bought, they may die.
 export class Player {
+  name:string;
+  born:number;                  // the day they were born
+  bought=0;                     // years bought at the youth clinic
   credits:number;
   bankrupt=false;
+  dead=false;
   autoFill=false;               // "always fill up" at every depot
   readonly ship:Ship;
-  constructor(credits:number, ship:Ship){ this.credits=credits; this.ship=ship; }
+  constructor(credits:number, ship:Ship, born:number, name='Pilot'){ this.credits=credits; this.ship=ship; this.born=born; this.name=name; }
   pay(n:number){ this.credits+=n; }
   charge(n:number){ this.credits-=n; }
   canAfford(n:number){ return n<=this.credits; }
+  // the game is over for them: bankrupt or dead
+  get out(){ return this.bankrupt || this.dead; }
+  ageOn(day:number){ return (day-this.born)/YEAR; }
+  // the day from which they may die
+  get riskFrom(){ return this.born+(RISK_AGE+this.bought)*YEAR; }
+  // years past the risk age on a day; negative before it
+  pastRisk(day:number){ return (day-this.riskFrom)/YEAR; }
+  // the chance of dying between two days
+  deathChance(d0:number, d1:number){ return deathChance(this.pastRisk(d0), this.pastRisk(d1)); }
 }
 
 export interface SaveOrder extends Omit<OrderSpec,'isBulk'> { state:'open'|'aboard'; isBulk?:boolean }
@@ -255,6 +279,7 @@ export interface SaveMarket {
 export interface SaveObj {
   day:number; node:NodeId; site:string|null; ship:ShipId; fuel:number; dvUsed:number; credits:number;
   bankrupt:boolean; autoFill:boolean; market:SaveMarket;
+  name:string; born:number; bought:number; dead:boolean;
 }
 
 const saveOrder = (o:Order, state:SaveOrder['state']):SaveOrder => ({id:o.id, good:o.good, containers:o.containers, from:o.from, to:o.to,
@@ -268,8 +293,8 @@ export class Game {
   readonly player:Player;
   readonly market:Market;
   constructor(day:number, player:Player, market:Market){ this.day=day; this.player=player; this.market=market; }
-  // nothing under way and not bankrupt: the player may give an order
-  get canAct(){ return !this.player.ship.underWay && !this.player.bankrupt; }
+  // nothing under way, neither bankrupt nor dead: the player may give an order
+  get canAct(){ return !this.player.ship.underWay && !this.player.out; }
   // the trading post the ship is docked at
   get postHere():Starport|null { const n=this.player.ship.place; return n ? this.market.at(n) : null; }
   // every order in the game, offered or aboard, in id order
@@ -295,6 +320,7 @@ export class Game {
     const orders=[...m.offers.map(o=>saveOrder(o,'open')), ...ship.hold.map(o=>saveOrder(o,'aboard'))].sort((a,b)=>a.id-b.id);
     return {day:this.day, node:p.node, site:p.site, ship:ship.type, fuel:ship.fuel, dvUsed:ship.dvUsed, credits:this.player.credits,
       bankrupt:this.player.bankrupt, autoFill:this.player.autoFill,
+      name:this.player.name, born:this.player.born, bought:this.player.bought, dead:this.player.dead,
       market:{starports, produced:every(k=>only(toAmounts(k.industry.stores,stock),k.industry.makes)),
         need:every(k=>only(toAmounts(k.industry.demands,d=>d.level),k.industry.needs)),
         hubStore:rows(t=>t instanceof Hub ? toAmounts(t.transship,stock) : null), orders,

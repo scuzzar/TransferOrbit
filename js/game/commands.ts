@@ -6,7 +6,7 @@
 
 import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
-import { BODIES, BANKRUPT, GOODS, LandingSite, Node, NodeId, PlanetId, Preset, RESCUE_BASE, RESCUE_PER_T, SHIPS, ShipClass, ShipId, START_DAY, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
+import { BODIES, BANKRUPT, GOODS, LandingSite, NAME_MAX, Node, NodeId, PlanetId, Preset, RESCUE_BASE, RESCUE_PER_T, RISK_AGE, SHIPS, ShipClass, ShipId, START_AGE, START_DAY, YEAR, YEAR_PRICE, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
 import { cheapestFlight, transferCost } from './physics.js';
 import { S, Autopilot, Docked, Game, InTransit, Order, Plan, Player, Ship, setState, storeOf } from './state.js';
 import { connectionsFrom, route } from './graph.js';
@@ -19,12 +19,13 @@ import { parseSave } from './save.js';
 // smallest ship that can carry n containers; none for more than the largest one holds
 export const shipFor = (n:number):ShipClass|undefined => Object.values(SHIPS).filter(s=>s.slots>=n).sort((a,b)=>a.price-b.price)[0];
 
-export function newGame(){
+// A new game; the player keeps the name they gave themselves
+export function newGame(name?:string){
   const start=nodeOf('earth.orbit');
-  setState(new Game(START_DAY, new Player(20000, new Ship('cog', SHIPS.cog.cap, new Docked(start))), newMarket()));
+  setState(new Game(START_DAY, new Player(20000, new Ship('cog', SHIPS.cog.cap, new Docked(start)), START_DAY-START_AGE*YEAR, name), newMarket()));
   resetScene();
   advanceMarket(S.market, START_DAY);
-  report('A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank. Take on orders and get the cargo where it belongs.','fresh');
+  report(`A Cog, fuelled up at the Orbital Shipyard, 20,000 Cr in the bank, and you are ${START_AGE}. Take on orders and get the cargo where it belongs, but mind the years: from ${RISK_AGE} on, every trip may be your last.`,'fresh');
 }
 
 export function arrive(node:NodeId, site:string|null){ S.player.ship.dock(nodeOf(node, site)); }
@@ -104,10 +105,28 @@ export function setAutoFill(on:boolean){
   report(on?'Always fill up: on. At every depot the tank is filled as far as the money goes.':'Always fill up: off.'); changed(); autoFill();
 }
 
+// The dice for the player's death; tests replace it
+export const fate={roll:()=>Math.random()};
+
+// At the end of a stretch of time: did the player die in it? Rolled once for the whole stretch.
+function survived(d0:number, d1:number){
+  const p=S.player; if(p.out || fate.roll()>=p.deathChance(d0,d1)) return true;
+  p.dead=true; return false;
+}
+
+// The player has died: the autopilot stops, the leaderboard keeps them
+function die(){
+  const p=S.player, age=Math.floor(p.ageOn(S.day)); p.ship.autopilot=null; ANIM.fast=false;
+  const rank=enterFame({name:p.name, age:p.ageOn(S.day), credits:Math.round(p.credits), day:S.day, bought:p.bought});
+  report(`${p.name} died on ${dateStr(S.day)}, aged ${age}, with ${fmtCr(p.credits)} in the bank. ${rank?`Place ${rank} on the leaderboard.`:'Not enough for the leaderboard.'} Start again to have another go.`);
+  changed();
+}
+
 function animateTo(target:number, ms:number, done:()=>void){
   const d0=S.day;
+  const end=()=>{ const alive=survived(d0,target); done(); if(!alive) die(); };
 // Straight to the target without animating: time-lapse tools and tests switch this on.
-  if(ANIM.instant){ SCENE.anim=null; S.day=target; advanceMarket(S.market, S.day); done(); return; }
+  if(ANIM.instant){ SCENE.anim=null; S.day=target; advanceMarket(S.market, S.day); end(); return; }
   SCENE.anim={d0, d1:target}; ANIM.active=true; ANIM.long=ms>1500; tick();
   let prog=0, last=performance.now();
   const step=(now:number)=>{
@@ -116,7 +135,7 @@ function animateTo(target:number, ms:number, done:()=>void){
     const p=prog, e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
     S.day=d0+(target-d0)*e; tick();
     if(p<1) requestAnimationFrame(step);
-    else { S.day=target; SCENE.anim=null; ANIM.active=false; if(!S.player.ship.autopilot) ANIM.fast=false; tick(); advanceMarket(S.market, S.day); done(); }
+    else { S.day=target; SCENE.anim=null; ANIM.active=false; if(!S.player.ship.autopilot) ANIM.fast=false; tick(); advanceMarket(S.market, S.day); end(); }
   };
   requestAnimationFrame(step);
 }
@@ -154,6 +173,23 @@ export function buyShip(id:ShipId){
     report(`New ship: ${S.player.ship.def.name} with ${S.player.ship.def.slots} cargo slots. ${fmtCr(net)} paid.`);
     S.player.ship.busy=false; changed();
   });
+}
+
+// The youth clinic: at the spaceports on the Earth's surface
+export const clinicHere = () => { const p=S.player.ship.place; return !!p && p.body==='earth' && p instanceof LandingSite && p.port; };
+
+// One more year before the risk of dying begins; takes no time. false if it does not happen.
+export function buyYear(){
+  if(!S.canAct || !clinicHere() || !S.player.canAfford(YEAR_PRICE)) return false;
+  S.player.charge(YEAR_PRICE); S.player.bought+=1;
+  report(`One more year: the risk now begins at ${RISK_AGE+S.player.bought}. ${fmtCr(YEAR_PRICE)} paid.`); changed();
+  return true;
+}
+
+// The name the player goes by, on the leaderboard too
+export function rename(name:string){
+  const n=name.trim().slice(0,NAME_MAX); if(!n || n===S.player.name) return;
+  S.player.name=n; changed();
 }
 
 export const strandCache:{key:string|null,val:boolean}={key:null,val:false};
@@ -309,7 +345,7 @@ const autoLater = (ms:number) => setTimeout(autoTick, ANIM.instant?0:ms);
 function autoTick(){
   const A=S.player.ship.autopilot; if(!A) return;
   if(S.player.ship.underWay){ autoLater(250); return; }
-  if(S.player.bankrupt) return stopAutopilot();
+  if(S.player.out) return stopAutopilot();
   if(S.player.ship.isAt(A.target)) return stopAutopilot(`Autopilot: target reached, ${A.target.label}.${deliverables().length?' Cargo can be delivered here.':''}`,true);
   const here=S.player.ship.place, k=here ? S.market.at(here) : null;
   if(k && S.player.ship.place!==A.start && deliverables().length) return stopAutopilot(`Autopilot stopped: cargo can be delivered here at ${k.name}.`,true);
@@ -321,7 +357,7 @@ function autoTick(){
   autoLater(300);
 }
 
-export function resetGame(){ S.player.ship.autopilot=null; if(S.player.ship.underWay){ report('Please wait a moment, the ship is under way.'); changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(); changed(); }
+export function resetGame(){ S.player.ship.autopilot=null; if(S.player.ship.underWay){ report('Please wait a moment, the ship is under way.'); changed(); return; } try{ localStorage.removeItem(SAVE_KEY); }catch(e){} newGame(S.player.name); changed(); }
 
 export function saveSlot(){
   if(S.player.ship.underWay||!S.player.ship.place){ report('Saving only works while the ship is stationary.'); changed(); return; }
@@ -335,4 +371,31 @@ export function loadSlot(){
   if(S.player.ship.underWay) return;
   if(!load(SLOT_KEY)){ report('No saved game found.'); changed(); return; }
   report(`Game loaded: ${dateStr(S.day)}, ${fmtCr(S.player.credits)}.`); changed();
+}
+
+// The leaderboard: whoever died, best balance first. It outlives the game, so it is kept in a
+// cookie of its own, apart from the save; where the browser refuses cookies, for this session only.
+export interface FameEntry { name:string; age:number; credits:number; day:number; bought:number }
+const FAME_KEY='transferorbit-fame', FAME_MAX=10, FAME_YEARS=10;
+let memFame:FameEntry[]=[];
+
+const isFame = (x:unknown):x is FameEntry => { if(typeof x!=='object' || x===null) return false;
+  const e=x as Record<string,unknown>, num=(v:unknown)=>typeof v==='number' && Number.isFinite(v);
+  return typeof e.name==='string' && num(e.age) && num(e.credits) && num(e.day) && num(e.bought); };
+
+export function readFame():FameEntry[]{
+  try{
+    const c=document.cookie.split('; ').find(x=>x.startsWith(FAME_KEY+'='));
+    if(c){ const list:unknown=JSON.parse(decodeURIComponent(c.slice(FAME_KEY.length+1)));
+      if(Array.isArray(list)) return list.filter(isFame).map(e=>({...e, name:e.name.slice(0,NAME_MAX)})).slice(0,FAME_MAX); }
+  }catch(e){}
+  return memFame;
+}
+
+// Enter a death; its place on the board, or null if it did not make it
+function enterFame(e:FameEntry):number|null{
+  const list=[...readFame(), e].sort((a,b)=>b.credits-a.credits).slice(0,FAME_MAX);
+  memFame=list;
+  try{ document.cookie=`${FAME_KEY}=${encodeURIComponent(JSON.stringify(list))}; max-age=${Math.round(FAME_YEARS*YEAR*86400)}; path=/; SameSite=Lax`; }catch(x){}
+  const i=list.indexOf(e); return i<0 ? null : i+1;
 }
