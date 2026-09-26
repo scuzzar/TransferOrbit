@@ -362,11 +362,13 @@ export function nodeOf(node:NodeId, site:string|null=null):Node {
 // (game/transfertables.ts), and tests/unit.js checks that they still match.
 
 // The grid every table uses: a full turn of transfer angle, flight times from flightFrom to flightTo
-// times the Hohmann flight
-export const TABLE_GRID = {angleSteps:120, flightSteps:48, flightFrom:0.25, flightTo:2} as const;
-// A cell keeps an excess speed in one byte, on a logarithmic scale from 0.05 to 65 km/s: about
-// 1.4 % either way, which is plenty for looking and searching. A transfer burns the exact value.
-const TAU = Math.PI*2, V_LO = 0.05, V_HI = 65, V_LOG = Math.log(V_HI/V_LO);
+// times the Hohmann flight. From a 24th of it, as fast as the best ships with a full tank can fly,
+// in steps of a 24th, so the Hohmann flight falls on a cell.
+export const TABLE_GRID = {angleSteps:120, flightSteps:48, flightFrom:1/24, flightTo:2} as const;
+// A cell keeps an excess speed in one byte, on a logarithmic scale from 0.05 to 100 km/s: about
+// 1.5 % either way, which is plenty for looking and searching. Above it no ship can pay for either
+// burn, so nothing that looks affordable is stored too cheap. A transfer burns the exact value.
+const TAU = Math.PI*2, V_LO = 0.05, V_HI = 100, V_LOG = Math.log(V_HI/V_LO);
 export const vInfToByte = (v:number):number => Math.max(0, Math.min(255, Math.round(255*Math.log(Math.max(V_LO,v)/V_LO)/V_LOG)));
 export const byteToVInf = (s:number):number => V_LO*Math.exp(s/255*V_LOG);
 

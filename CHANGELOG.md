@@ -2,6 +2,16 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-26 – Faster transfers on the transfer map (version 59)
+
+The transfer tables, and with them the map of a transfer in the route planner, ran their flight
+times from a quarter of the Hohmann flight: to Saturn from 1.5 years, although a Galleon with a
+full tank can make it in under a year. They now start at a 24th of it, as fast as the best ships
+can fly, in steps of a 24th so the Hohmann flight still falls on a cell. Whatever costs more than
+the ship has is hatched as before; the *Fast* preset now really flies as fast as the tank allows.
+A cell stores excess speeds up to 100 km/s instead of 65, so nothing that looks affordable is
+stored too cheap. The flight time axis reads "110 d" or "6.2 y", which fits in its margin.
+
 ## 2026-09-26 – The selection card groups its orders by destination (version 58)
 
 The card for a place selected on the map now lists its orders the way the order board does:

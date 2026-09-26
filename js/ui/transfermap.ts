@@ -52,7 +52,9 @@ export function transferMap(s:TransferMapSpec): HTMLElement{
   g.restore();
   // axes
   g.fillStyle='#9aa2c2'; g.font='11px system-ui, sans-serif'; const short=(d:number)=>new Date(Date.UTC(2000,0,1,12)+d*864e5).toLocaleDateString('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}); g.textBaseline='middle'; g.textAlign='right';
-  for(let k=0;k<=4;k++){ const d=f0+(f1-f0)*k/4, y=yOf(d); g.fillText(fmtDays(d).replace(' days',' d'),L-5,y); }
+  // flight times short enough for the margin: days below two years, then years
+  const axisDays=(d:number)=>d<730 ? `${Math.round(d)} d` : `${(d/365.25).toLocaleString('en-GB',{maximumFractionDigits:1})} y`;
+  for(let k=0;k<=4;k++){ const d=f0+(f1-f0)*k/4, y=Math.max(T+6,yOf(d)); g.fillText(axisDays(d),L-5,y); }
   g.textAlign='center'; g.textBaseline='top';
   for(let k=0;k<=2;k++){ const d=s.from+span*k/2, x=Math.min(W-R-26,Math.max(L+26,xOf(d))); g.fillText(short(d),x,T+ph+6); }
   // the choice
