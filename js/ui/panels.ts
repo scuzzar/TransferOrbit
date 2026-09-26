@@ -6,7 +6,7 @@ import { BODIES, DEPOT_LIST, G0, GOODS, HUB_CAP, NAME_MAX, PRESETS, Preset, RISK
 import { Hub, Order, S, postLabel, postPlace, yearlyRisk } from '../game/state.js';
 import { hubRoom } from '../game/economy.js';
 import { Leg, draftPlan, nearestFuel, pinTransfer, planRoute, replan, schedule, stepBlocker, switchStep, unpin } from '../game/planner.js';
-import { abortOrder, acceptOrders, buyShip, buyYear, clinicHere, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, readFame, rename, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
+import { abortOrder, acceptOrders, buyShip, buyYear, clinicHere, deliverAll, deliverOrder, deliverables, doRefuel, execStep, refuelInfo, leaderboard, rename, rescue, rescueInfo, resetGame, returnOrder, routeNeedHere, shipFor, startAutopilot, stopAutopilot, stranded } from '../game/commands.js';
 import { UI } from './state.js';
 import { btn, dots, fuelTag, gchip, ibtn, lifeLine, openRoute, openView, pct, phead, routeLink, yrs } from './widgets.js';
 import { transferMap } from './transfermap.js';
@@ -251,11 +251,11 @@ function panelClinic(p:HTMLElement){
   p.appendChild(f);
 }
 
-function panelFame(p:HTMLElement){
-  const list=readFame();
+function panelLeaderboard(p:HTMLElement){
+  const list=leaderboard().entries;
   p.appendChild(phead('Leaderboard', 'Whoever died, best balance first. Kept by this browser.', ''));
   if(!list.length){ const e=document.createElement('p'); e.className='hint'; e.textContent='No one has died yet.'; p.appendChild(e); return; }
-  const t=document.createElement('table'); t.className='fame';
+  const t=document.createElement('table'); t.className='board';
   t.innerHTML=`<thead><tr><th>#</th><th>Name</th><th class="num">Age</th><th class="num">Balance</th><th class="num">Died</th></tr></thead><tbody>${
     list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}${e.bought?` <span class="muted small">+${e.bought} y</span>`:''}</td><td class="num">${Math.floor(e.age)}</td><td class="num">${fmtCr(e.credits)}</td><td class="num">${dateStr(e.day)}</td></tr>`).join('')}</tbody>`;
   p.appendChild(t);
@@ -274,7 +274,7 @@ export function renderPlace(){
   if(k){ const n=S.market.post(k.id).offers.length; g.appendChild(ibtn('orders',`Orders (${n})`,del.length?'':'go',S.player.ship.underWay,()=>openView('post'))); }
   if(r) g.appendChild(ibtn('fuel','Refuel','',S.player.ship.underWay,()=>openView('refuel')));
   if(k&&(k instanceof Hub)) g.appendChild(ibtn('yard','Shipyard','',S.player.ship.underWay,()=>openView('shipyard')));
-  if(clinicHere()) g.appendChild(ibtn('clinic','Youth clinic','',S.player.ship.underWay,()=>openView('clinic')));
+  if(clinicHere()) g.appendChild(ibtn('clinic','Clinic','',S.player.ship.underWay,()=>openView('clinic')));
   // Equal columns: in German "Aufträge (11)" needed extra room, "Orders (8)" does not,
   // and weighting it that way squeezed "Shipyard" into an ellipsis.
   if(g.children.length) c.appendChild(g);
@@ -283,7 +283,7 @@ export function renderPlace(){
   const rs=byId('rescue',HTMLElement); rs.innerHTML=''; rs.className='';
   if(S.player.out){ rs.className='rescue'; rs.innerHTML=`<p>${esc(UI.msg ?? (S.player.dead?`${S.player.name} has died.`:'Bankrupt.'))}</p>`;
     const two=document.createElement('div'); two.className='two';
-    if(S.player.dead) two.appendChild(btn('Leaderboard','',false,()=>openView('fame')));
+    if(S.player.dead) two.appendChild(btn('Leaderboard','',false,()=>openView('leaderboard')));
     const again=btn('Start over','go',false,resetGame); if(!S.player.dead) again.classList.add('span2'); two.appendChild(again);
     rs.appendChild(two); return; }
   if(stranded()){
@@ -299,7 +299,7 @@ export function renderPanel(){
   const v=UI.view;
   if(v==='post') panelPost(p); else if(v==='cargo') panelCargo(p);
   else if(v==='refuel') panelRefuel(p); else if(v==='shipyard') panelShipyard(p); else if(v==='route') panelRoute(p);
-  else if(v==='ship') panelShip(p); else if(v==='clinic') panelClinic(p); else if(v==='fame') panelFame(p);
+  else if(v==='ship') panelShip(p); else if(v==='clinic') panelClinic(p); else if(v==='leaderboard') panelLeaderboard(p);
 }
 
 // Desktop: the schedule stays open. Mobile: back to the map so the flight is visible.
@@ -379,9 +379,8 @@ function panelRoute(p:HTMLElement){
   const late=deadl.filter(o=>plan.arrive>o.deadline);
   const lateAny=deadl.some(o=>plan.arrive>o.deadline);
   const pl=S.player, die=pl.deathChance(S.day,plan.arrive), arrAge=pl.ageOn(plan.arrive), pastArr=pl.pastRisk(plan.arrive);
-  sum.innerHTML=`<div class="row"><span class="muted">Travel time</span><b class="${lateAny?'badc':''}">${fmtDays(plan.days)}</b></div>
-    <div class="row"><span class="muted">Your age on arrival</span><b class="${die>0?'badc':''}">${yrs(arrAge)} years</b></div>
-    ${die>0?`<p class="o-warn bad">You arrive past ${RISK_AGE+pl.bought}: a ${pct(die)} chance you do not live to see it.</p>`:pastArr>-5?`<p class="o-warn">Only ${yrs(-pastArr)} years left before the risk begins once you are there.</p>`:''}
+  sum.innerHTML=`<div class="row"><span class="muted">Travel time</span><span><b class="${lateAny?'badc':''}">${fmtDays(plan.days)}</b> <span class="${die>0?'badc':'muted'}">· you are ${yrs(arrAge)} then</span></span></div>
+    ${die>0?`<p class="o-warn bad">Past ${RISK_AGE+pl.bought}: a ${pct(die)} chance you do not live to arrive.</p>`:pastArr>-5?`<p class="o-warn">Only ${yrs(-pastArr)} years left before the risk begins once you are there.</p>`:''}
     <div class="row"><span class="muted">Needs ${km(plan.dv)} of ${km(have)} km/s</span><b class="${ok?'okc':'badc'}">${ok?km(have-plan.dv)+' km/s left':km(plan.dv-have)+' km/s short'}</b></div>
     <div class="massbar"><i style="width:${Math.min(100,plan.dv/Math.max(have,1)*100).toFixed(0)}%;background:${ok?'var(--accent)':'var(--bad)'}"></i></div>
     <p class="kinfo">${deadl.length?(late.length?`${late.length} ${late.length>1?'orders arrive':'order arrives'} after the deadline.`:`${deadl.length>1?'All '+deadl.length+' orders':'The order'} for this destination ${deadl.length>1?'arrive':'arrives'} before the deadline.`):''}${plan.fee?` Launch fee ${fmtCr(plan.fee)}.`:''} ${ok?'The autopilot stops wherever cargo can be delivered on the way.':S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass)<plan.dv?`Loaded too heavily: even with a full tank you would only have ${km(S.player.ship.dvWith(S.player.ship.def.cap,S.player.ship.cargoMass))} km/s. Return an order or pick another destination.`:'Refuel first, or pick a different route.'}</p>`;

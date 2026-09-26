@@ -866,7 +866,7 @@ test('Past the risk age the player may die at the end of a stretch; the leaderbo
     assert.ok(p.dead && !S.canAct);
     assert.match(reports.at(-1).text, /Ada died .* aged 111/);
     const day = S.day; commands.waitDays(10); assert.equal(S.day, day);                 // nothing more happens
-    const fame = commands.readFame();
+    const fame = commands.leaderboard().entries;
     assert.ok(fame.some(e => e.name === 'Ada' && e.credits === 123456));
     // a new game keeps the name, and starts young again
     commands.resetGame();
@@ -882,4 +882,14 @@ test('The lifetime survives a save; an old save gets a player who is as old as t
   const old = state.S.toSave(); delete old.name; delete old.born; delete old.bought; delete old.dead;
   const o = save.parseSave(old);
   near(o.player.born, world.START_DAY - world.START_AGE * world.YEAR, 1e-9); assert.equal(o.player.bought, 0); assert.equal(o.player.name, 'Pilot');
+});
+
+test('The leaderboard keeps the ten best balances, best first', async () => {
+  const { state } = await fresh();
+  const b = new state.Leaderboard(), p = state.S.player;
+  for (let i = 1; i <= 11; i++) { p.credits = i * 1000; b.enter(p, state.S.day); }
+  assert.equal(b.entries.length, state.LEADERBOARD_SIZE);
+  assert.deepEqual(b.entries.map(e => e.credits), [11, 10, 9, 8, 7, 6, 5, 4, 3, 2].map(n => n * 1000));
+  p.credits = 500; assert.equal(b.enter(p, state.S.day), null);
+  p.credits = 99999; assert.equal(b.enter(p, state.S.day), 1);
 });

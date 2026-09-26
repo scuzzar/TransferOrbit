@@ -13,6 +13,7 @@ picture again with `java -jar plantuml.jar -tpng docs/domain-model.puml`; it nee
 The diagram shows data and relations only, no operations. Blue is the game state that a save
 keeps, grey with a dashed frame exists only while time runs or the autopilot flies and is never
 saved, green is the world: fixed tables, the same in every game. White boxes are value lists.
+Orange is kept by the browser across games, apart from the save: the leaderboard.
 
 ## Rules the picture does not show
 
@@ -28,9 +29,10 @@ saved, green is the world: fixed tables, the same in every game. White boxes are
   stretch at once. A player who has died is `dead` and can do nothing more, like one who is
   bankrupt. Years are bought at the youth clinic, which the spaceports on the Earth's surface have;
   a year costs the same wherever and whenever, and buying takes no time.
-- **Leaderboard.** Whoever dies is entered with their `name`, their age and their balance. The
-  leaderboard outlives the game: it is kept by the browser, apart from the save, and is not game
-  state.
+- **Leaderboard.** Whoever dies is entered: an entry is a copy of the player on the day they died,
+  their `name`, `age`, balance (`credits`), the `day` and the years `bought`, not a reference to
+  them. The board keeps the ten best balances. It outlives the game, so it is not game state: the
+  browser keeps it in a cookie of its own, apart from the save, and a new game leaves it as it is.
 - **Orders.** An order lies either in its starport's offers or in the ship's hold, never both;
   its state (`/state`) follows from where it lies. `from` and `to` stay the same wherever it lies.
 - **Time at a place, time under way.** Every manoeuvre puts the ship in transit along a

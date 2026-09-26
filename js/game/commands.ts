@@ -8,7 +8,7 @@ import { changed, report, tick } from '../events.js';
 import { ANIM, FAST, SLOW, dateStr, fmtDays, km, reduce, tons } from '../basics.js';
 import { BODIES, BANKRUPT, GOODS, LandingSite, NAME_MAX, Node, NodeId, PlanetId, Preset, RESCUE_BASE, RESCUE_PER_T, RISK_AGE, SHIPS, ShipClass, ShipId, START_AGE, START_DAY, YEAR, YEAR_PRICE, fmtCr, isMoon, nodeOf, planetOfBody, splitNode } from './world.js';
 import { cheapestFlight, transferCost } from './physics.js';
-import { S, Autopilot, Docked, Game, InTransit, Order, Plan, Player, Ship, setState, storeOf } from './state.js';
+import { S, Autopilot, Docked, Entry, Game, InTransit, Leaderboard, Order, Plan, Player, Ship, setState, storeOf } from './state.js';
 import { connectionsFrom, route } from './graph.js';
 import { advanceMarket, newMarket } from './economy.js';
 import { feeBlocked, localActions, LocalAction } from './actions.js';
@@ -117,7 +117,7 @@ function survived(d0:number, d1:number){
 // The player has died: the autopilot stops, the leaderboard keeps them
 function die(){
   const p=S.player, age=Math.floor(p.ageOn(S.day)); p.ship.autopilot=null; ANIM.fast=false;
-  const rank=enterFame({name:p.name, age:p.ageOn(S.day), credits:Math.round(p.credits), day:S.day, bought:p.bought});
+  const board=leaderboard(), rank=board.enter(p,S.day); keepBoard(board);
   report(`${p.name} died on ${dateStr(S.day)}, aged ${age}, with ${fmtCr(p.credits)} in the bank. ${rank?`Place ${rank} on the leaderboard.`:'Not enough for the leaderboard.'} Start again to have another go.`);
   changed();
 }
@@ -373,29 +373,25 @@ export function loadSlot(){
   report(`Game loaded: ${dateStr(S.day)}, ${fmtCr(S.player.credits)}.`); changed();
 }
 
-// The leaderboard: whoever died, best balance first. It outlives the game, so it is kept in a
-// cookie of its own, apart from the save; where the browser refuses cookies, for this session only.
-export interface FameEntry { name:string; age:number; credits:number; day:number; bought:number }
-const FAME_KEY='transferorbit-fame', FAME_MAX=10, FAME_YEARS=10;
-let memFame:FameEntry[]=[];
+// The leaderboard outlives the game, so it is kept in a cookie of its own, apart from the save;
+// where the browser refuses cookies, for this session only
+const BOARD_KEY='transferorbit-leaderboard', BOARD_YEARS=10;
+let memBoard=new Leaderboard();
 
-const isFame = (x:unknown):x is FameEntry => { if(typeof x!=='object' || x===null) return false;
+const isEntry = (x:unknown):x is Entry => { if(typeof x!=='object' || x===null) return false;
   const e=x as Record<string,unknown>, num=(v:unknown)=>typeof v==='number' && Number.isFinite(v);
   return typeof e.name==='string' && num(e.age) && num(e.credits) && num(e.day) && num(e.bought); };
 
-export function readFame():FameEntry[]{
+export function leaderboard():Leaderboard{
   try{
-    const c=document.cookie.split('; ').find(x=>x.startsWith(FAME_KEY+'='));
-    if(c){ const list:unknown=JSON.parse(decodeURIComponent(c.slice(FAME_KEY.length+1)));
-      if(Array.isArray(list)) return list.filter(isFame).map(e=>({...e, name:e.name.slice(0,NAME_MAX)})).slice(0,FAME_MAX); }
+    const c=document.cookie.split('; ').find(x=>x.startsWith(BOARD_KEY+'='));
+    if(c){ const list:unknown=JSON.parse(decodeURIComponent(c.slice(BOARD_KEY.length+1)));
+      if(Array.isArray(list)) return new Leaderboard(list.filter(isEntry).map(e=>({...e, name:e.name.slice(0,NAME_MAX)}))); }
   }catch(e){}
-  return memFame;
+  return new Leaderboard(memBoard.entries);
 }
 
-// Enter a death; its place on the board, or null if it did not make it
-function enterFame(e:FameEntry):number|null{
-  const list=[...readFame(), e].sort((a,b)=>b.credits-a.credits).slice(0,FAME_MAX);
-  memFame=list;
-  try{ document.cookie=`${FAME_KEY}=${encodeURIComponent(JSON.stringify(list))}; max-age=${Math.round(FAME_YEARS*YEAR*86400)}; path=/; SameSite=Lax`; }catch(x){}
-  const i=list.indexOf(e); return i<0 ? null : i+1;
+function keepBoard(b:Leaderboard){
+  memBoard=b;
+  try{ document.cookie=`${BOARD_KEY}=${encodeURIComponent(JSON.stringify(b.entries))}; max-age=${Math.round(BOARD_YEARS*YEAR*86400)}; path=/; SameSite=Lax`; }catch(e){}
 }

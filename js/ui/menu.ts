@@ -47,7 +47,7 @@ export function wireMenu(){
     // Browser dialogs (confirm) are often blocked on embedded pages, so the second tap confirms
     if(a==='reset' && !b.classList.contains('armed')){ b.classList.add('armed'); b.textContent='Really start over? Tap again'; return; }
     setMenu(false);
-    if(a==='fs') toggleFs(); else if(a==='save') saveSlot(); else if(a==='load') loadSlot(); else if(a==='fame') openView('fame');
+    if(a==='fs') toggleFs(); else if(a==='save') saveSlot(); else if(a==='load') loadSlot(); else if(a==='leaderboard') openView('leaderboard');
     else if(a==='reset') resetGame();
   });
   findAll(document,'[data-wait]',HTMLButtonElement).forEach((b)=>b.onclick = ()=>{ setMenu(false); if(UI.view!=='main' && !isDesk()) openView('main'); waitDays(Number(b.dataset.wait)); });

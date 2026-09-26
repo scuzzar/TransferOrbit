@@ -263,6 +263,21 @@ export class Player {
   deathChance(d0:number, d1:number){ return deathChance(this.pastRisk(d0), this.pastRisk(d1)); }
 }
 
+// The leaderboard: whoever died, as they were on that day, the best balances first. It outlives
+// the game and is not game state; the commands keep it in a cookie of its own, apart from the save.
+export interface Entry { name:string; age:number; credits:number; day:number; bought:number }
+export const LEADERBOARD_SIZE = 10;
+export class Leaderboard {
+  readonly entries:Entry[];
+  constructor(entries:Entry[]=[]){ this.entries=[...entries].sort((a,b)=>b.credits-a.credits).slice(0,LEADERBOARD_SIZE); }
+  // enter a copy of the player on the day they died; its place on the board, or null if it did not make it
+  enter(p:Player, day:number):number|null {
+    const e:Entry={name:p.name, age:p.ageOn(day), credits:Math.round(p.credits), day, bought:p.bought};
+    this.entries.push(e); this.entries.sort((a,b)=>b.credits-a.credits); this.entries.splice(LEADERBOARD_SIZE);
+    const i=this.entries.indexOf(e); return i<0 ? null : i+1;
+  }
+}
+
 export interface SaveOrder extends Omit<OrderSpec,'isBulk'> { state:'open'|'aboard'; isBulk?:boolean }
 // A starport as a save keeps it; hub is there for a hub only
 export interface SaveStarport {

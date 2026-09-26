@@ -2,6 +2,25 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-09-26 – Time costs years of your life (version 57)
+
+Instead of a fee for time, the player now ages. A new game starts them at 21; how old they are
+follows from the date, so three years to Saturn cost three years of their life. From 80 on they
+may die: the risk starts at 2 % a year and doubles every five years, and it is rolled each time a
+stretch of time ends, an arrival, waiting, refuelling, the shipyard, a rescue. A player who has
+died can do nothing more, like one who is bankrupt.
+
+- The ship tile is now *Ship and pilot*: the name, the age and the years left before 80, or the
+  risk a year once past it. A tap opens the details of both, and the pilot can be renamed there.
+- The spaceports on the Earth's surface have a *Clinic* next to *Refuel*: the Youth Clinic pushes
+  the age from which you may die back by a year for 500,000 Cr. It takes no time.
+- The route planner shows how old you are on arrival and, past the risk age, the chance you do not
+  live to arrive.
+- Whoever dies is entered on the *Leaderboard* (in the menu): the ten best balances, with name, age
+  and date of death. It is kept in a cookie, apart from the save, and outlives the game.
+- The domain model has the new fields of the player and the leaderboard. Old saves load with a
+  player who is as old as the game they have played.
+
 ## 2026-09-24 – Orders on the map: an amber dot and a list in the card (version 56)
 
 Next to the green fuel dot the map now shows an amber dot wherever a starport has orders on its

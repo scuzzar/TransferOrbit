@@ -17,6 +17,8 @@ skinparam class {
   BorderColor<<reference>> #4f9a4f
   BackgroundColor<<value>> #ffffff
   BorderColor<<value>> #8a8a8a
+  BackgroundColor<<browser>> #fdf1dc
+  BorderColor<<browser>> #b8862e
 }
 skinparam legendBackgroundColor #ffffff
 skinparam legendBorderColor #8a8a8a
@@ -32,6 +34,7 @@ classDiagram {
 hide <<transient>> stereotype
 hide <<reference>> stereotype
 hide <<value>> stereotype
+hide <<browser>> stereotype
 
   class Game {
     day: number
@@ -67,6 +70,14 @@ hide <<value>> stereotype
     economical
     balanced
     fast
+  }
+  class Leaderboard <<browser>>
+  class Entry <<browser>> {
+    name: string
+    age: number
+    credits: number
+    day: number
+    bought: number
   }
   class Market {
     simulatedTo: number
@@ -175,6 +186,10 @@ Plan --> Preset : preset
 Plan "1" *-- "1..*" Step : steps {ordered}
 Step "*" --> "1" Connection : along
 
+' the leaderboard outlives the game
+Leaderboard "1" *-- "0..10" Entry : entries {by credits}
+Entry ..> Player : copied from, on death
+
 ' trade
 Market "1" *-- "*" Starport : posts
 Starport "1" --> "1" Industry : has
@@ -212,5 +227,6 @@ legend right
   |<#f4f4f4> <color:#8a8a8a>╌╌╌╌</color> | Only while time runs or the autopilot flies, never saved |
   |<#e6f4e6> <color:#4f9a4f>████</color> | World: fixed tables, the same in every game |
   |<#ffffff> <color:#8a8a8a>□□□□</color> | Value list |
+  |<#fdf1dc> <color:#b8862e>████</color> | Kept by the browser across games, not in the save |
 endlegend
 @enduml
