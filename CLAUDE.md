@@ -9,3 +9,6 @@
 - `ARCHITECTURE.md` has the two rules the modules follow (imports point downwards; upwards you
   report, you do not call) and the layer table. Keep both true.
 - Checks: `npm run typecheck`, `npm run unit`, and with `npm run serve` running, `npm test`.
+- **Commits go in under the owner's name**: author and committer `Scuzzar <scuzzarGalaxy@googlemail.com>`,
+  never Claude. Set it per command (`git -c user.name=Scuzzar -c user.email=scuzzarGalaxy@googlemail.com commit …`),
+  and the same for merges into `main`.
