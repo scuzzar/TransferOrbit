@@ -2,6 +2,19 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-10-10 – No more freeze after a long flight (version 59)
+
+After a flight of several years, to Saturn or Jupiter say, the page stood still for two to three
+seconds on arrival: the market catches up day by day, and for every new order it searches the
+transfer table for the cheapest way to deliver in time. That search now starts with the flight
+times that can be cheapest and stops as soon as no other flight time can beat what it has found;
+it finds the same transfers as before, about three times as fast. Catching up on eight years now
+takes about 0.7 seconds instead of 2.4.
+
+- A new unit test checks the search against a full search of the table.
+- The test bot no longer reports "CLICK BLOCKED: autopilot": that was this freeze, which made the
+  click on *Start the autopilot* outlast the bot's three seconds.
+
 ## 2026-10-10 – The menu points to the project on GitHub (version 58)
 
 - The menu has a *Report issue* entry under the others; it opens the issues of the project on

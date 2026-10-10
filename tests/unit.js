@@ -290,6 +290,27 @@ test('arriveBy: the cheapest transfer that arrives in time; with all the time in
   assert.equal(physics.arriveBy('earth', 'mars', START_DAY, START_DAY + 5), null);
 });
 
+test('arriveBy skips only what cannot win: it finds the cheapest cell a full search of the table finds', async () => {
+  const { physics, world: { START_DAY, PLANETS, transferTable } } = await ready;
+  seed(11);
+  for (let n = 0; n < 150; n++) {
+    const a = PLANETS[Math.floor(Math.random() * PLANETS.length)], b = PLANETS[Math.floor(Math.random() * PLANETS.length)];
+    const t = a !== b && transferTable(a, b); if (!t) continue;
+    const from = START_DAY + Math.random() * 20000, by = from + Math.random() * 3 * physics.hohmannDays(a, b);
+    // every departure a grid row apart over one synodic period, every flight time that arrives in time
+    const na = t.angleSteps, nf = t.flightSteps, [f0, f1] = t.flightRange, df = (f1 - f0) / (nf - 1), step = physics.synodic(a, b) / na;
+    let low = Infinity;
+    for (let k = 0; k < na; k++) for (let j = 0; j < nf; j++) {
+      const dep = from + k * step, days = f0 + df * j;
+      if (dep + days <= by + 1e-6) low = Math.min(low, physics.tableCost(a, b, dep, days));
+    }
+    const got = physics.arriveBy(a, b, from, by);
+    if (low === Infinity) { assert.equal(got, null, `${a}>${b}`); continue; }
+    assert.ok(got && got.dep >= from && got.dep + got.days <= by + 1e-6, `${a}>${b}: arrives too late`);
+    near(got.dv, low, 1e-6 * low);
+  }
+});
+
 test('Order terms: a far window raises the delta-v an order pays for, up to WINDOW_DV; the deadline never counts the wait', async () => {
   const { graph, economy, physics, world: { START_DAY, WINDOW_DV } } = await ready;
   const r = graph.route({ node: 'earth.capt', site: null }, { node: 'mars.capt', site: null });

@@ -126,6 +126,21 @@ function costs(a: PlanetId, b: PlanetId, t: TransferTable): Float32Array{
 }
 const at = (g: Float32Array, k: number): number => g[k] ?? Infinity;
 
+// The cheapest cell of every flight time (column) of the table: no transfer of that flight time,
+// whatever the angle, costs less. With it the columns from the cheapest on, the order in which a
+// search finds a cheap transfer soonest. A column with a cell that is not a number counts as
+// free, so it is never skipped.
+interface Columns { min:Float64Array; order:number[] }
+const COLUMNS = new Map<string, Columns>();
+function columns(a: PlanetId, b: PlanetId, t: TransferTable, g: Float32Array): Columns{
+  const key=a+'>'+b, hit=COLUMNS.get(key); if(hit) return hit;
+  const na=t.angleSteps, nf=t.flightSteps, min=new Float64Array(nf).fill(Infinity);
+  for(let i=0;i<na;i++) for(let j=0;j<nf;j++) min[j]=Math.min(min[j]??Infinity, at(g,i*nf+j));
+  min.forEach((m,j)=>{ if(Number.isNaN(m)) min[j]=-Infinity; });
+  const c={min, order:[...min.keys()].sort((x,y)=>(min[x]??0)-(min[y]??0))};
+  COLUMNS.set(key,c); return c;
+}
+
 // What the table says a transfer costs, m/s: for looking and searching
 export function tableCost(a: PlanetId, b: PlanetId, dep: number, days: number): number{
   const t=transferTable(a,b); if(!t) return Infinity;
@@ -182,17 +197,24 @@ export function searchTransfer(a: PlanetId, b: PlanetId, from: number, dayValue:
 // table like searchTransfer; null if even the fastest flight arrives too late
 export function arriveBy(a: PlanetId, b: PlanetId, from: number, by: number): TransferChoice|null{
   const t=transferTable(a,b); if(!t) return null;
-  const g=costs(a,b,t), na=t.angleSteps, nf=t.flightSteps, step=synodic(a,b)/na, nb=nn(b);
+  const g=costs(a,b,t), {min,order}=columns(a,b,t,g), na=t.angleSteps, nf=t.flightSteps, step=synodic(a,b)/na, nb=nn(b);
   const base=transferAngle(a,b,from,0), perDep=(nb-nn(a))*step, rows=na/TAU;
   const [f0,f1]=t.flightRange, df=(f1-f0)/(nf-1);
-  let best:TransferChoice|null=null, low=Infinity;
-  for(let k=0;k<na;k++){ const dep=from+k*step, a0=base+k*perDep, last=Math.min(nf-1, Math.floor((by-dep-f0)/df+1e-9));
-    if(last<0) break;
-    for(let j=0;j<=last;j++){ const days=f0+df*j;
-      let x=((a0+nb*days)%TAU+TAU)%TAU*rows; const i=Math.floor(x); x-=i;
-      const dv=at(g,(i%na)*nf+j)*(1-x)+at(g,((i+1)%na)*nf+j)*x;
-      if(dv<low){ low=dv; best={dep,days,dv}; } } }
-  return best;
+  // Per departure k: the last column that still arrives by `by` (it shrinks as k grows) and the
+  // angle at column 0 in rows of the table; the angle grows by dx per column.
+  const last:number[]=[], x0:number[]=[], dx=nb*df*rows;
+  for(let k=0;k<na;k++){ const dep=from+k*step, l=Math.min(nf-1, Math.floor((by-dep-f0)/df+1e-9)); if(l<0) break;
+    last.push(l); x0.push(((base+k*perDep+nb*f0)%TAU+TAU)%TAU*rows); }
+  const cost=(k:number, j:number)=>{ let x=(x0[k]??0)+dx*j; if(x>=na) x%=na; const i=Math.floor(x); x-=i;
+    return at(g,i*nf+j)*(1-x)+at(g,(i+1===na?0:i+1)*nf+j)*x; };
+  // The columns from the cheapest on. A cell blends two cells of its column, so it costs no less
+  // than the column's cheapest (less a margin for rounding): once that cannot beat the best so
+  // far, no later column can. Of equal costs the earliest departure wins, then the shortest flight.
+  let low=Infinity, bk=-1, bj=-1;
+  for(const j of order){ if((min[j]??0)-1e-6>=low) break;
+    for(let k=0;k<last.length && (last[k]??-1)>=j;k++){ const dv=cost(k,j);
+      if(dv<low || (dv===low && dv<Infinity && (k<bk || (k===bk && j<bj)))){ low=dv; bk=k; bj=j; } } }
+  return bk<0 ? null : {dep:from+bk*step, days:f0+df*bj, dv:low};
 }
 
 // The same, refined on the exact cost around the table's best cell
