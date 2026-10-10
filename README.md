@@ -26,6 +26,8 @@ The 3D layer holds the bodies, Saturn's ring, the orbit rings, the flight paths 
 
 **No foreign textures.** The surfaces are built in the browser when first needed: continents from the same hand-drawn outlines as before, polar caps, the bands of the gas giants and Saturn's ring. Apart from three.js itself the game therefore loads not a single file, and it runs inside a locked iframe.
 
+**Counting players.** On scuzzar.github.io every start sends one pixel to [GoatCounter](https://www.goatcounter.com/): `new-player` when the browser has no save yet, `returning` otherwise. The request carries no ID, sets no cookie and stores nothing; GoatCounter keeps no IP addresses. Local runs, the tests and copies elsewhere send nothing.
+
 **No fallback to 2D.** If WebGL is missing, the context is lost or three.js does not load, the map area stays empty and says so. A second, poorer rendering would be misleading: you would see something without knowing it is not the real view. Orders, route planner and autopilot keep working in that case, only the map is gone.
 
 The only things that stay flat are the top-down view of the solar system (`drawSol`) and, within it, the rocket.

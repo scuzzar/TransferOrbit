@@ -40,9 +40,16 @@ Draw.wireDraw();
 Display.wireDisplay();
 Menu.wireMenu();
 
-if(!Commands.load()) Commands.newGame();
+const firstVisit = !Commands.load();
+if(firstVisit) Commands.newGame();
 Events.changed();
 requestAnimationFrame(Draw.idleLoop);
+
+// Anonymous count: one pixel per start, no ID, no cookie, nothing stored. A browser without a
+// save is new, so the number of "new-player" events is the number of browsers that ever played.
+// Only on the real site, so local runs and the tests do not count.
+if(location.hostname==='scuzzar.github.io')
+  new Image().src=`https://transferorbit.goatcounter.com/count?p=${firstVisit?'new-player':'returning'}&e=true&rnd=${Math.random()}`;
 
 // three.js arrives only after the first frame, and only if the network plays along.
 // A dynamic import() keeps the rest of the game alive when the CDN is blocked.

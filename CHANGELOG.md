@@ -2,6 +2,13 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-10-10 – Counting players anonymously (version 60)
+
+On scuzzar.github.io every start now sends one pixel to GoatCounter: `new-player` when the
+browser has no save yet, `returning` otherwise. No ID, no cookie, nothing stored; the number of
+`new-player` events is the number of browsers that ever played. Local runs and the tests send
+nothing.
+
 ## 2026-10-10 – No more freeze after a long flight (version 59)
 
 After a flight of several years, to Saturn or Jupiter say, the page stood still for two to three
