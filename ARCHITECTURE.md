@@ -113,7 +113,7 @@ From the bottom up. "Imports from" lists only the modules actually used.
 | 22 | `ui/transfermap.js` | 80 | The map of one transfer: delta-v over departure day and flight time; tapping picks | basics, physics, world |
 | 23 | `ui/pickcard.js` | 86 | The card for the selected map object | basics, canvas, events, graph, physics, game/state, ui/state, view, widgets, world |
 | 24 | `ui/panels.js` | 434 | Trading post, cargo, refuel, shipyard, route; ship and pilot, youth clinic, leaderboard | basics, commands, economy, events, planner, game/state, transfermap, ui/state, widgets, world |
-| 25 | `ui/display.js` | 83 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, game/state, ui/state, widgets, world |
+| 25 | `ui/display.js` | 82 | Header, toast, autopilot bar, `render()` | basics, commands, draw, events, panels, pickcard, planner, game/state, ui/state, widgets, world |
 | 26 | `ui/menu.js` | 79 | Menu, fullscreen, legend, version line | basics, commands, draw, events, game/state, ui/state, widgets |
 | 27 | `start.js` | 63 | Connect, wire, load, `window.TO` | all |
 

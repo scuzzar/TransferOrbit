@@ -14,7 +14,8 @@ With GitHub Pages the game runs at https://scuzzar.github.io/TransferOrbit/. Loc
   a map of what it costs, and where aerobraking and burning lead to the same orbit you choose which.
   The rest of the route is planned again around your choices. The autopilot flies the plan.
 - Tapping during a flight speeds the animation up.
-- The menu (☰) holds save, load, letting time pass, and restart.
+- The menu (☰) holds save, load, the leaderboard, letting time pass, restart, and *Report issue*
+  (the GitHub issues of this project).
 
 ## Rendering
 The celestial bodies are drawn by [three.js](https://threejs.org/), loaded as an ES module from a CDN; none of it lives in the repository and there is no toolchain. On top of it sits a transparent 2D canvas with labels, orbits, markers, flames and the hit targets. Both use the same orthographic projection, which is why they line up exactly.

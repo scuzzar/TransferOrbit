@@ -2,6 +2,14 @@
 
 The playable version in the repository is `index.html`. Tests are in `tests/`, the art in `art/`.
 
+## 2026-10-10 – The menu points to the project on GitHub (version 58)
+
+- The menu has a *Report issue* entry under the others; it opens the issues of the project on
+  GitHub in a new tab.
+- Under the version line the menu links to the repository, github.com/scuzzar/TransferOrbit.
+- The line "Total used: … km/s" is gone from the menu; the Δv used so far is still in the ship
+  details.
+
 ## 2026-09-26 – Time costs years of your life (version 57)
 
 Instead of a fee for time, the player now ages. A new game starts them at 21; how old they are

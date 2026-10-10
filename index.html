@@ -113,8 +113,9 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .menuwrap{position:relative}
 .menu{position:absolute;right:0;top:40px;z-index:20;min-width:250px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .menu[hidden]{display:none}
-.menu>button{border:none;text-align:left;min-height:40px;padding:6px 10px}
-.menu>button:hover{background:rgba(255,255,255,.05)}
+.menu>button,.menu>a.mitem{border:none;text-align:left;min-height:40px;padding:6px 10px}
+.menu>a.mitem{display:flex;align-items:center;font-size:.9rem;font-weight:600;color:var(--muted);text-decoration:none;border-radius:6px}
+.menu>button:hover,.menu>a.mitem:hover{background:rgba(255,255,255,.05)}
 .menu .mdanger{color:var(--bad)}
 .menu .mdanger.armed{background:var(--bad);color:#1a0808;border-radius:6px}
 .msep{height:1px;background:var(--line);margin:4px 2px}
@@ -122,6 +123,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mwait{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 4px 4px}
 .mwait button{min-height:36px;padding:0 2px;font-size:.8rem;white-space:nowrap}
 .mfoot{font-size:.78rem;color:var(--muted);padding:4px 10px 2px}
+.mfoot a{color:inherit}
 .stage{position:relative;margin-top:4px;display:flex;justify-content:center;align-items:center}
 .infobtn{position:absolute;right:6px;bottom:6px;width:32px;height:32px;min-height:32px;padding:0;border-radius:50%;font-weight:700;font-style:italic;font-family:Georgia,serif;color:var(--muted);background:rgba(16,22,43,.75)}
 .infobtn[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
@@ -370,8 +372,10 @@ label.order{display:block;cursor:pointer}
         </div>
         <div class="msep"></div>
         <button type="button" data-menu="reset" class="mdanger">Start over</button>
-        <div class="mfoot" id="used"></div>
+        <div class="msep"></div>
+        <a class="mitem" href="https://github.com/scuzzar/TransferOrbit/issues" target="_blank" rel="noopener">Report issue</a>
         <div class="mfoot" id="ver"></div>
+        <div class="mfoot"><a href="https://github.com/scuzzar/TransferOrbit" target="_blank" rel="noopener">github.com/scuzzar/TransferOrbit</a></div>
       </div>
     </div>
   </div>

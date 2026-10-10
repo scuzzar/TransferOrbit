@@ -55,7 +55,6 @@ export function render(){
   document.body.classList.toggle('panel-open',pv);
   header(); draw(); renderPick(); renderAutobar(); toast();
   byId('mainview',HTMLElement).hidden=pv; byId('panel',HTMLElement).hidden=!pv;
-  byId('used',HTMLElement).textContent=`Total used: ${km(S.player.ship.dvUsed)} km/s`;
   findAll(document,'[data-wait]',HTMLButtonElement).forEach(b=>b.disabled=!S.canAct);
   if(pv){ renderPanel(); findAll(document,'#panel button',HTMLButtonElement).forEach(b=>{ if(S.player.out && !b.classList.contains('back')) b.disabled=true; }); return; }
   renderPlace();
